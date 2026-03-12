@@ -24,6 +24,5 @@ flutter_app/android/gradlew.bat
 flutter_app/android/gradle/wrapper/gradle-wrapper.jar
 flutter_app/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 
-# Local release artifacts (keep markdown notes)
-release/**/*.apk
-release/**/*.aab
+# Local release output (release notes live under docs/)
+release/
