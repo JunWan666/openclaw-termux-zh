@@ -20,9 +20,7 @@ class BootstrapService {
     } catch (_) {}
   }
 
-
-  double _clampProgress(double progress) =>
-      progress.clamp(0.0, 1.0).toDouble();
+  double _clampProgress(double progress) => progress.clamp(0.0, 1.0).toDouble();
 
   double _overallProgressFor(SetupStep step, double stepProgress) {
     final progress = _clampProgress(stepProgress);
@@ -275,6 +273,22 @@ class BootstrapService {
       // Now that our proot matches Termux exactly (env -i, clean host env,
       // proper flags), dpkg works normally. No need for Java-side deb
       // extraction — let dpkg+tar handle it inside proot like Termux does.
+      // Configure Tsinghua mirror for faster apt downloads (China users).
+      await _runEstimatedProgress(
+        onProgress: onProgress,
+        step: SetupStep.installingNode,
+        startProgress: 0.08,
+        targetProgress: 0.10,
+        message: 'Configuring apt mirror...',
+        estimatedDuration: const Duration(seconds: 5),
+        task: () => NativeBridge.runInProot(
+          'cat > /etc/apt/sources.list << "EOF"\n'
+          'deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ noble main restricted universe multiverse\n'
+          'deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ noble-updates main restricted universe multiverse\n'
+          'deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ noble-backports main restricted universe multiverse\n'
+          'EOF',
+        ),
+      );
       await _runEstimatedProgress(
         onProgress: onProgress,
         step: SetupStep.installingNode,
@@ -295,8 +309,8 @@ class BootstrapService {
       // ca-certificates: HTTPS for npm/git
       // git: openclaw has git deps (@whiskeysockets/libsignal-node)
       // python3, make, g++: node-gyp needs these to compile native addons
-      //   (npm's bundled node-gyp runs as a JS module, not a spawned process,
-      //    so proot-compat.js spawn mock can't intercept it)
+      // (npm's bundled node-gyp runs as a JS module, not a spawned process,
+      // so proot-compat.js spawn mock can't intercept it)
       // dpkg extracts via tar inside proot — permissions are correct.
       // Post-install scripts (update-ca-certificates) run automatically.
       // Pre-configure tzdata to avoid interactive continent/timezone prompt
@@ -393,6 +407,19 @@ class BootstrapService {
         progress: 1.0,
         message: 'Node.js installed',
         notificationText: 'Node.js installed 80.0%',
+      );
+
+      // Configure npm mirror for faster downloads (China users).
+      await _runEstimatedProgress(
+        onProgress: onProgress,
+        step: SetupStep.installingOpenClaw,
+        startProgress: 0.0,
+        targetProgress: 0.02,
+        message: 'Configuring npm mirror...',
+        estimatedDuration: const Duration(seconds: 5),
+        task: () => NativeBridge.runInProot(
+          '$nodeRun $npmCli config set registry https://registry.npmmirror.com',
+        ),
       );
 
       // Step 4: Install OpenClaw (80-98%)
