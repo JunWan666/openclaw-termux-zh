@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
+enum BaseUrlBehavior {
+  keepAsIs,
+  appendV1IfMissing,
+}
+
 /// Metadata for an AI model provider that can be configured
 /// to power the OpenClaw gateway.
 class AiProvider {
@@ -13,6 +18,9 @@ class AiProvider {
   final List<String> defaultModels;
   final String apiKeyHint;
   final bool supportsCustomBaseUrl;
+  final String? endpointHelperKey;
+  final String? modelHintKey;
+  final BaseUrlBehavior baseUrlBehavior;
 
   const AiProvider({
     required this.id,
@@ -24,16 +32,64 @@ class AiProvider {
     required this.defaultModels,
     required this.apiKeyHint,
     this.supportsCustomBaseUrl = false,
+    this.endpointHelperKey,
+    this.modelHintKey,
+    this.baseUrlBehavior = BaseUrlBehavior.keepAsIs,
   });
 
   String name(AppLocalizations l10n) => l10n.t(nameKey);
 
   String description(AppLocalizations l10n) => l10n.t(descriptionKey);
 
+  String endpointHelper(AppLocalizations l10n) =>
+      l10n.t(endpointHelperKey ?? 'providerDetailEndpointHelper');
+
+  String modelHint(AppLocalizations l10n) =>
+      l10n.t(modelHintKey ?? 'providerDetailCustomModelHint');
+
   bool matchesModel(String model) {
     return defaultModels.any((candidate) => model.contains(candidate)) ||
         model.contains(id);
   }
+
+  String normalizeBaseUrl(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty || baseUrlBehavior != BaseUrlBehavior.appendV1IfMissing) {
+      return trimmed;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+      return trimmed;
+    }
+
+    var path = uri.path.trim();
+    if (path.isEmpty || path == '/') {
+      path = '/v1';
+    } else {
+      path = path.replaceAll(RegExp(r'/+$'), '');
+      if (!path.endsWith('/v1')) {
+        path = '$path/v1';
+      }
+    }
+
+    return uri.replace(path: path).toString();
+  }
+
+  static const customOpenai = AiProvider(
+    id: 'custom-openai',
+    nameKey: 'providerNameCustomOpenai',
+    descriptionKey: 'providerDescriptionCustomOpenai',
+    icon: Icons.api,
+    color: Color(0xFF0F766E),
+    baseUrl: 'https://api.example.com/v1',
+    defaultModels: [],
+    apiKeyHint: 'sk-...',
+    supportsCustomBaseUrl: true,
+    endpointHelperKey: 'providerDetailEndpointHelperOpenaiCompatible',
+    modelHintKey: 'providerDetailModelHintOpenaiCompatible',
+    baseUrlBehavior: BaseUrlBehavior.appendV1IfMissing,
+  );
 
   static const anthropic = AiProvider(
     id: 'anthropic',
@@ -199,6 +255,7 @@ class AiProvider {
 
   /// All available AI providers.
   static const all = [
+    customOpenai,
     anthropic,
     openai,
     qwen,

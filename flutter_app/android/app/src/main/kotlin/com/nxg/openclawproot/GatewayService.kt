@@ -18,6 +18,11 @@ import java.io.File
 import java.io.InputStreamReader
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 class GatewayService : Service() {
     companion object {
@@ -73,6 +78,10 @@ class GatewayService : Service() {
     private var gatewayThread: Thread? = null
     private val lock = Object()
     @Volatile private var stopping = false
+    private val ansiRegex = Regex("\\u001B\\[[0-9;]*[A-Za-z]")
+    private val leadingTimestampRegex = Regex("^(\\d{4}-\\d{2}-\\d{2}T\\S+)\\s+(.*)$")
+    private val logTimeFormatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -226,6 +235,9 @@ class GatewayService : Service() {
                         var line: String?
                         while (stderrReader.readLine().also { line = it } != null) {
                             val l = line ?: continue
+                            if (isBenignStdioSanitizeWarning(l)) {
+                                continue
+                            }
                             if (currentRestartCount == 0 ||
                                 (!l.contains("proot warning") && !l.contains("can't sanitize"))) {
                                 emitLog("[ERR] $l")
@@ -352,14 +364,46 @@ class GatewayService : Service() {
      *  MUST post to main thread 鈥?EventSink.success() is not thread-safe. */
     private fun emitLog(message: String) {
         try {
-            val ts = java.time.Instant.now().toString()
-            val formatted = "$ts $message"
+            val formatted = normalizeLogLine(message)
+            if (formatted.isBlank()) return
             mainHandler.post {
                 try {
                     logSink?.success(formatted)
                 } catch (_: Exception) {}
             }
         } catch (_: Exception) {}
+    }
+
+    private fun isBenignStdioSanitizeWarning(message: String): Boolean {
+        return message.contains("proot warning") &&
+            (message.contains("can't sanitize binding \"/proc/self/fd/0\"") ||
+                message.contains("can't sanitize binding \"/proc/self/fd/1\"") ||
+                message.contains("can't sanitize binding \"/proc/self/fd/2\""))
+    }
+
+    private fun normalizeLogLine(message: String): String {
+        val cleaned = ansiRegex.replace(message, "").trim()
+        if (cleaned.isEmpty()) return ""
+
+        val match = leadingTimestampRegex.find(cleaned)
+        if (match != null) {
+            val parsed = formatTimestamp(match.groupValues[1])
+            if (parsed != null) {
+                return "$parsed ${match.groupValues[2]}".trim()
+            }
+        }
+
+        return "${logTimeFormatter.format(Instant.now())} $cleaned"
+    }
+
+    private fun formatTimestamp(raw: String): String? {
+        val instant = runCatching { Instant.parse(raw) }.getOrNull()
+            ?: runCatching { OffsetDateTime.parse(raw).toInstant() }.getOrNull()
+            ?: runCatching {
+                LocalDateTime.parse(raw).atZone(ZoneId.systemDefault()).toInstant()
+            }.getOrNull()
+
+        return instant?.let { logTimeFormatter.format(it) }
     }
 
     private fun acquireWakeLock() {

@@ -43,12 +43,16 @@ const Map<String, String> appStringsZhHans = {
   'providerDetailApiKeyEmpty': 'API Key 不能为空',
   'providerDetailEndpoint': 'API 基础地址',
   'providerDetailEndpointHelper': '如果你的账号使用自定义或区域专属端点，可以在这里覆盖默认地址。',
+  'providerDetailEndpointHelperOpenaiCompatible':
+      '填写兼容 OpenAI 的 API 基础地址到 /v1 即可，像 /chat/completions 这类后续路径会自动追加。',
   'providerDetailEndpointInvalid': '请输入有效的绝对 API 地址',
   'providerDetailModel': '模型',
   'providerDetailModelEmpty': '模型名称不能为空',
   'providerDetailCustomModelAction': '自定义...',
   'providerDetailCustomModelLabel': '自定义模型名',
   'providerDetailCustomModelHint': '例如：meta/llama-3.3-70b-instruct',
+  'providerDetailModelHintOpenaiCompatible':
+      '例如：gpt-4o-mini、deepseek-chat 或你的自定义模型名',
   'providerDetailSaveAction': '保存并激活',
   'providerDetailSaved': '已配置并激活 {provider}',
   'providerDetailSaveFailed': '保存失败：{error}',
@@ -58,6 +62,9 @@ const Map<String, String> appStringsZhHans = {
   'providerDetailRemoveConfiguration': '移除配置',
   'providerDetailRemoved': '已移除 {provider}',
   'providerDetailRemoveFailed': '移除失败：{error}',
+  'providerNameCustomOpenai': '自定义 OpenAI 兼容',
+  'providerDescriptionCustomOpenai':
+      '使用你自己的基础地址和模型接入任意 OpenAI 兼容提供商',
   'providerNameAnthropic': 'Anthropic',
   'providerDescriptionAnthropic': 'Claude 系列模型，适合复杂推理与编程',
   'providerNameOpenai': 'OpenAI',

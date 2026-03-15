@@ -44,12 +44,16 @@ const Map<String, String> appStringsJa = {
   'providerDetailEndpoint': 'API ベース URL',
   'providerDetailEndpointHelper':
       'アカウントがカスタムまたはリージョン専用の API ベース URL を使う場合、既定のエンドポイントを上書きできます。',
+  'providerDetailEndpointHelperOpenaiCompatible':
+      'OpenAI 互換 API のベース URL は /v1 まで入力してください。/chat/completions などの後続パスは自動で追加されます。',
   'providerDetailEndpointInvalid': '有効な絶対 API ベース URL を入力してください',
   'providerDetailModel': 'モデル',
   'providerDetailModelEmpty': 'モデル名は必須です',
   'providerDetailCustomModelAction': 'カスタム...',
   'providerDetailCustomModelLabel': 'カスタムモデル名',
   'providerDetailCustomModelHint': '例: meta/llama-3.3-70b-instruct',
+  'providerDetailModelHintOpenaiCompatible':
+      '例: gpt-4o-mini、deepseek-chat、または独自モデル名',
   'providerDetailSaveAction': '保存して有効化',
   'providerDetailSaved': '{provider} を設定して有効化しました',
   'providerDetailSaveFailed': '保存に失敗しました: {error}',
@@ -59,6 +63,9 @@ const Map<String, String> appStringsJa = {
   'providerDetailRemoveConfiguration': '設定を削除',
   'providerDetailRemoved': '{provider} を削除しました',
   'providerDetailRemoveFailed': '削除に失敗しました: {error}',
+  'providerNameCustomOpenai': 'カスタム OpenAI 互換',
+  'providerDescriptionCustomOpenai':
+      '独自のベース URL とモデルで任意の OpenAI 互換プロバイダーを利用',
   'providerNameAnthropic': 'Anthropic',
   'providerDescriptionAnthropic': '高度な推論とコーディング向けの Claude モデル',
   'providerNameOpenai': 'OpenAI',

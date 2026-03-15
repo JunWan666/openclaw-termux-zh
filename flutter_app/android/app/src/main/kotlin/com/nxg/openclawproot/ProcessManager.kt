@@ -88,8 +88,9 @@ class ProcessManager(
 
     /**
      * Only bind stdio device paths when the host fd resolves to a real file/tty
-     * path. In Android foreground services these often resolve to pipe:[...],
-     * which PRoot cannot sanitize as a bind source and emits warnings for.
+     * path. Bind the resolved host path itself instead of /proc/self/fd/N:
+     * the latter is evaluated in the child process and can still trip PRoot's
+     * sanitize step in Android foreground services.
      */
     private fun buildStandardFdBinds(): List<String> {
         val binds = mutableListOf<String>()
@@ -101,28 +102,29 @@ class ProcessManager(
 
         for ((fd, guestPath, allowDevNull) in mappings) {
             val hostPath = "/proc/self/fd/$fd"
-            if (isBindableFd(hostPath, allowDevNull)) {
-                binds.add("--bind=$hostPath:$guestPath")
+            val bindSource = resolveBindableFd(hostPath, allowDevNull)
+            if (bindSource != null) {
+                binds.add("--bind=$bindSource:$guestPath")
             }
         }
 
         return binds
     }
 
-    private fun isBindableFd(hostPath: String, allowDevNull: Boolean): Boolean {
+    private fun resolveBindableFd(hostPath: String, allowDevNull: Boolean): String? {
         return try {
             val target = Os.readlink(hostPath)
             when {
-                target.isBlank() -> false
-                target.startsWith("pipe:[") -> false
-                target.startsWith("socket:[") -> false
-                target.startsWith("anon_inode:") -> false
-                allowDevNull && target == "/dev/null" -> true
-                target.startsWith("/") -> File(target).exists()
-                else -> false
+                target.isBlank() -> null
+                target.startsWith("pipe:[") -> null
+                target.startsWith("socket:[") -> null
+                target.startsWith("anon_inode:") -> null
+                allowDevNull && target == "/dev/null" -> target
+                target.startsWith("/") && File(target).exists() -> target
+                else -> null
             }
         } catch (_: Exception) {
-            false
+            null
         }
     }
 

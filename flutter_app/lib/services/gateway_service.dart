@@ -6,6 +6,7 @@ import '../constants.dart';
 import '../models/gateway_state.dart';
 import 'native_bridge.dart';
 import 'preferences_service.dart';
+import 'provider_config_service.dart';
 
 class GatewayService {
   Timer? _healthTimer;
@@ -16,6 +17,7 @@ class GatewayService {
   DateTime? _startingAt;
   bool _startInProgress = false;
   static final _tokenUrlRegex = RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
+  static final _leadingTimestamp = RegExp(r'^(\d{4}-\d{2}-\d{2}T\S+)\s+(.*)$');
   static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
 
   /// Strip ANSI, box-drawing chars, and whitespace to reconstruct URLs
@@ -27,7 +29,39 @@ class GatewayService {
         .replaceAll(RegExp(r'\s+'), '');
   }
 
-  static String _ts(String msg) => '${DateTime.now().toUtc().toIso8601String()} $msg';
+  static String _formatTimestamp(DateTime dt) {
+    final local = dt.toLocal();
+    final year = local.year.toString().padLeft(4, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    final second = local.second.toString().padLeft(2, '0');
+    return '$year-$month-$day $hour:$minute:$second';
+  }
+
+  static String _normalizeLogLine(String line) {
+    final clean = line.replaceAll(AppConstants.ansiEscape, '').trim();
+    if (clean.isEmpty) return clean;
+
+    var timestampMatch = _leadingTimestamp.firstMatch(clean);
+    if (timestampMatch == null) return clean;
+
+    var timestamp = timestampMatch.group(1)!;
+    var body = timestampMatch.group(2)!;
+
+    final nestedMatch = _leadingTimestamp.firstMatch(body);
+    if (nestedMatch != null) {
+      timestamp = nestedMatch.group(1)!;
+      body = nestedMatch.group(2)!;
+    }
+
+    final parsed = DateTime.tryParse(timestamp);
+    if (parsed == null) return clean;
+    return '${_formatTimestamp(parsed)} $body';
+  }
+
+  static String _ts(String msg) => '${_formatTimestamp(DateTime.now())} $msg';
 
   Stream<GatewayState> get stateStream => _stateController.stream;
   GatewayState get state => _state;
@@ -95,12 +129,13 @@ class GatewayService {
   void _subscribeLogs() {
     _logSubscription?.cancel();
     _logSubscription = NativeBridge.gatewayLogStream.listen((log) {
-      final logs = [..._state.logs, log];
+      final normalizedLog = _normalizeLogLine(log);
+      final logs = [..._state.logs, normalizedLog];
       if (logs.length > 500) {
         logs.removeRange(0, logs.length - 500);
       }
       String? dashboardUrl;
-      final cleanLog = _cleanForUrl(log);
+      final cleanLog = _cleanForUrl(normalizedLog);
       final urlMatch = _tokenUrlRegex.firstMatch(cleanLog);
       if (urlMatch != null) {
         dashboardUrl = urlMatch.group(0);
@@ -219,6 +254,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
           rootfsResolv.writeAsStringSync(resolvContent);
         }
       } catch (_) {}
+      await ProviderConfigService.migrateCustomProviderConfigIfNeeded();
       await _writeNodeAllowConfig();
       _startingAt = DateTime.now();
       await NativeBridge.startGateway();

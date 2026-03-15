@@ -54,9 +54,15 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
     );
     _customModelController = TextEditingController();
 
-    final existing =
-        widget.existingModel ?? widget.provider.defaultModels.first;
-    if (widget.provider.defaultModels.contains(existing)) {
+    final existing = widget.existingModel ??
+        (widget.provider.defaultModels.isNotEmpty
+            ? widget.provider.defaultModels.first
+            : '');
+    if (widget.provider.defaultModels.isEmpty) {
+      _selectedModel = _customModelSentinel;
+      _isCustomModel = true;
+      _customModelController.text = existing;
+    } else if (widget.provider.defaultModels.contains(existing)) {
       _selectedModel = existing;
     } else {
       // Existing model is not in the predefined list — treat as custom
@@ -105,12 +111,18 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
 
     setState(() => _saving = true);
     try {
+      final normalizedBaseUrl = _supportsCustomBaseUrl
+          ? widget.provider.normalizeBaseUrl(baseUrl)
+          : baseUrl;
       await ProviderConfigService.saveProviderConfig(
         provider: widget.provider,
         apiKey: apiKey,
-        baseUrl: baseUrl,
+        baseUrl: normalizedBaseUrl,
         model: model,
       );
+      if (_supportsCustomBaseUrl) {
+        _baseUrlController.text = normalizedBaseUrl;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -281,7 +293,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
               keyboardType: TextInputType.url,
               decoration: InputDecoration(
                 hintText: widget.provider.baseUrl,
-                helperText: l10n.t('providerDetailEndpointHelper'),
+                helperText: widget.provider.endpointHelper(l10n),
               ),
             ),
           ],
@@ -294,34 +306,37 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                 ?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _selectedModel,
-            isExpanded: true,
-            decoration: const InputDecoration(),
-            items: [
-              ...widget.provider.defaultModels
-                  .map((m) => DropdownMenuItem(value: m, child: Text(m))),
-              DropdownMenuItem(
-                value: _customModelSentinel,
-                child: Text(l10n.t('providerDetailCustomModelAction')),
-              ),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedModel = value;
-                  _isCustomModel = value == _customModelSentinel;
-                });
-              }
-            },
-          ),
-          if (_isCustomModel) ...[
+          if (widget.provider.defaultModels.isNotEmpty)
+            DropdownButtonFormField<String>(
+              value: _selectedModel,
+              isExpanded: true,
+              decoration: const InputDecoration(),
+              items: [
+                ...widget.provider.defaultModels
+                    .map((m) => DropdownMenuItem(value: m, child: Text(m))),
+                DropdownMenuItem(
+                  value: _customModelSentinel,
+                  child: Text(l10n.t('providerDetailCustomModelAction')),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedModel = value;
+                    _isCustomModel = value == _customModelSentinel;
+                  });
+                }
+              },
+            ),
+          if (_isCustomModel || widget.provider.defaultModels.isEmpty) ...[
             const SizedBox(height: 12),
             TextField(
               controller: _customModelController,
               decoration: InputDecoration(
-                hintText: l10n.t('providerDetailCustomModelHint'),
-                labelText: l10n.t('providerDetailCustomModelLabel'),
+                hintText: widget.provider.modelHint(l10n),
+                labelText: widget.provider.defaultModels.isEmpty
+                    ? l10n.t('providerDetailModel')
+                    : l10n.t('providerDetailCustomModelLabel'),
               ),
             ),
           ],

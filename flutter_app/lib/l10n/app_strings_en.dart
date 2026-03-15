@@ -45,12 +45,16 @@ const Map<String, String> appStringsEn = {
   'providerDetailEndpoint': 'API Base URL',
   'providerDetailEndpointHelper':
       'Override the default endpoint if your account uses a custom or regional API base URL.',
+  'providerDetailEndpointHelperOpenaiCompatible':
+      'Enter the OpenAI-compatible base URL up to /v1. Paths such as /chat/completions are added automatically.',
   'providerDetailEndpointInvalid': 'Enter a valid absolute API base URL',
   'providerDetailModel': 'Model',
   'providerDetailModelEmpty': 'Model name cannot be empty',
   'providerDetailCustomModelAction': 'Custom...',
   'providerDetailCustomModelLabel': 'Custom model name',
   'providerDetailCustomModelHint': 'e.g. meta/llama-3.3-70b-instruct',
+  'providerDetailModelHintOpenaiCompatible':
+      'e.g. gpt-4o-mini, deepseek-chat, or your-provider/model',
   'providerDetailSaveAction': 'Save & Activate',
   'providerDetailSaved': '{provider} configured and activated',
   'providerDetailSaveFailed': 'Failed to save: {error}',
@@ -61,6 +65,9 @@ const Map<String, String> appStringsEn = {
   'providerDetailRemoveConfiguration': 'Remove Configuration',
   'providerDetailRemoved': '{provider} removed',
   'providerDetailRemoveFailed': 'Failed to remove: {error}',
+  'providerNameCustomOpenai': 'Custom OpenAI-Compatible',
+  'providerDescriptionCustomOpenai':
+      'Use any OpenAI-compatible provider with your own base URL and model',
   'providerNameAnthropic': 'Anthropic',
   'providerDescriptionAnthropic':
       'Claude models for advanced reasoning and coding',
