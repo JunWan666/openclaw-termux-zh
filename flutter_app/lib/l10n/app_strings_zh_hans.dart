@@ -63,8 +63,7 @@ const Map<String, String> appStringsZhHans = {
   'providerDetailRemoved': '已移除 {provider}',
   'providerDetailRemoveFailed': '移除失败：{error}',
   'providerNameCustomOpenai': '自定义 OpenAI 兼容',
-  'providerDescriptionCustomOpenai':
-      '使用你自己的基础地址和模型接入任意 OpenAI 兼容提供商',
+  'providerDescriptionCustomOpenai': '使用你自己的基础地址和模型接入任意 OpenAI 兼容提供商',
   'providerNameAnthropic': 'Anthropic',
   'providerDescriptionAnthropic': 'Claude 系列模型，适合复杂推理与编程',
   'providerNameOpenai': 'OpenAI',
@@ -281,4 +280,41 @@ const Map<String, String> appStringsZhHans = {
   'settingsImportFailed': '导入失败：{error}',
   'statusInstalled': '已安装',
   'statusNotInstalled': '未安装',
+  'dashboardMessagePlatformsTitle': '\u63a5\u5165\u6d88\u606f\u5e73\u53f0',
+  'dashboardMessagePlatformsSubtitle':
+      '\u914d\u7f6e\u98de\u4e66 / Lark \u6d88\u606f\u5e73\u53f0\u63a5\u5165',
+  'messagePlatformsScreenTitle': '\u63a5\u5165\u6d88\u606f\u5e73\u53f0',
+  'messagePlatformsScreenIntro':
+      '\u9009\u62e9\u4e00\u4e2a\u5e73\u53f0\uff0c\u914d\u7f6e\u5199\u5165 openclaw.json \u7684\u5b98\u65b9 channel \u5b57\u6bb5\u3002',
+  'messagePlatformsStatusConfigured': '\u5df2\u914d\u7f6e',
+  'messagePlatformNameFeishu': '\u98de\u4e66',
+  'messagePlatformDescriptionFeishu':
+      '\u6309\u7167\u5b98\u65b9 Lark / \u98de\u4e66 channel \u683c\u5f0f\u914d\u7f6e App ID \u548c App Secret',
+  'messagePlatformDetailOfficialConfigHint':
+      '\u5bf9\u5e94\u5b98\u65b9\u914d\u7f6e\u8282\u70b9\uff1aopenclaw.json \u4e2d\u7684 {path}',
+  'messagePlatformDetailSchemaNote':
+      '\u8868\u5355\u5b57\u6bb5\u6309\u7167 OpenClaw \u5b98\u65b9 Lark / \u98de\u4e66 channel \u914d\u7f6e\u7ed3\u6784\u7f16\u5199\u3002',
+  'messagePlatformDetailAppId': 'App ID',
+  'messagePlatformDetailAppIdEmpty': 'App ID \u4e0d\u80fd\u4e3a\u7a7a',
+  'messagePlatformDetailAppSecret': 'App Secret',
+  'messagePlatformDetailAppSecretEmpty': 'App Secret \u4e0d\u80fd\u4e3a\u7a7a',
+  'messagePlatformDetailBotName': 'Bot Name',
+  'messagePlatformDetailBotNameHelper':
+      '\u53ef\u9009\uff0c\u7528\u4e8e\u8986\u76d6\u7fa4\u804a\u4e2d\u7684\u673a\u5668\u4eba\u663e\u793a\u540d\u79f0\u3002',
+  'messagePlatformDetailDomain': '\u670d\u52a1\u533a\u57df',
+  'messagePlatformDetailDomainHelper':
+      '\u4e2d\u56fd\u5927\u9646\u7248\u8bf7\u9009\u62e9 Feishu\uff0c\u56fd\u9645\u7248\u5de5\u4f5c\u533a\u8bf7\u9009\u62e9 Lark\u3002',
+  'messagePlatformDetailDomainOptionFeishu':
+      '\u98de\u4e66\uff08\u4e2d\u56fd\u5927\u9646\uff09',
+  'messagePlatformDetailDomainOptionLark': 'Lark\uff08\u56fd\u9645\u7248\uff09',
+  'messagePlatformDetailSaveAction': '\u4fdd\u5b58\u914d\u7f6e',
+  'messagePlatformDetailSaved': '\u5df2\u914d\u7f6e {platform}',
+  'messagePlatformDetailSaveFailed': '\u4fdd\u5b58\u5931\u8d25\uff1a{error}',
+  'messagePlatformDetailRemoveTitle': '\u79fb\u9664 {platform}\uff1f',
+  'messagePlatformDetailRemoveBody':
+      '\u8fd9\u4f1a\u5220\u9664\u8be5\u6d88\u606f\u5e73\u53f0\u5df2\u4fdd\u5b58\u7684 channel \u914d\u7f6e\u3002',
+  'messagePlatformDetailRemoveAction': '\u79fb\u9664',
+  'messagePlatformDetailRemoveConfiguration': '\u79fb\u9664\u914d\u7f6e',
+  'messagePlatformDetailRemoved': '\u5df2\u79fb\u9664 {platform}',
+  'messagePlatformDetailRemoveFailed': '\u79fb\u9664\u5931\u8d25\uff1a{error}',
 };

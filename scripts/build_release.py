@@ -245,7 +245,7 @@ def print_summary(version: str, build_number: str, output_dir: Path, copied_file
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="构建 OpenClaw Android 发布产物，并整理到 release/v版本 目录。")
-    parser.add_argument("--version", help="发布版本号，例如 1.8.6 或 v1.8.6；默认使用当前 pubspec 版本")
+    parser.add_argument("--version", help="发布版本号，例如 1.8.7 或 v1.8.7；默认使用当前 pubspec 版本")
     parser.add_argument("--build-number", help="Android 构建号，例如 17；默认使用当前 pubspec 构建号 +1")
     parser.add_argument("--output-dir", help="自定义输出目录，默认是 release/v版本")
     parser.add_argument("--non-interactive", action="store_true", help="不询问输入，直接使用参数或默认值")

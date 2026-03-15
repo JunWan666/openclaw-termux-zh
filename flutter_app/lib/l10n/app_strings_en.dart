@@ -34,7 +34,43 @@ const Map<String, String> appStringsEn = {
   'dashboardConfigureSubtitle': 'Manage gateway settings',
   'dashboardProvidersTitle': 'AI Providers',
   'dashboardProvidersSubtitle': 'Configure models and API keys',
+  'dashboardMessagePlatformsTitle': 'Messaging Platforms',
+  'dashboardMessagePlatformsSubtitle':
+      'Connect Feishu / Lark channels for gateway messaging',
   'providersScreenTitle': 'AI Providers',
+  'messagePlatformsScreenTitle': 'Messaging Platforms',
+  'messagePlatformsScreenIntro':
+      'Select a platform to configure the official channel fields written into openclaw.json.',
+  'messagePlatformsStatusConfigured': 'Configured',
+  'messagePlatformNameFeishu': 'Feishu',
+  'messagePlatformDescriptionFeishu':
+      'Configure the official Lark / Feishu channel with App ID and App Secret',
+  'messagePlatformDetailOfficialConfigHint':
+      'Official config block: {path} in openclaw.json',
+  'messagePlatformDetailSchemaNote':
+      'Fields follow the official OpenClaw channel schema for Lark / Feishu.',
+  'messagePlatformDetailAppId': 'App ID',
+  'messagePlatformDetailAppIdEmpty': 'App ID cannot be empty',
+  'messagePlatformDetailAppSecret': 'App Secret',
+  'messagePlatformDetailAppSecretEmpty': 'App Secret cannot be empty',
+  'messagePlatformDetailBotName': 'Bot Name',
+  'messagePlatformDetailBotNameHelper':
+      'Optional. Override the bot display name in group chats.',
+  'messagePlatformDetailDomain': 'Service Region',
+  'messagePlatformDetailDomainHelper':
+      'Use Feishu for mainland China, or switch to Lark for international workspaces.',
+  'messagePlatformDetailDomainOptionFeishu': 'Feishu (Mainland China)',
+  'messagePlatformDetailDomainOptionLark': 'Lark (International)',
+  'messagePlatformDetailSaveAction': 'Save Configuration',
+  'messagePlatformDetailSaved': '{platform} configured',
+  'messagePlatformDetailSaveFailed': 'Failed to save: {error}',
+  'messagePlatformDetailRemoveTitle': 'Remove {platform}?',
+  'messagePlatformDetailRemoveBody':
+      'This will delete the saved channel settings for this platform.',
+  'messagePlatformDetailRemoveAction': 'Remove',
+  'messagePlatformDetailRemoveConfiguration': 'Remove Configuration',
+  'messagePlatformDetailRemoved': '{platform} removed',
+  'messagePlatformDetailRemoveFailed': 'Failed to remove: {error}',
   'providersScreenActiveModel': 'Active Model',
   'providersScreenIntro':
       'Select a provider to configure its API key, endpoint, and model.',

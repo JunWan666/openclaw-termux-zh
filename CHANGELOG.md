@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## v1.8.7 — 自定义 OpenAI、日志优化与飞书消息平台
+
+### 关键改动
+
+- **自定义 OpenAI 兼容提供商**：AI 提供商页新增“自定义 OpenAI 兼容”入口，可填写 API 基础地址、API Key 和任意模型名；基础地址会自动补全到 `/v1`，方便接入各类 OpenAI-Compatible 服务。
+- **网关日志可读性优化**：应用内日志统一清理 ANSI 颜色转义序列，并格式化为 `YYYY-MM-DD HH:mm:ss` 时间戳；同时减少部分 Android 场景下 `can't sanitize binding "/proc/self/fd/*"` 这类 PRoot warning 的干扰。
+- **快捷操作重排**：仪表盘将“AI 提供商”移动到快捷操作首位，便于首次配置；并新增“接入消息平台”入口，提升配置路径的一致性。
+- **消息平台接入页**：新增“接入消息平台”页面，并提供首个飞书 / Feishu 配置入口，界面风格与 AI 提供商页保持一致。
+- **飞书官方配置结构适配**：飞书配置现按官方 `channels.feishu.defaultAccount + accounts.default` 结构写入 `openclaw.json`；网关启动前会自动迁移旧的错误 `channels.lark` 配置，避免因 schema 不兼容导致启动失败。
+
 ## v1.8.6 — 安装进度、日志工具与发布脚本
 
 ### 关键改动

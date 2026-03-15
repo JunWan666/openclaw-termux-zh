@@ -6,6 +6,7 @@ import '../constants.dart';
 import '../models/gateway_state.dart';
 import 'native_bridge.dart';
 import 'preferences_service.dart';
+import 'message_platform_config_service.dart';
 import 'provider_config_service.dart';
 
 class GatewayService {
@@ -16,7 +17,8 @@ class GatewayService {
   GatewayState _state = const GatewayState();
   DateTime? _startingAt;
   bool _startInProgress = false;
-  static final _tokenUrlRegex = RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
+  static final _tokenUrlRegex =
+      RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
   static final _leadingTimestamp = RegExp(r'^(\d{4}-\d{2}-\d{2}T\S+)\s+(.*)$');
   static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
 
@@ -85,8 +87,12 @@ class GatewayService {
 
     // Always ensure directories and resolv.conf exist on app open.
     // Android may clear the files directory during an app update (#40).
-    try { await NativeBridge.setupDirs(); } catch (_) {}
-    try { await NativeBridge.writeResolv(); } catch (_) {}
+    try {
+      await NativeBridge.setupDirs();
+    } catch (_) {}
+    try {
+      await NativeBridge.writeResolv();
+    } catch (_) {}
     // Dart dart:io fallback if native calls failed (#40).
     try {
       final filesDir = await NativeBridge.getFilesDir();
@@ -113,7 +119,10 @@ class GatewayService {
       _updateState(_state.copyWith(
         status: GatewayStatus.starting,
         dashboardUrl: savedUrl,
-        logs: [..._state.logs, _ts('[INFO] Gateway process detected, reconnecting...')],
+        logs: [
+          ..._state.logs,
+          _ts('[INFO] Gateway process detected, reconnecting...')
+        ],
       ));
 
       _subscribeLogs();
@@ -141,7 +150,8 @@ class GatewayService {
         dashboardUrl = urlMatch.group(0);
         final prefs = PreferencesService();
         prefs.init().then((_) => prefs.dashboardUrl = dashboardUrl);
-        NativeBridge.showUrlNotification(dashboardUrl!, title: 'Dashboard Ready');
+        NativeBridge.showUrlNotification(dashboardUrl!,
+            title: 'Dashboard Ready');
       }
       _updateState(_state.copyWith(logs: logs, dashboardUrl: dashboardUrl));
     });
@@ -152,14 +162,26 @@ class GatewayService {
   /// gateway actually reads (not a separate gateway.json).
   Future<void> _writeNodeAllowConfig() async {
     const allowCommands = [
-      'camera.snap', 'camera.clip', 'camera.list',
-      'canvas.navigate', 'canvas.eval', 'canvas.snapshot',
-      'flash.on', 'flash.off', 'flash.toggle', 'flash.status',
+      'camera.snap',
+      'camera.clip',
+      'camera.list',
+      'canvas.navigate',
+      'canvas.eval',
+      'canvas.snapshot',
+      'flash.on',
+      'flash.off',
+      'flash.toggle',
+      'flash.status',
       'location.get',
       'screen.record',
-      'sensor.read', 'sensor.list',
+      'sensor.read',
+      'sensor.list',
       'haptic.vibrate',
-      'serial.list', 'serial.connect', 'serial.disconnect', 'serial.write', 'serial.read',
+      'serial.list',
+      'serial.connect',
+      'serial.disconnect',
+      'serial.write',
+      'serial.read',
     ];
     // Use a Node.js one-liner to safely merge into existing openclaw.json
     // without clobbering other settings (API keys, onboarding config, etc.)
@@ -190,7 +212,8 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     if (!prootOk) {
       try {
         final filesDir = await NativeBridge.getFilesDir();
-        final configFile = File('$filesDir/rootfs/ubuntu/root/.openclaw/openclaw.json');
+        final configFile =
+            File('$filesDir/rootfs/ubuntu/root/.openclaw/openclaw.json');
         Map<String, dynamic> config = {};
         if (configFile.existsSync()) {
           try {
@@ -236,8 +259,12 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     try {
       // Ensure directories exist — Android may have cleared them (#40).
       // Non-fatal: the GatewayService foreground service also creates them.
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
+      try {
+        await NativeBridge.setupDirs();
+      } catch (_) {}
+      try {
+        await NativeBridge.writeResolv();
+      } catch (_) {}
       // Dart dart:io fallback if native calls failed (#40).
       try {
         final filesDir = await NativeBridge.getFilesDir();
@@ -255,6 +282,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
         }
       } catch (_) {}
       await ProviderConfigService.migrateCustomProviderConfigIfNeeded();
+      await MessagePlatformConfigService.migrateFeishuConfigIfNeeded();
       await _writeNodeAllowConfig();
       _startingAt = DateTime.now();
       await NativeBridge.startGateway();
@@ -336,7 +364,10 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
             _state.status == GatewayStatus.starting &&
             DateTime.now().difference(_startingAt!).inSeconds < 120) {
           _updateState(_state.copyWith(
-            logs: [..._state.logs, _ts('[INFO] Starting, waiting for gateway...')],
+            logs: [
+              ..._state.logs,
+              _ts('[INFO] Starting, waiting for gateway...')
+            ],
           ));
           return;
         }

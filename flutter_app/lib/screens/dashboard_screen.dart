@@ -14,6 +14,7 @@ import 'onboarding_screen.dart';
 import 'terminal_screen.dart';
 import 'web_dashboard_screen.dart';
 import 'logs_screen.dart';
+import 'message_platforms_screen.dart';
 import 'packages_screen.dart';
 import 'providers_screen.dart';
 import 'settings_screen.dart';
@@ -54,6 +55,26 @@ class DashboardScreen extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            StatusCard(
+              title: l10n.t('dashboardProvidersTitle'),
+              subtitle: l10n.t('dashboardProvidersSubtitle'),
+              icon: Icons.model_training,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProvidersScreen()),
+              ),
+            ),
+            StatusCard(
+              title: l10n.t('dashboardMessagePlatformsTitle'),
+              subtitle: l10n.t('dashboardMessagePlatformsSubtitle'),
+              icon: Icons.chat,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MessagePlatformsScreen(),
                 ),
               ),
             ),
@@ -127,15 +148,6 @@ class DashboardScreen extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ConfigureScreen()),
-              ),
-            ),
-            StatusCard(
-              title: l10n.t('dashboardProvidersTitle'),
-              subtitle: l10n.t('dashboardProvidersSubtitle'),
-              icon: Icons.model_training,
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProvidersScreen()),
               ),
             ),
             StatusCard(

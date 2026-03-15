@@ -30,7 +30,7 @@ OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 F
 
 ## 当前版本
 
-- 版本：`v1.8.6`
+- 版本：`v1.8.7`
 - 主要变更：见 [CHANGELOG.md](CHANGELOG.md)
 
 ---
