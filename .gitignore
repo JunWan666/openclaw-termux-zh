@@ -26,5 +26,8 @@ flutter_app/android/gradle/wrapper/gradle-wrapper.jar
 flutter_app/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 .gradle-user/
 
-# Local release output (release notes live under docs/)
-release/
+# Local release output
+release/*
+!release/*/
+release/*/*
+!release/*/Release.zh.md

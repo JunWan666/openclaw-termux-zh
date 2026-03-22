@@ -38,6 +38,7 @@ class GatewayService : Service() {
          *  Safe to call from the main thread 鈥?no blocking I/O. */
         fun isProcessAlive(): Boolean {
             val inst = instance ?: return false
+            if (inst.stopping) return false
             if (!isRunning) return false
             val proc = inst.gatewayProcess
             // If we have a process reference, check if it's actually alive
@@ -64,6 +65,28 @@ class GatewayService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, GatewayService::class.java)
             context.stopService(intent)
+        }
+
+        fun stopAndWait(context: Context, timeoutMs: Long = 15_000L): Boolean {
+            val existing = instance
+            existing?.requestStop("user")
+            stop(context)
+
+            val deadline = System.currentTimeMillis() + timeoutMs
+            while (System.currentTimeMillis() < deadline) {
+                val service = instance ?: existing
+                if (service == null || service.isShutdownComplete()) {
+                    return true
+                }
+                try {
+                    Thread.sleep(200)
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
+
+            (instance ?: existing)?.requestStop("force-cleanup")
+            return (instance ?: existing)?.isShutdownComplete() ?: true
         }
     }
 
@@ -103,14 +126,10 @@ class GatewayService : Service() {
     }
 
     override fun onDestroy() {
+        requestStop("service-destroyed", waitForShutdown = false)
+        releaseWakeLock()
         isRunning = false
         instance = null
-        uptimeThread?.interrupt()
-        uptimeThread = null
-        watchdogThread?.interrupt()
-        watchdogThread = null
-        stopGateway()
-        releaseWakeLock()
         super.onDestroy()
     }
 
@@ -285,22 +304,90 @@ class GatewayService : Service() {
         }.also { it.start() }
     }
 
-    private fun stopGateway() {
+    private fun requestStop(reason: String, waitForShutdown: Boolean = true) {
         synchronized(lock) {
+            if (stopping) {
+                return
+            }
             stopping = true
+            isRunning = false
             restartCount = maxRestarts // Prevent auto-restart
             uptimeThread?.interrupt()
             uptimeThread = null
             watchdogThread?.interrupt()
             watchdogThread = null
-            gatewayProcess?.let {
-                try {
-                    it.destroyForcibly()
-                } catch (_: Exception) {}
-                gatewayProcess = null
+            gatewayThread?.interrupt()
+        }
+
+        updateNotification("Stopping...")
+        emitLog("[INFO] Stopping gateway...")
+
+        val runningProcess = synchronized(lock) { gatewayProcess }
+        try {
+            runningProcess?.destroy()
+        } catch (_: Exception) {}
+        try {
+            runningProcess?.destroyForcibly()
+        } catch (_: Exception) {}
+
+        forceCleanupResidualGatewayProcesses()
+        if (waitForShutdown) {
+            waitForShutdown()
+        }
+
+        synchronized(lock) {
+            gatewayProcess = null
+            gatewayThread = null
+            startTime = 0
+            processStartTime = 0
+        }
+
+        emitLog("[INFO] Gateway stopped by $reason")
+        updateNotification("Gateway stopped")
+    }
+
+    private fun isShutdownComplete(): Boolean {
+        val processAlive = synchronized(lock) { gatewayProcess?.isAlive == true }
+        if (processAlive) {
+            return false
+        }
+        if (gatewayThread?.isAlive == true) {
+            return false
+        }
+        return !isPortInUse()
+    }
+
+    private fun waitForShutdown(timeoutMs: Long = 10_000L) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (isShutdownComplete()) {
+                return
+            }
+            try {
+                Thread.sleep(200)
+            } catch (_: InterruptedException) {
+                return
             }
         }
-        emitLog("Gateway stopped by user")
+    }
+
+    private fun forceCleanupResidualGatewayProcesses() {
+        val patterns = listOf(
+            "openclaw gateway --verbose",
+            "openclaw.mjs gateway",
+            "node-wrapper.js",
+        )
+
+        for (pattern in patterns) {
+            try {
+                val escaped = pattern.replace("'", "'\"'\"'")
+                ProcessBuilder(
+                    "/system/bin/sh",
+                    "-c",
+                    "ps -A | grep -F '$escaped' | grep -v grep | while read -r line; do pid=\$(echo \"\$line\" | awk '{print \$2}'); kill -9 \"\$pid\" 2>/dev/null; done"
+                ).start().waitFor()
+            } catch (_: Exception) {}
+        }
     }
 
     /** Watchdog: periodically checks if the proot process is alive.

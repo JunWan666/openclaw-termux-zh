@@ -1,6 +1,25 @@
-﻿# OpenClaw 中文整合版（openclaw-termux-zh）
+# OpenClaw 中文整合版（openclaw-termux-zh）
 
 [简体中文](README.md) | [English](docs/README_en.md)
+
+<div align="center">
+  <img src="assets/ic_launcher.png" alt="OpenClaw" width="160" />
+  <h3>面向中文用户维护与分发的 OpenClaw Android 独立整合版本</h3>
+  <p>内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、配置体验和移动端使用流程。</p>
+  <p>
+    <img src="https://img.shields.io/badge/Version-v1.8.8-D32222?style=for-the-badge" alt="Version" />
+    <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
+    <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Flutter-App_Shell-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter" />
+    <img src="https://img.shields.io/badge/Dart-UI_Logic-0175C2?style=flat-square&logo=dart&logoColor=white" alt="Dart" />
+    <img src="https://img.shields.io/badge/Kotlin-Android_Service-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin" />
+    <img src="https://img.shields.io/badge/Ubuntu-RootFS-E95420?style=flat-square&logo=ubuntu&logoColor=white" alt="Ubuntu" />
+    <img src="https://img.shields.io/badge/Node.js-Runtime-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
+    <img src="https://img.shields.io/badge/OpenClaw-Gateway-0F172A?style=flat-square" alt="OpenClaw" />
+  </p>
+</div>
 
 > 本仓库为汉化整合版本，主要用于中文用户维护与分发。
 >
@@ -8,7 +27,52 @@
 > - 上游项目：[`mithun50/openclaw-termux`](https://github.com/mithun50/openclaw-termux)
 > - 汉化分支作者：[`TIANLI0/openclaw-termux` 的 `feature/translation` 分支](https://github.com/TIANLI0/openclaw-termux/tree/feature/translation)
 >
-> 本仓库在上游基础上整合了 i18n（简中/繁中/日文）相关改动，并以中文文档为主。
+> 本仓库在上游基础上整合了 i18n（简中 / 繁中 / 日文）相关改动，并以中文文档为主。
+
+## 技术栈
+
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <strong>Flutter + Dart</strong><br />
+      <sub>Android UI、i18n、多页面交互</sub>
+    </td>
+    <td align="center" width="25%">
+      <strong>Kotlin</strong><br />
+      <sub>前台服务、PRoot 启动、系统桥接</sub>
+    </td>
+    <td align="center" width="25%">
+      <strong>Ubuntu RootFS</strong><br />
+      <sub>非 root 环境下的 Linux 用户态</sub>
+    </td>
+    <td align="center" width="25%">
+      <strong>Node.js + OpenClaw</strong><br />
+      <sub>AI Gateway、CLI 与更新链路</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 当前最新版本
+
+- 版本：`v1.8.8`
+- 发布说明：见 [release/v1.8.8/Release.zh.md](release/v1.8.8/Release.zh.md)
+- 改动日志：见 [CHANGELOG.md](CHANGELOG.md)
+- Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
+
+## 下载引导
+
+> 不确定手机架构时，优先下载 `universal.apk`。
+> 发布后续版本时，请同步更新下表中的文件名与版本号。
+
+| 文件 | 适用设备 | 大小 | 最新下载 |
+|---|---|---:|---|
+| `OpenClaw-v1.8.8-universal.apk` | 不确定架构、想直接安装 | 43.48 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8-universal.apk) |
+| `OpenClaw-v1.8.8-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.82 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8-arm64-v8a.apk) |
+| `OpenClaw-v1.8.8-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.44 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8-armeabi-v7a.apk) |
+| `OpenClaw-v1.8.8-x86_64.apk` | 模拟器或 x86_64 设备 | 27.03 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8-x86_64.apk) |
+| `OpenClaw-v1.8.8.aab` | 应用商店分发 | 50.30 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8.aab) |
 
 ---
 
@@ -16,31 +80,29 @@
 
 OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 Flutter + proot Ubuntu 环境，在非 root 设备上提供：
 
-- 一键安装 Ubuntu rootfs + Node.js + OpenClaw
-- 应用内终端、日志、Web 控制台
-- 网关管理与健康检查
+- 一键安装 Ubuntu RootFS + Node.js + OpenClaw
+- 应用内终端、日志、Web 控制台与配置入口
+- 网关管理、健康检查与版本更新
 - 可选工具包（如 Go、Homebrew、OpenSSH）
 - 节点能力接入（相机、位置、传感器等）
 
-<p align="center">
-  <img src="assets/ic_launcher.png" alt="OpenClaw" width="180"/>
-</p>
+## v1.8.8 亮点
 
----
-
-## 当前版本
-
-- 版本：`v1.8.7`
-- 主要变更：见 [CHANGELOG.md](CHANGELOG.md)
+- 首页新增当前 OpenClaw 版本显示，以及检查更新 / 更新按钮。
+- 更新时会自动检测 OpenClaw 最新版本与 Node.js 兼容要求。
+- 新增 `openclaw.json` 内置编辑器，支持 JSON 校验、格式化和语法高亮。
+- 新增常用命令页，支持一键复制常用 OpenClaw CLI 命令。
+- 日志页可切换查看网关日志和最新对话日志。
+- 修复自定义提供商配置后 `gateway.mode` 缺失导致的启动失败问题。
 
 ---
 
 ## 主要特性（中文整合版）
 
 - 中文优先文档与维护流程
-- i18n 文案与页面整合（含简中/繁中/日文）
+- i18n 文案与页面整合（含简中 / 繁中 / 日文）
 - 保留上游核心功能与结构，便于后续同步
-- 版本变更统一在 Changelog 中记录
+- 版本变更统一记录到 Release 文档与 Changelog
 
 ---
 
@@ -48,11 +110,11 @@ OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 F
 
 ### 方式一：Android APK（推荐）
 
-1. 从本仓库 Releases 下载 APK（如你已发布）
-2. 安装后打开应用
-3. 点击 **Begin Setup** 完成环境初始化
-4. 在应用内完成 Onboarding 与 API Key 配置
-5. 启动 Gateway
+1. 从上方“下载引导”表格选择对应 APK。
+2. 安装后打开应用。
+3. 点击 **Begin Setup** 完成环境初始化。
+4. 在应用内完成 Onboarding 与 API Key / 提供商配置。
+5. 启动 Gateway。
 
 ### 方式二：源码构建
 
@@ -65,7 +127,7 @@ flutter build apk --release
 
 说明：如果你需要可运行的 proot 相关 `.so`，请按仓库脚本准备 `jniLibs` 后再打包。
 
-推荐：也可直接使用仓库内的 Python 发布脚本，它会交互输入版本号/构建号，并自动将 APK/AAB 整理到 `release/v版本/` 目录：
+推荐：也可直接使用仓库内的 Python 发布脚本，它会交互输入版本号 / 构建号，并自动将 APK / AAB 整理到 `release/v版本/` 目录：
 
 ```bash
 python scripts/build_release.py
@@ -76,8 +138,9 @@ python scripts/build_release.py
 ## 目录说明
 
 - `flutter_app/`：Flutter Android 主应用
-- `lib/`：Node/CLI 相关脚本
+- `lib/`：Node / CLI 相关脚本
 - `scripts/`：构建与依赖准备脚本
+- `release/`：发布产物与对应版本说明
 - `docs/README_en.md`：英文文档
 - `CHANGELOG.md`：版本与改动记录
 
@@ -89,8 +152,8 @@ python scripts/build_release.py
 
 1. 同步上游 `main`
 2. 在独立分支处理冲突
-3. 回归测试（安装、rootfs 解压、网关启动）
-4. 更新本仓库 `CHANGELOG.md`
+3. 回归测试（安装、RootFS 解压、网关启动、版本更新）
+4. 更新本仓库 `CHANGELOG.md` 与对应版本 `Release.zh.md`
 
 ---
 
@@ -103,7 +166,7 @@ python scripts/build_release.py
 ## 致谢
 
 - 上游作者与贡献者：[`mithun50/openclaw-termux`](https://github.com/mithun50/openclaw-termux)
-- 汉化/整合贡献者：[`TIANLI0`](https://github.com/TIANLI0)、本仓库维护者及社区用户
+- 汉化 / 整合贡献者：[`TIANLI0`](https://github.com/TIANLI0)、本仓库维护者及社区用户
 
 ---
 

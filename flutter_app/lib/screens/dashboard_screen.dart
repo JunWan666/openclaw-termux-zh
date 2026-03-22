@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/node_state.dart';
-import '../providers/gateway_provider.dart';
 import '../providers/node_provider.dart';
 import '../widgets/gateway_controls.dart';
 import '../widgets/status_card.dart';
 import 'node_screen.dart';
+import 'config_editor_screen.dart';
+import 'command_shortcuts_screen.dart';
 import 'configure_screen.dart';
-import 'onboarding_screen.dart';
 import 'terminal_screen.dart';
-import 'web_dashboard_screen.dart';
 import 'logs_screen.dart';
 import 'message_platforms_screen.dart';
 import 'packages_screen.dart';
@@ -87,60 +85,6 @@ class DashboardScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const TerminalScreen()),
               ),
             ),
-            Consumer<GatewayProvider>(
-              builder: (context, provider, _) {
-                final url = provider.state.dashboardUrl;
-                final token = url != null
-                    ? RegExp(r'#token=([0-9a-f]+)').firstMatch(url)?.group(1)
-                    : null;
-                final subtitle = provider.state.isRunning
-                    ? (token != null
-                        ? 'Token: ${token.substring(0, (token.length > 8 ? 8 : token.length))}...'
-                        : l10n.t('dashboardWebDashboardSubtitle'))
-                    : l10n.t('dashboardStartGatewayFirst');
-                return StatusCard(
-                  title: l10n.t('dashboardWebDashboardTitle'),
-                  subtitle: subtitle,
-                  icon: Icons.dashboard,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (token != null)
-                        IconButton(
-                          icon: const Icon(Icons.copy, size: 18),
-                          tooltip: 'Copy dashboard URL',
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: url!));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Dashboard URL copied')),
-                            );
-                          },
-                        ),
-                      const Icon(Icons.chevron_right),
-                    ],
-                  ),
-                  onTap: provider.state.isRunning
-                      ? () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => WebDashboardScreen(
-                                url: url,
-                              ),
-                            ),
-                          )
-                      : null,
-                );
-              },
-            ),
-            StatusCard(
-              title: l10n.t('dashboardOnboardingTitle'),
-              subtitle: l10n.t('dashboardOnboardingSubtitle'),
-              icon: Icons.vpn_key,
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-              ),
-            ),
             StatusCard(
               title: l10n.t('dashboardConfigureTitle'),
               subtitle: l10n.t('dashboardConfigureSubtitle'),
@@ -186,6 +130,15 @@ class DashboardScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               ),
             ),
+            StatusCard(
+              title: l10n.t('dashboardEditConfigTitle'),
+              subtitle: l10n.t('dashboardEditConfigSubtitle'),
+              icon: Icons.edit_note_outlined,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ConfigEditorScreen()),
+              ),
+            ),
             Consumer<NodeProvider>(
               builder: (context, nodeProvider, _) {
                 final nodeState = nodeProvider.state;
@@ -203,6 +156,17 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 );
               },
+            ),
+            StatusCard(
+              title: l10n.t('dashboardCommandsTitle'),
+              subtitle: l10n.t('dashboardCommandsSubtitle'),
+              icon: Icons.code_outlined,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const CommandShortcutsScreen(),
+                ),
+              ),
             ),
             const SizedBox(height: 24),
             Center(

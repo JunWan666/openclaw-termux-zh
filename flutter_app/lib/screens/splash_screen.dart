@@ -5,7 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../constants.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
+import '../services/provider_config_service.dart';
 import 'setup_wizard_screen.dart';
+import 'onboarding_screen.dart';
 import 'dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -50,8 +52,12 @@ class _SplashScreenState extends State<SplashScreen>
 
       // Ensure directories and resolv.conf exist on every app open.
       // Android may clear the files directory during update or reinstall (#40).
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
+      try {
+        await NativeBridge.setupDirs();
+      } catch (_) {}
+      try {
+        await NativeBridge.writeResolv();
+      } catch (_) {}
 
       // Direct Dart fallback: create resolv.conf if native calls failed (#40).
       try {
@@ -85,8 +91,10 @@ class _SplashScreenState extends State<SplashScreen>
             if (!await downloadDir.exists()) {
               await downloadDir.create(recursive: true);
             }
-            final snapshotPath = '$sdcard/Download/openclaw-snapshot-$oldVersion.json';
-            final openclawJson = await NativeBridge.readRootfsFile('root/.openclaw/openclaw.json');
+            final snapshotPath =
+                '$sdcard/Download/openclaw-snapshot-$oldVersion.json';
+            final openclawJson = await NativeBridge.readRootfsFile(
+                'root/.openclaw/openclaw.json');
             final snapshot = {
               'version': oldVersion,
               'timestamp': DateTime.now().toIso8601String(),
@@ -117,9 +125,21 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
 
       if (setupComplete) {
-        prefs.setupComplete = true;
+        final gatewayConfigured =
+            await ProviderConfigService.hasRequiredGatewayConfig();
+        if (!mounted) return;
+
+        if (gatewayConfigured) {
+          prefs.setupComplete = true;
+          prefs.isFirstRun = false;
+        }
+
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(
+            builder: (_) => gatewayConfigured
+                ? const DashboardScreen()
+                : const OnboardingScreen(isFirstRun: true),
+          ),
         );
       } else {
         Navigator.of(context).pushReplacement(
@@ -161,15 +181,15 @@ class _SplashScreenState extends State<SplashScreen>
               Text(
                 'AI Gateway for Android',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
               const SizedBox(height: 4),
               Text(
-                'by ${AppConstants.authorName} | ${AppConstants.orgName}',
+                'by ${AppConstants.authorName}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
               const SizedBox(height: 32),
               const CircularProgressIndicator(),

@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 FLUTTER_DIR = ROOT_DIR / "flutter_app"
+ANDROID_LOCAL_PROPERTIES = FLUTTER_DIR / "android" / "local.properties"
 PUBSPEC_FILE = FLUTTER_DIR / "pubspec.yaml"
 RELEASE_ROOT = ROOT_DIR / "release"
 DOCS_DIR = ROOT_DIR / "docs"
@@ -82,6 +83,60 @@ def _git_bash_candidates() -> list[str]:
     return candidates
 
 
+def _read_local_properties(file_path: Path) -> dict[str, str]:
+    if not file_path.exists():
+        return {}
+
+    properties: dict[str, str] = {}
+    for raw_line in file_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        properties[key.strip()] = value.strip()
+    return properties
+
+
+def _unescape_properties_value(value: str) -> str:
+    return (
+        value.replace("\\\\", "\\")
+        .replace("\\:", ":")
+        .replace("\\=", "=")
+        .replace("\\ ", " ")
+    )
+
+
+def _flutter_sdk_candidates() -> list[str]:
+    sdk_roots: list[Path] = []
+
+    for env_key in ("FLUTTER_ROOT", "FLUTTER_HOME"):
+        value = os.environ.get(env_key)
+        if value:
+            sdk_roots.append(Path(value).expanduser())
+
+    flutter_sdk = _read_local_properties(ANDROID_LOCAL_PROPERTIES).get("flutter.sdk")
+    if flutter_sdk:
+        sdk_roots.append(Path(_unescape_properties_value(flutter_sdk)).expanduser())
+
+    executable_names = (
+        ("flutter.bat", "flutter.cmd", "flutter.exe", "flutter")
+        if os.name == "nt"
+        else ("flutter",)
+    )
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for sdk_root in sdk_roots:
+        for executable_name in executable_names:
+            candidate = (sdk_root / "bin" / executable_name).resolve()
+            candidate_str = str(candidate)
+            if candidate_str in seen:
+                continue
+            seen.add(candidate_str)
+            candidates.append(candidate_str)
+    return candidates
+
+
 def resolve_command(command: str) -> str:
     cached = COMMAND_CACHE.get(command)
     if cached:
@@ -89,7 +144,12 @@ def resolve_command(command: str) -> str:
 
     candidates: list[str]
     if os.name == "nt" and command == "flutter":
-        candidates = ["flutter.bat", "flutter.cmd", "flutter.exe", "flutter"]
+        candidates = _flutter_sdk_candidates() + [
+            "flutter.bat",
+            "flutter.cmd",
+            "flutter.exe",
+            "flutter",
+        ]
     elif os.name == "nt" and command == "bash":
         candidates = _git_bash_candidates() + ["bash.exe", "bash"]
     else:
@@ -188,6 +248,8 @@ def build_artifacts(version: str, build_number: str, skip_split: bool, skip_aab:
         run_command(["flutter", "build", "appbundle", "--release", *build_args], cwd=FLUTTER_DIR)
     else:
         print("[跳过] 已按参数要求跳过 AAB 构建。")
+
+
 
 
 def copy_if_exists(source: Path, target: Path, copied_files: list[Path]) -> None:

@@ -242,7 +242,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
   Future<void> start() async {
     // Prevent concurrent start() calls from racing
-    if (_startInProgress) return;
+    if (_startInProgress || _state.status == GatewayStatus.stopping) return;
     _startInProgress = true;
 
     final prefs = PreferencesService();
@@ -282,6 +282,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
         }
       } catch (_) {}
       await ProviderConfigService.migrateCustomProviderConfigIfNeeded();
+      await ProviderConfigService.ensureGatewayDefaults();
       await MessagePlatformConfigService.migrateFeishuConfigIfNeeded();
       await _writeNodeAllowConfig();
       _startingAt = DateTime.now();
@@ -301,19 +302,35 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
   Future<void> stop() async {
     _cancelAllTimers();
-    _logSubscription?.cancel();
     _startingAt = null;
+
+    if (_state.status == GatewayStatus.stopped ||
+        _state.status == GatewayStatus.stopping) {
+      return;
+    }
+
+    _updateState(_state.copyWith(
+      status: GatewayStatus.stopping,
+      clearError: true,
+      clearStartedAt: true,
+      logs: [..._state.logs, _ts('[INFO] Stopping gateway...')],
+    ));
 
     try {
       await NativeBridge.stopGateway();
-      _updateState(GatewayState(
+      await _logSubscription?.cancel();
+      _logSubscription = null;
+      _updateState(_state.copyWith(
         status: GatewayStatus.stopped,
+        clearError: true,
+        clearStartedAt: true,
         logs: [..._state.logs, _ts('[INFO] Gateway stopped')],
       ));
     } catch (e) {
       _updateState(_state.copyWith(
         status: GatewayStatus.error,
         errorMessage: 'Failed to stop: $e',
+        logs: [..._state.logs, _ts('[ERROR] Failed to stop: $e')],
       ));
     }
   }
@@ -332,7 +349,10 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     // Use a Timer (not Future.delayed) so it can be cancelled on stop().
     _initialDelayTimer = Timer(const Duration(seconds: 30), () {
       _initialDelayTimer = null;
-      if (_state.status == GatewayStatus.stopped) return;
+      if (_state.status == GatewayStatus.stopped ||
+          _state.status == GatewayStatus.stopping) {
+        return;
+      }
       _checkHealth();
       _healthTimer = Timer.periodic(
         const Duration(milliseconds: AppConstants.healthCheckIntervalMs),
@@ -355,6 +375,9 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
         ));
       }
     } catch (_) {
+      if (_state.status == GatewayStatus.stopping) {
+        return;
+      }
       // Still starting or temporarily unreachable
       final isRunning = await NativeBridge.isGatewayRunning();
       if (!isRunning && _state.status != GatewayStatus.stopped) {

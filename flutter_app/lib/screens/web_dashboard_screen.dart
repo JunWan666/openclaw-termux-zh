@@ -13,6 +13,7 @@ class WebDashboardScreen extends StatefulWidget {
 }
 
 class _WebDashboardScreenState extends State<WebDashboardScreen> {
+  static const _dashboardZoomScale = 0.5;
   late final WebViewController _controller;
   bool _loading = true;
   String? _error;
@@ -28,6 +29,11 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
             if (mounted) setState(() => _loading = true);
           },
           onPageFinished: (_) {
+            _applyDefaultZoom();
+            Future.delayed(
+              const Duration(milliseconds: 400),
+              _applyDefaultZoom,
+            );
             if (mounted) setState(() => _loading = false);
           },
           onWebResourceError: (error) {
@@ -52,6 +58,58 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       url = prefs.dashboardUrl;
     }
     _controller.loadRequest(Uri.parse(url ?? AppConstants.gatewayUrl));
+  }
+
+  Future<void> _applyDefaultZoom() async {
+    try {
+      await _controller.runJavaScript('''
+(() => {
+  const scale = $_dashboardZoomScale;
+  const root = document.documentElement;
+  const head = document.head || document.getElementsByTagName('head')[0];
+  const body = document.body;
+  if (!root || !head) return;
+
+  let viewport = document.querySelector('meta[name="viewport"]');
+  if (!viewport) {
+    viewport = document.createElement('meta');
+    viewport.setAttribute('name', 'viewport');
+    head.appendChild(viewport);
+  }
+
+  viewport.setAttribute(
+    'content',
+    [
+      'width=device-width',
+      'initial-scale=' + scale,
+      'minimum-scale=' + scale,
+      'maximum-scale=5',
+      'user-scalable=yes',
+      'viewport-fit=cover'
+    ].join(', ')
+  );
+
+  root.style.width = '100%';
+  root.style.maxWidth = '100%';
+  root.style.overflowX = 'hidden';
+  root.style.webkitTextSizeAdjust = '100%';
+
+  if (!body) return;
+
+  body.style.zoom = '';
+  body.style.transform = '';
+  body.style.transformOrigin = '';
+  body.style.width = '100%';
+  body.style.maxWidth = '100%';
+  body.style.minWidth = '100%';
+  body.style.minHeight = '100%';
+  body.style.margin = '0';
+  body.style.overflowX = 'hidden';
+})();
+''');
+    } catch (_) {
+      // Ignore zoom injection failures and show the page normally.
+    }
   }
 
   @override
@@ -109,8 +167,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
             )
           else
             WebViewWidget(controller: _controller),
-          if (_loading)
-            const LinearProgressIndicator(),
+          if (_loading) const LinearProgressIndicator(),
         ],
       ),
     );

@@ -20,9 +20,7 @@ class BootstrapService {
     } catch (_) {}
   }
 
-
-  double _clampProgress(double progress) =>
-      progress.clamp(0.0, 1.0).toDouble();
+  double _clampProgress(double progress) => progress.clamp(0.0, 1.0).toDouble();
 
   double _overallProgressFor(SetupStep step, double stepProgress) {
     final progress = _clampProgress(stepProgress);
@@ -162,8 +160,12 @@ class BootstrapService {
         message: 'Setting up directories...',
         notificationText: 'Setting up directories... 2.0%',
       );
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
+      try {
+        await NativeBridge.setupDirs();
+      } catch (_) {}
+      try {
+        await NativeBridge.writeResolv();
+      } catch (_) {}
 
       // Step 1: Download rootfs
       final arch = await NativeBridge.getArch();
@@ -404,7 +406,7 @@ class BootstrapService {
         message: 'Installing OpenClaw (this may take a few minutes)...',
         estimatedDuration: const Duration(minutes: 4),
         task: () => NativeBridge.runInProot(
-          '$nodeRun $npmCli install -g openclaw',
+          '$nodeRun $npmCli install -g openclaw@latest',
           timeout: 1800,
         ),
       );
@@ -428,7 +430,8 @@ class BootstrapService {
         message: 'Verifying OpenClaw...',
         notificationText: 'Verifying OpenClaw... 96.6%',
       );
-      await NativeBridge.runInProot('openclaw --version || echo openclaw_installed');
+      await NativeBridge.runInProot(
+          'openclaw --version || echo openclaw_installed');
       _emitProgress(
         onProgress: onProgress,
         step: SetupStep.installingOpenClaw,

@@ -120,12 +120,16 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "stopGateway" -> {
-                    try {
-                        GatewayService.stop(applicationContext)
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("SERVICE_ERROR", e.message, null)
-                    }
+                    Thread {
+                        try {
+                            val stopped = GatewayService.stopAndWait(applicationContext)
+                            runOnUiThread { result.success(stopped) }
+                        } catch (e: Exception) {
+                            runOnUiThread {
+                                result.error("SERVICE_ERROR", e.message, null)
+                            }
+                        }
+                    }.start()
                 }
                 "isGatewayRunning" -> {
                     result.success(GatewayService.isProcessAlive())

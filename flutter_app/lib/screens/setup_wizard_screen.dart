@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../models/setup_state.dart';
 import '../models/optional_package.dart';
 import '../providers/setup_provider.dart';
+import '../services/openclaw_version_service.dart';
 import '../services/package_service.dart';
 import '../widgets/progress_step.dart';
 import 'onboarding_screen.dart';
@@ -21,6 +22,23 @@ class SetupWizardScreen extends StatefulWidget {
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
   bool _started = false;
   Map<String, bool> _pkgStatuses = {};
+  String _openClawInstallSize = AppConstants.openClawEstimatedSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOpenClawInstallSize();
+  }
+
+  Future<void> _loadOpenClawInstallSize() async {
+    try {
+      final release = await OpenClawVersionService().fetchLatestRelease();
+      final sizeLabel = release.unpackedSizeLabel;
+      if (mounted && sizeLabel != null && sizeLabel.isNotEmpty) {
+        setState(() => _openClawInstallSize = sizeLabel);
+      }
+    } catch (_) {}
+  }
 
   Future<void> _refreshPkgStatuses() async {
     final statuses = await PackageService.checkAllStatuses();
@@ -109,7 +127,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                             Expanded(
                               child: SingleChildScrollView(
                                 child: Text(
-                                    state.error ?? 'Unknown error',
+                                  state.error ?? 'Unknown error',
                                   style: TextStyle(
                                       color:
                                           theme.colorScheme.onErrorContainer),
@@ -160,7 +178,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   const SizedBox(height: 16),
                   Center(
                     child: Text(
-                      'by ${AppConstants.authorName} | ${AppConstants.orgName}',
+                      'by ${AppConstants.authorName}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -187,7 +205,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       (3, l10n.t('setupWizardStepInstallNode'), SetupStep.installingNode),
       (
         4,
-        l10n.t('setupWizardStepInstallOpenClaw'),
+        l10n.t('setupWizardStepInstallOpenClawWithSize', {
+          'size': _openClawInstallSize,
+        }),
         SetupStep.installingOpenClaw
       ),
       (

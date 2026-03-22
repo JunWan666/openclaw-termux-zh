@@ -9,6 +9,7 @@ class ProviderConfigService {
   static const _customOpenaiApi = 'openai-completions';
   static const _customOpenaiContextWindow = 128000;
   static const _customOpenaiMaxTokens = 8192;
+  static const _localGatewayMode = 'local';
 
   /// Escape a string for use as a single-quoted shell argument.
   static String _shellEscape(String s) {
@@ -36,6 +37,46 @@ class ProviderConfigService {
           'cacheWrite': 0,
         },
       };
+
+  static void _ensureLocalGatewayMode(Map<String, dynamic> config) {
+    final rawGateway = config['gateway'];
+    final gateway = rawGateway is Map<String, dynamic>
+        ? rawGateway
+        : rawGateway is Map
+            ? Map<String, dynamic>.from(rawGateway)
+            : <String, dynamic>{};
+    config['gateway'] = gateway;
+    final mode = gateway['mode'];
+    if (mode is! String || mode.trim().isEmpty) {
+      gateway['mode'] = _localGatewayMode;
+    }
+  }
+
+  static bool _hasSavedModelOrProviderConfig(Map<String, dynamic> config) {
+    final rawModels = config['models'];
+    if (rawModels is Map) {
+      final providers = rawModels['providers'];
+      if (providers is Map && providers.isNotEmpty) {
+        return true;
+      }
+    }
+
+    final rawAgents = config['agents'];
+    if (rawAgents is Map) {
+      final defaults = rawAgents['defaults'];
+      if (defaults is Map) {
+        final model = defaults['model'];
+        if (model is Map) {
+          final primary = model['primary'];
+          if (primary is String && primary.trim().isNotEmpty) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
 
   static Map<String, dynamic> _providerEntryForSave({
     required AiProvider provider,
@@ -81,9 +122,11 @@ class ProviderConfigService {
 
       final config = jsonDecode(content) as Map<String, dynamic>;
       final modelsSection =
-          (config['models'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+          (config['models'] as Map?)?.cast<String, dynamic>() ??
+              <String, dynamic>{};
       final providers =
-          (modelsSection['providers'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+          (modelsSection['providers'] as Map?)?.cast<String, dynamic>() ??
+              <String, dynamic>{};
       final existing =
           (providers[_customOpenaiId] as Map?)?.cast<String, dynamic>();
       if (existing == null) return;
@@ -103,10 +146,8 @@ class ProviderConfigService {
 
       final primaryModel =
           _primaryModelForProvider(AiProvider.customOpenai, modelId);
-      final agents =
-          (config['agents'] as Map?)?.cast<String, dynamic>();
-      final defaults =
-          (agents?['defaults'] as Map?)?.cast<String, dynamic>();
+      final agents = (config['agents'] as Map?)?.cast<String, dynamic>();
+      final defaults = (agents?['defaults'] as Map?)?.cast<String, dynamic>();
       final defaultModel =
           (defaults?['model'] as Map?)?.cast<String, dynamic>();
       final currentPrimary = defaultModel?['primary'] as String?;
@@ -123,7 +164,8 @@ class ProviderConfigService {
           currentPrimary == modelId ||
           currentPrimary == primaryModel) {
         config['agents'] ??= <String, dynamic>{};
-        (config['agents'] as Map<String, dynamic>)['defaults'] ??= <String, dynamic>{};
+        (config['agents'] as Map<String, dynamic>)['defaults'] ??=
+            <String, dynamic>{};
         ((config['agents'] as Map<String, dynamic>)['defaults']
             as Map<String, dynamic>)['model'] ??= <String, dynamic>{};
         (((config['agents'] as Map<String, dynamic>)['defaults']
@@ -173,7 +215,8 @@ class ProviderConfigService {
       final providers = <String, dynamic>{};
       final modelsSection = config['models'] as Map<String, dynamic>?;
       if (modelsSection != null) {
-        final providerEntries = modelsSection['providers'] as Map<String, dynamic>?;
+        final providerEntries =
+            modelsSection['providers'] as Map<String, dynamic>?;
         if (providerEntries != null) {
           for (final entry in providerEntries.entries) {
             final value = entry.value;
@@ -190,6 +233,54 @@ class ProviderConfigService {
     } catch (_) {
       return {'activeModel': null, 'providers': <String, dynamic>{}};
     }
+  }
+
+  static Future<bool> hasRequiredGatewayConfig() async {
+    try {
+      final content = await NativeBridge.readRootfsFile(_configPath);
+      if (content == null || content.isEmpty) {
+        return false;
+      }
+
+      final config = jsonDecode(content) as Map<String, dynamic>;
+      final rawGateway = config['gateway'];
+      final gateway = rawGateway is Map<String, dynamic>
+          ? rawGateway
+          : rawGateway is Map
+              ? Map<String, dynamic>.from(rawGateway)
+              : null;
+      final mode = gateway?['mode'];
+      return mode is String && mode.trim().isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> ensureGatewayDefaults() async {
+    Map<String, dynamic> config = {};
+    try {
+      final content = await NativeBridge.readRootfsFile(_configPath);
+      if (content != null && content.isNotEmpty) {
+        config = jsonDecode(content) as Map<String, dynamic>;
+      }
+    } catch (_) {
+      // Start from a fresh config if the existing file is missing or invalid.
+    }
+
+    if (!_hasSavedModelOrProviderConfig(config)) {
+      return;
+    }
+
+    final before = jsonEncode(config);
+    _ensureLocalGatewayMode(config);
+    if (before == jsonEncode(config)) {
+      return;
+    }
+
+    await NativeBridge.writeRootfsFile(
+      _configPath,
+      const JsonEncoder.withIndent('  ').convert(config),
+    );
   }
 
   /// Save a provider's API key and set its model as the active model.
@@ -211,7 +302,8 @@ class ProviderConfigService {
       baseUrl: resolvedBaseUrl,
       model: model,
     ));
-    final primaryModelJson = jsonEncode(_primaryModelForProvider(provider, model));
+    final primaryModelJson =
+        jsonEncode(_primaryModelForProvider(provider, model));
     final providerIdJson = jsonEncode(provider.id);
 
     final script = '''
@@ -219,6 +311,8 @@ const fs = require("fs");
 const p = "$_configPath";
 let c = {};
 try { c = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
+if (!c.gateway) c.gateway = {};
+if (!c.gateway.mode) c.gateway.mode = ${jsonEncode(_localGatewayMode)};
 if (!c.models) c.models = {};
 if (!c.models.providers) c.models.providers = {};
 c.models.providers[$providerIdJson] = $providerJson;
@@ -264,11 +358,14 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       // Start fresh
     }
 
+    _ensureLocalGatewayMode(config);
+
     // Merge provider entry
     config['models'] ??= <String, dynamic>{};
-    (config['models'] as Map<String, dynamic>)['providers'] ??= <String, dynamic>{};
-    ((config['models'] as Map<String, dynamic>)['providers'] as Map<String, dynamic>)[providerId] =
-        _providerEntryForSave(
+    (config['models'] as Map<String, dynamic>)['providers'] ??=
+        <String, dynamic>{};
+    ((config['models'] as Map<String, dynamic>)['providers']
+        as Map<String, dynamic>)[providerId] = _providerEntryForSave(
       provider: provider,
       apiKey: apiKey,
       baseUrl: baseUrl,
@@ -277,9 +374,13 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
     // Set active model
     config['agents'] ??= <String, dynamic>{};
-    (config['agents'] as Map<String, dynamic>)['defaults'] ??= <String, dynamic>{};
-    ((config['agents'] as Map<String, dynamic>)['defaults'] as Map<String, dynamic>)['model'] ??= <String, dynamic>{};
-    (((config['agents'] as Map<String, dynamic>)['defaults'] as Map<String, dynamic>)['model'] as Map<String, dynamic>)['primary'] =
+    (config['agents'] as Map<String, dynamic>)['defaults'] ??=
+        <String, dynamic>{};
+    ((config['agents'] as Map<String, dynamic>)['defaults']
+        as Map<String, dynamic>)['model'] ??= <String, dynamic>{};
+    (((config['agents'] as Map<String, dynamic>)['defaults']
+                as Map<String, dynamic>)['model']
+            as Map<String, dynamic>)['primary'] =
         _primaryModelForProvider(provider, model);
 
     const encoder = JsonEncoder.withIndent('  ');

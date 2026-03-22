@@ -1,6 +1,7 @@
 enum GatewayStatus {
   stopped,
   starting,
+  stopping,
   running,
   error,
 }
@@ -40,6 +41,7 @@ class GatewayState {
 
   bool get isRunning => status == GatewayStatus.running;
   bool get isStopped => status == GatewayStatus.stopped;
+  bool get isStopping => status == GatewayStatus.stopping;
 
   String get statusText {
     switch (status) {
@@ -47,6 +49,8 @@ class GatewayState {
         return 'Stopped';
       case GatewayStatus.starting:
         return 'Starting...';
+      case GatewayStatus.stopping:
+        return 'Stopping...';
       case GatewayStatus.running:
         return 'Running';
       case GatewayStatus.error:
