@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/setup_state.dart';
 import '../services/bootstrap_service.dart';
+import '../services/openclaw_version_service.dart';
 
 class SetupProvider extends ChangeNotifier {
   final BootstrapService _bootstrapService = BootstrapService();
@@ -16,12 +17,13 @@ class SetupProvider extends ChangeNotifier {
     return !_state.isComplete;
   }
 
-  Future<void> runSetup() async {
+  Future<void> runSetup({OpenClawReleaseInfo? selectedOpenClawRelease}) async {
     if (_isRunning) return;
     _isRunning = true;
     notifyListeners();
 
     await _bootstrapService.runFullSetup(
+      selectedOpenClawRelease: selectedOpenClawRelease,
       onProgress: (state) {
         _state = state;
         notifyListeners();

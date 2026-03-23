@@ -4,9 +4,12 @@ import 'package:dio/dio.dart';
 import '../constants.dart';
 import '../models/setup_state.dart';
 import 'native_bridge.dart';
+import 'openclaw_version_service.dart';
 
 class BootstrapService {
   final Dio _dio = Dio();
+  final OpenClawVersionService _openClawVersionService =
+      OpenClawVersionService();
 
   void _updateSetupNotification(String text, {int progress = -1}) {
     try {
@@ -145,6 +148,7 @@ class BootstrapService {
 
   Future<void> runFullSetup({
     required void Function(SetupState) onProgress,
+    OpenClawReleaseInfo? selectedOpenClawRelease,
   }) async {
     try {
       // Start foreground service to keep app alive during setup
@@ -405,23 +409,11 @@ class BootstrapService {
         targetProgress: 0.72,
         message: 'Installing OpenClaw (this may take a few minutes)...',
         estimatedDuration: const Duration(minutes: 4),
-        task: () => NativeBridge.runInProot(
-          '$nodeRun $npmCli install -g openclaw@latest',
-          timeout: 1800,
+        task: () => _openClawVersionService.installVersion(
+          selectedOpenClawRelease?.version ?? 'latest',
+          releaseInfo: selectedOpenClawRelease,
         ),
       );
-
-      _emitProgress(
-        onProgress: onProgress,
-        step: SetupStep.installingOpenClaw,
-        progress: 0.78,
-        message: 'Creating bin wrappers...',
-        notificationText: 'Creating bin wrappers... 94.0%',
-      );
-      // npm global install creates symlinks for bin entries, but symlinks
-      // can fail silently in proot. Create shell wrappers from Java side
-      // (reads package.json directly from rootfs filesystem — no escaping).
-      await NativeBridge.createBinWrappers('openclaw');
 
       _emitProgress(
         onProgress: onProgress,

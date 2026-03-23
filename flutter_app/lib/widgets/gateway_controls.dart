@@ -30,26 +30,17 @@ class _GatewayControlsState extends State<GatewayControls> {
 
   String? _installedVersion;
   OpenClawReleaseInfo? _latestRelease;
+  OpenClawReleaseInfo? _selectedRelease;
+  List<OpenClawReleaseInfo> _availableReleases = const [];
   bool _loadingInstalledVersion = true;
-  bool _checkingForUpdate = false;
+  bool _loadingReleaseOptions = false;
   bool _updating = false;
 
   @override
   void initState() {
     super.initState();
     _refreshInstalledVersion();
-  }
-
-  bool get _hasUpdateAvailable {
-    final latestRelease = _latestRelease;
-    if (latestRelease == null) {
-      return false;
-    }
-
-    return OpenClawVersionService.isUpdateAvailable(
-      installedVersion: _installedVersion,
-      latestVersion: latestRelease.version,
-    );
+    _loadReleaseOptions();
   }
 
   Future<void> _refreshInstalledVersion({bool showLoading = true}) async {
@@ -70,32 +61,65 @@ class _GatewayControlsState extends State<GatewayControls> {
     }
   }
 
-  Future<void> _checkForUpdates() async {
-    if (_checkingForUpdate || _updating) return;
+  Future<void> _loadReleaseOptions() async {
+    if (_loadingReleaseOptions) return;
 
-    setState(() => _checkingForUpdate = true);
+    setState(() => _loadingReleaseOptions = true);
     try {
       final latestRelease = await _versionService.fetchLatestRelease();
+      List<OpenClawReleaseInfo> availableReleases;
+      Object? releaseOptionsError;
+      try {
+        availableReleases = await _versionService.fetchAvailableReleases();
+      } catch (e) {
+        availableReleases = [latestRelease];
+        releaseOptionsError = e;
+      }
+      final mergedReleases =
+          _mergeAvailableReleases(availableReleases, latestRelease);
+      final preferredVersion = _selectedRelease?.version;
+      final selectedRelease =
+          _findReleaseByVersion(mergedReleases, preferredVersion) ??
+          _findReleaseByVersion(mergedReleases, latestRelease.version) ??
+          latestRelease;
+
       if (!mounted) return;
-      setState(() => _latestRelease = latestRelease);
+      setState(() {
+        _latestRelease = latestRelease;
+        _availableReleases = mergedReleases;
+        _selectedRelease = selectedRelease;
+      });
+
+      if (releaseOptionsError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.t('gatewayVersionListFailed', {
+                'error': releaseOptionsError,
+              }),
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            context.l10n.t('gatewayVersionCheckFailed', {'error': e}),
+            context.l10n.t('gatewayVersionListFailed', {'error': e}),
           ),
         ),
       );
     } finally {
       if (mounted) {
-        setState(() => _checkingForUpdate = false);
+        setState(() => _loadingReleaseOptions = false);
       }
     }
   }
 
-  Future<void> _runUpdate(GatewayProvider provider) async {
-    if (_updating || _checkingForUpdate) return;
+  Future<void> _installSelectedRelease(GatewayProvider provider) async {
+    final selectedRelease = _selectedRelease ?? _latestRelease;
+    if (_updating || _loadingReleaseOptions || selectedRelease == null) return;
 
     final shouldRestart = provider.state.isRunning ||
         provider.state.status == GatewayStatus.starting;
@@ -106,18 +130,19 @@ class _GatewayControlsState extends State<GatewayControls> {
         await provider.stop();
       }
 
-      await _versionService.updateToLatest(latestRelease: _latestRelease);
+      await _versionService.installVersion(
+        selectedRelease.version,
+        releaseInfo: selectedRelease,
+      );
       await _refreshInstalledVersion(showLoading: false);
-      final latestRelease = await _versionService.fetchLatestRelease();
+      await _loadReleaseOptions();
 
       if (!mounted) return;
-      setState(() => _latestRelease = latestRelease);
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            context.l10n.t('gatewayUpdated', {
-              'version': _installedVersion ?? latestRelease.version,
+            context.l10n.t('gatewayAppliedVersion', {
+              'version': _installedVersion ?? selectedRelease.version,
             }),
           ),
         ),
@@ -133,7 +158,9 @@ class _GatewayControlsState extends State<GatewayControls> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.t('gatewayUpdateFailed', {'error': e})),
+          content: Text(
+            context.l10n.t('gatewayApplyVersionFailed', {'error': e}),
+          ),
         ),
       );
     } finally {
@@ -357,6 +384,7 @@ class _GatewayControlsState extends State<GatewayControls> {
         ? '...'
         : _installedVersion ?? l10n.t('dashboardOpenclawVersionUnknown');
     final latestRelease = _latestRelease;
+    final selectedRelease = _selectedRelease ?? latestRelease;
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -365,73 +393,130 @@ class _GatewayControlsState extends State<GatewayControls> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: theme.colorScheme.outline.withAlpha(60)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withAlpha(18),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.integration_instructions_outlined,
-              size: 16,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.t('dashboardOpenclawVersionLabel'),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withAlpha(18),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  installedVersion,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'DejaVuSansMono',
-                  ),
+                child: Icon(
+                  Icons.integration_instructions_outlined,
+                  size: 16,
+                  color: theme.colorScheme.primary,
                 ),
-                if (latestRelease != null) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    l10n.t('gatewayLatestReleaseHint', {
-                      'version': latestRelease.version,
-                      'size': latestRelease.unpackedSizeLabel ??
-                          AppConstants.openClawEstimatedSize,
-                    }),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      height: 1.2,
-                    ),
-                  ),
-                  if (latestRelease.nodeRequirement != null) ...[
-                    const SizedBox(height: 1),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      l10n.t('gatewayNodeRequirementHint', {
-                        'requirement': latestRelease.nodeRequirement,
-                      }),
+                      l10n.t('dashboardOpenclawVersionLabel'),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
-                        height: 1.2,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                    const SizedBox(height: 1),
+                    Text(
+                      installedVersion,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'DejaVuSansMono',
+                      ),
+                    ),
+                    if (latestRelease != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        l10n.t('gatewayLatestReleaseHint', {
+                          'version': latestRelease.version,
+                          'size': latestRelease.unpackedSizeLabel ??
+                              AppConstants.openClawEstimatedSize,
+                        }),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          _buildVersionAction(theme, l10n, provider),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: selectedRelease?.version,
+            decoration: InputDecoration(
+              labelText: l10n.t('gatewaySelectVersion'),
+              border: const OutlineInputBorder(),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            items: _availableReleases
+                .map(
+                  (release) => DropdownMenuItem(
+                    value: release.version,
+                    child: Text(
+                      _formatReleaseLabel(release, l10n),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: _updating || _loadingReleaseOptions
+                ? null
+                : (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _selectedRelease =
+                          _findReleaseByVersion(_availableReleases, value);
+                    });
+                  },
+          ),
+          if (selectedRelease != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.t('gatewaySelectedReleaseHint', {
+                'version': selectedRelease.version,
+                'size': selectedRelease.unpackedSizeLabel ??
+                    AppConstants.openClawEstimatedSize,
+              }),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.2,
+              ),
+            ),
+            if (selectedRelease.nodeRequirement != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                l10n.t('gatewayNodeRequirementHint', {
+                  'requirement': selectedRelease.nodeRequirement,
+                }),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildVersionRefreshAction(theme, l10n),
+              _buildVersionAction(theme, l10n, provider, selectedRelease),
+            ],
+          ),
         ],
       ),
     );
@@ -465,6 +550,7 @@ class _GatewayControlsState extends State<GatewayControls> {
     ThemeData theme,
     AppLocalizations l10n,
     GatewayProvider provider,
+    OpenClawReleaseInfo? selectedRelease,
   ) {
     if (_updating) {
       return FilledButton.icon(
@@ -478,11 +564,26 @@ class _GatewayControlsState extends State<GatewayControls> {
             color: Colors.white,
           ),
         ),
-        label: Text(l10n.t('gatewayUpdating')),
+        label: Text(l10n.t('gatewayApplyingVersion')),
       );
     }
 
-    if (_checkingForUpdate) {
+    return FilledButton.icon(
+      style: _buildCompactFilledButtonStyle(theme),
+      onPressed: provider.state.status == GatewayStatus.stopping ||
+              selectedRelease == null
+          ? null
+          : () => _installSelectedRelease(provider),
+      icon: const Icon(Icons.system_update_alt, size: 16),
+      label: Text(l10n.t('gatewayInstallSelectedVersion')),
+    );
+  }
+
+  Widget _buildVersionRefreshAction(
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    if (_loadingReleaseOptions) {
       return OutlinedButton.icon(
         style: _buildCompactOutlinedButtonStyle(theme),
         onPressed: null,
@@ -498,32 +599,55 @@ class _GatewayControlsState extends State<GatewayControls> {
       );
     }
 
-    if (_hasUpdateAvailable) {
-      return FilledButton.icon(
-        style: _buildCompactFilledButtonStyle(theme),
-        onPressed: provider.state.status == GatewayStatus.stopping
-            ? null
-            : () => _runUpdate(provider),
-        icon: const Icon(Icons.system_update_alt, size: 16),
-        label: Text(l10n.t('gatewayUpdate')),
-      );
-    }
-
-    if (_latestRelease != null) {
-      return OutlinedButton.icon(
-        style: _buildCompactOutlinedButtonStyle(theme),
-        onPressed: _checkForUpdates,
-        icon: const Icon(Icons.verified_outlined, size: 16),
-        label: Text(l10n.t('gatewayLatest')),
-      );
-    }
-
     return OutlinedButton.icon(
       style: _buildCompactOutlinedButtonStyle(theme),
-      onPressed: _checkForUpdates,
+      onPressed: _loadReleaseOptions,
       icon: const Icon(Icons.refresh, size: 16),
       label: Text(l10n.t('gatewayCheckUpdate')),
     );
+  }
+
+  List<OpenClawReleaseInfo> _mergeAvailableReleases(
+    List<OpenClawReleaseInfo> releases,
+    OpenClawReleaseInfo latestRelease,
+  ) {
+    final releasesByVersion = <String, OpenClawReleaseInfo>{
+      for (final release in releases) release.version: release,
+      latestRelease.version: latestRelease,
+    };
+
+    final merged = releasesByVersion.values.toList()
+      ..sort((a, b) => OpenClawVersionService.compareVersions(
+            b.version,
+            a.version,
+          ));
+    return merged;
+  }
+
+  OpenClawReleaseInfo? _findReleaseByVersion(
+    List<OpenClawReleaseInfo> releases,
+    String? version,
+  ) {
+    if (version == null || version.trim().isEmpty) {
+      return null;
+    }
+
+    for (final release in releases) {
+      if (release.version == version) {
+        return release;
+      }
+    }
+    return null;
+  }
+
+  String _formatReleaseLabel(
+    OpenClawReleaseInfo release,
+    AppLocalizations l10n,
+  ) {
+    if (release.version == _latestRelease?.version) {
+      return '${release.version} (${l10n.t('gatewayLatest')})';
+    }
+    return release.version;
   }
 
   Widget _statusBadge(

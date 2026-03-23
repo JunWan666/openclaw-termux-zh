@@ -4,14 +4,14 @@
 
 <div align="center">
   <img src="assets/ic_launcher.png" alt="OpenClaw" width="160" />
-  <h3>面向中文用户维护与分发的 OpenClaw Android 独立整合版本</h3>
-  <p>内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、配置体验和移动端使用流程。</p>
-  <p>
-    <img src="https://img.shields.io/badge/Version-v1.8.8-D32222?style=for-the-badge" alt="Version" />
+  <h3 align="center">面向中文用户维护与分发的 OpenClaw Android 独立整合版本</h3>
+  <p align="center">内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、配置体验和移动端使用流程。</p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/Version-v1.8.9-D32222?style=for-the-badge" alt="Version" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
   </p>
-  <p>
+  <p align="center">
     <img src="https://img.shields.io/badge/Flutter-App_Shell-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter" />
     <img src="https://img.shields.io/badge/Dart-UI_Logic-0175C2?style=flat-square&logo=dart&logoColor=white" alt="Dart" />
     <img src="https://img.shields.io/badge/Kotlin-Android_Service-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin" />
@@ -56,8 +56,8 @@
 
 ## 当前最新版本
 
-- 版本：`v1.8.8`
-- 发布说明：见 [release/v1.8.8/Release.zh.md](release/v1.8.8/Release.zh.md)
+- 版本：`v1.8.9`
+- 发布说明：见 [release/v1.8.9/Release.zh.md](release/v1.8.9/Release.zh.md)
 - 改动日志：见 [CHANGELOG.md](CHANGELOG.md)
 - Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
 
@@ -68,11 +68,11 @@
 
 | 文件 | 适用设备 | 大小 | 最新下载 |
 |---|---|---:|---|
-| `OpenClaw-v1.8.8-universal.apk` | 不确定架构、想直接安装 | 43.48 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8-universal.apk) |
-| `OpenClaw-v1.8.8-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.82 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8-arm64-v8a.apk) |
-| `OpenClaw-v1.8.8-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.44 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8-armeabi-v7a.apk) |
-| `OpenClaw-v1.8.8-x86_64.apk` | 模拟器或 x86_64 设备 | 27.03 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8-x86_64.apk) |
-| `OpenClaw-v1.8.8.aab` | 应用商店分发 | 50.30 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.8.aab) |
+| `OpenClaw-v1.8.9-universal.apk` | 不确定架构、想直接安装 | 43.52 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.9-universal.apk) |
+| `OpenClaw-v1.8.9-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.84 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.9-arm64-v8a.apk) |
+| `OpenClaw-v1.8.9-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.46 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.9-armeabi-v7a.apk) |
+| `OpenClaw-v1.8.9-x86_64.apk` | 模拟器或 x86_64 设备 | 27.04 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.9-x86_64.apk) |
+| `OpenClaw-v1.8.9.aab` | 应用商店分发 | 50.34 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.8.9.aab) |
 
 ---
 
@@ -82,18 +82,18 @@ OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 F
 
 - 一键安装 Ubuntu RootFS + Node.js + OpenClaw
 - 应用内终端、日志、Web 控制台与配置入口
-- 网关管理、健康检查与版本更新
+- 网关管理、健康检查、版本选择与更新
 - 可选工具包（如 Go、Homebrew、OpenSSH）
 - 节点能力接入（相机、位置、传感器等）
 
-## v1.8.8 亮点
+## v1.8.9 亮点
 
-- 首页新增当前 OpenClaw 版本显示，以及检查更新 / 更新按钮。
-- 更新时会自动检测 OpenClaw 最新版本与 Node.js 兼容要求。
-- 新增 `openclaw.json` 内置编辑器，支持 JSON 校验、格式化和语法高亮。
-- 新增常用命令页，支持一键复制常用 OpenClaw CLI 命令。
-- 日志页可切换查看网关日志和最新对话日志。
-- 修复自定义提供商配置后 `gateway.mode` 缺失导致的启动失败问题。
+- 安装首页新增 OpenClaw 版本选择框，默认选中最新版本，也可手动安装指定版本。
+- 首页网关卡片同样支持选择并安装指定 OpenClaw 版本，方便升级、降级或绕开上游临时异常版本。
+- 所选版本会同步展示预估安装体积与 Node.js 要求，安装前自动校验并补齐内置 Node.js。
+- 快照导入改为 Android 文件选择器；安装完成页新增“导入快照”按钮，恢复配置更快捷。
+- 设置页支持手动输入快照导出文件名，网关日志也支持可选持久化与 5 MB 自动轮转。
+- 首页网关卡片的当前模型、版本和更新信息排版进一步收紧，移动端查看更清晰。
 
 ---
 
@@ -112,7 +112,7 @@ OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 F
 
 1. 从上方“下载引导”表格选择对应 APK。
 2. 安装后打开应用。
-3. 点击 **Begin Setup** 完成环境初始化。
+3. 如需指定 OpenClaw 版本，可先在安装页上方选择版本，再点击 **Begin Setup**。
 4. 在应用内完成 Onboarding 与 API Key / 提供商配置。
 5. 启动 Gateway。
 

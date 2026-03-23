@@ -26,7 +26,8 @@ OpenClaw provides an Android-ready AI gateway workflow using Flutter + proot Ubu
 
 ## Current Version
 
-- Version: `v1.8.7`
+- Version: `v1.8.9`
+- Release notes: [release/v1.8.9/Release.zh.md](../release/v1.8.9/Release.zh.md)
 - Change details: [CHANGELOG.md](../CHANGELOG.md)
 
 ---
@@ -37,7 +38,7 @@ OpenClaw provides an Android-ready AI gateway workflow using Flutter + proot Ubu
 
 1. Download an APK from this repository Releases (if published)
 2. Install and open the app
-3. Tap **Begin Setup**
+3. Optionally choose a specific OpenClaw version, then tap **Begin Setup**
 4. Complete onboarding and API key setup
 5. Start the gateway
 

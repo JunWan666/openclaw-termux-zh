@@ -23,24 +23,62 @@ class SetupWizardScreen extends StatefulWidget {
 }
 
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
+  final OpenClawVersionService _versionService = OpenClawVersionService();
+
   bool _started = false;
   Map<String, bool> _pkgStatuses = {};
-  String _openClawInstallSize = AppConstants.openClawEstimatedSize;
+  List<OpenClawReleaseInfo> _availableReleases = const [];
+  OpenClawReleaseInfo? _latestRelease;
+  OpenClawReleaseInfo? _selectedRelease;
+  bool _loadingReleaseOptions = false;
+  String? _releaseOptionsError;
 
   @override
   void initState() {
     super.initState();
-    _loadOpenClawInstallSize();
+    _loadOpenClawReleaseOptions();
   }
 
-  Future<void> _loadOpenClawInstallSize() async {
+  Future<void> _loadOpenClawReleaseOptions() async {
+    if (mounted) {
+      setState(() => _loadingReleaseOptions = true);
+    }
+
     try {
-      final release = await OpenClawVersionService().fetchLatestRelease();
-      final sizeLabel = release.unpackedSizeLabel;
-      if (mounted && sizeLabel != null && sizeLabel.isNotEmpty) {
-        setState(() => _openClawInstallSize = sizeLabel);
+      final latestRelease = await _versionService.fetchLatestRelease();
+      List<OpenClawReleaseInfo> availableReleases;
+      String? releaseOptionsError;
+      try {
+        availableReleases = await _versionService.fetchAvailableReleases();
+      } catch (e) {
+        availableReleases = [latestRelease];
+        releaseOptionsError = '$e';
       }
-    } catch (_) {}
+      final mergedReleases =
+          _mergeAvailableReleases(availableReleases, latestRelease);
+      final preferredVersion = _selectedRelease?.version;
+      final selectedRelease =
+          _findReleaseByVersion(mergedReleases, preferredVersion) ??
+          _findReleaseByVersion(mergedReleases, latestRelease.version) ??
+          latestRelease;
+
+      if (!mounted) return;
+      setState(() {
+        _latestRelease = latestRelease;
+        _availableReleases = mergedReleases;
+        _selectedRelease = selectedRelease;
+        _releaseOptionsError = releaseOptionsError;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _releaseOptionsError = '$e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingReleaseOptions = false);
+      }
+    }
   }
 
   Future<void> _refreshPkgStatuses() async {
@@ -61,7 +99,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     setState(() {
       _started = true;
     });
-    await provider.runSetup();
+    await provider.runSetup(
+      selectedOpenClawRelease: _selectedRelease ?? _latestRelease,
+    );
   }
 
   Future<void> _importSnapshotAndContinue() async {
@@ -205,19 +245,25 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                       ],
                     )
                   else if (!_started || state.hasError)
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: provider.isRunning
-                            ? null
-                            : () => _beginSetup(provider),
-                        icon: const Icon(Icons.download),
-                        label: Text(
-                          _started
-                              ? l10n.t('setupWizardRetry')
-                              : l10n.t('setupWizardBegin'),
+                    Column(
+                      children: [
+                        _buildVersionSelector(theme, l10n, provider.isRunning),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: provider.isRunning
+                                ? null
+                                : () => _beginSetup(provider),
+                            icon: const Icon(Icons.download),
+                            label: Text(
+                              _started
+                                  ? l10n.t('setupWizardRetry')
+                                  : l10n.t('setupWizardBegin'),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   if (!_started) ...[
                     const SizedBox(height: 8),
@@ -227,6 +273,20 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
+                      ),
+                    ),
+                  ],
+                  if (!_started && _releaseOptionsError != null) ...[
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Text(
+                        l10n.t('gatewayVersionListFailed', {
+                          'error': _releaseOptionsError,
+                        }),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],
@@ -261,7 +321,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       (
         4,
         l10n.t('setupWizardStepInstallOpenClawWithSize', {
-          'size': _openClawInstallSize,
+          'size': _selectedRelease?.unpackedSizeLabel ??
+              _latestRelease?.unpackedSizeLabel ??
+              AppConstants.openClawEstimatedSize,
         }),
         SetupStep.installingOpenClaw
       ),
@@ -364,6 +426,127 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
               ),
       ),
     );
+  }
+
+  Widget _buildVersionSelector(
+    ThemeData theme,
+    AppLocalizations l10n,
+    bool disableSelection,
+  ) {
+    final latestRelease = _latestRelease;
+    final selectedRelease = _selectedRelease ?? latestRelease;
+    final availableReleases = _availableReleases;
+    final canSelectVersions =
+        availableReleases.isNotEmpty && selectedRelease != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          value: canSelectVersions ? selectedRelease.version : null,
+          decoration: InputDecoration(
+            labelText: l10n.t('setupWizardSelectVersion'),
+            border: const OutlineInputBorder(),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            suffixIcon: _loadingReleaseOptions
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : IconButton(
+                    tooltip: l10n.t('gatewayCheckUpdate'),
+                    onPressed: disableSelection ? null : _loadOpenClawReleaseOptions,
+                    icon: const Icon(Icons.refresh),
+                  ),
+          ),
+          items: availableReleases
+              .map(
+                (release) => DropdownMenuItem(
+                  value: release.version,
+                  child: Text(
+                    release.version == latestRelease?.version
+                        ? '${release.version} (${l10n.t('gatewayLatest')})'
+                        : release.version,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: disableSelection || !canSelectVersions
+              ? null
+              : (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _selectedRelease =
+                        _findReleaseByVersion(availableReleases, value);
+                  });
+                },
+        ),
+        if (selectedRelease != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            l10n.t('setupWizardSelectedVersionHint', {
+              'version': selectedRelease.version,
+              'size': selectedRelease.unpackedSizeLabel ??
+                  AppConstants.openClawEstimatedSize,
+            }),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (selectedRelease.nodeRequirement != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              l10n.t('gatewayNodeRequirementHint', {
+                'requirement': selectedRelease.nodeRequirement,
+              }),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  List<OpenClawReleaseInfo> _mergeAvailableReleases(
+    List<OpenClawReleaseInfo> releases,
+    OpenClawReleaseInfo latestRelease,
+  ) {
+    final releasesByVersion = <String, OpenClawReleaseInfo>{
+      for (final release in releases) release.version: release,
+      latestRelease.version: latestRelease,
+    };
+
+    final merged = releasesByVersion.values.toList()
+      ..sort((a, b) => OpenClawVersionService.compareVersions(
+            b.version,
+            a.version,
+          ));
+    return merged;
+  }
+
+  OpenClawReleaseInfo? _findReleaseByVersion(
+    List<OpenClawReleaseInfo> releases,
+    String? version,
+  ) {
+    if (version == null || version.trim().isEmpty) {
+      return null;
+    }
+
+    for (final release in releases) {
+      if (release.version == version) {
+        return release;
+      }
+    }
+    return null;
   }
 
   String _packageDescription(AppLocalizations l10n, OptionalPackage package) {

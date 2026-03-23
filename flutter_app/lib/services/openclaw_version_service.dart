@@ -43,6 +43,7 @@ class OpenClawReleaseInfo {
 class OpenClawVersionService {
   static const _packageJsonPath =
       'usr/local/lib/node_modules/openclaw/package.json';
+  static const _packageRegistryEndpoint = 'https://registry.npmjs.org/openclaw';
   static const _latestReleaseEndpoint =
       'https://registry.npmjs.org/openclaw/latest';
   static const _nodePathMarker = '__OPENCLAW_NODE_PATH__';
@@ -139,7 +140,84 @@ class OpenClawVersionService {
     return release;
   }
 
+  Future<OpenClawReleaseInfo> fetchRelease(String version) async {
+    final normalizedVersion = version.trim();
+    if (normalizedVersion.isEmpty) {
+      throw Exception('Version cannot be empty');
+    }
+
+    final response = await http.get(
+      Uri.parse('$_packageRegistryEndpoint/$normalizedVersion'),
+      headers: const {'Accept': 'application/json'},
+    ).timeout(const Duration(seconds: 12));
+
+    if (response.statusCode != 200) {
+      throw Exception('npm registry returned ${response.statusCode}');
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid npm registry response');
+    }
+
+    final release = OpenClawReleaseInfo.fromJson(decoded);
+    if (release.version.isEmpty) {
+      throw Exception('Requested version missing from registry response');
+    }
+    return release;
+  }
+
+  Future<List<OpenClawReleaseInfo>> fetchAvailableReleases({int? limit}) async {
+    final response = await http.get(
+      Uri.parse(_packageRegistryEndpoint),
+      headers: const {'Accept': 'application/json'},
+    ).timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) {
+      throw Exception('npm registry returned ${response.statusCode}');
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid npm registry response');
+    }
+
+    final versions = decoded['versions'];
+    if (versions is! Map<String, dynamic>) {
+      throw Exception('Registry response missing versions');
+    }
+
+    final releasesByVersion = <String, OpenClawReleaseInfo>{};
+    for (final value in versions.values) {
+      if (value is! Map<String, dynamic>) {
+        continue;
+      }
+      final release = OpenClawReleaseInfo.fromJson(value);
+      if (release.version.isEmpty) {
+        continue;
+      }
+      releasesByVersion[release.version] = release;
+    }
+
+    final releases = releasesByVersion.values.toList()
+      ..sort((a, b) => compareVersions(b.version, a.version));
+
+    if (limit != null && limit > 0 && releases.length > limit) {
+      return releases.sublist(0, limit);
+    }
+
+    return releases;
+  }
+
   Future<void> updateToLatest({OpenClawReleaseInfo? latestRelease}) async {
+    final release = latestRelease ?? await fetchLatestRelease();
+    await installVersion(release.version, releaseInfo: release);
+  }
+
+  Future<void> installVersion(
+    String version, {
+    OpenClawReleaseInfo? releaseInfo,
+  }) async {
     try {
       await NativeBridge.setupDirs();
     } catch (_) {}
@@ -147,10 +225,18 @@ class OpenClawVersionService {
       await NativeBridge.writeResolv();
     } catch (_) {}
 
-    final release = latestRelease ?? await fetchLatestRelease();
+    final normalizedVersion = version.trim();
+    if (normalizedVersion.isEmpty) {
+      throw Exception('Version cannot be empty');
+    }
+
+    final release =
+        releaseInfo?.version == normalizedVersion
+            ? releaseInfo!
+            : await fetchRelease(normalizedVersion);
     await ensureNodeRequirement(release.nodeRequirement);
     await NativeBridge.runInProot(
-      'node $_nodeWrapper $_npmCli install -g openclaw@latest',
+      'node $_nodeWrapper $_npmCli install -g openclaw@$normalizedVersion',
       timeout: 1800,
     );
     await NativeBridge.createBinWrappers('openclaw');
