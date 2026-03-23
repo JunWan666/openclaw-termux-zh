@@ -12,7 +12,14 @@ import '../screens/web_dashboard_screen.dart';
 import '../services/openclaw_version_service.dart';
 
 class GatewayControls extends StatefulWidget {
-  const GatewayControls({super.key});
+  const GatewayControls({
+    super.key,
+    this.activeModel,
+    this.isLoadingActiveModel = false,
+  });
+
+  final String? activeModel;
+  final bool isLoadingActiveModel;
 
   @override
   State<GatewayControls> createState() => _GatewayControlsState();
@@ -209,6 +216,8 @@ class _GatewayControlsState extends State<GatewayControls> {
                   ),
                   const SizedBox(height: 12),
                 ],
+                _buildCurrentModelBanner(theme, l10n),
+                const SizedBox(height: 12),
                 _buildVersionCard(theme, l10n, provider),
                 if (state.errorMessage != null)
                   Padding(
@@ -281,6 +290,62 @@ class _GatewayControlsState extends State<GatewayControls> {
     );
   }
 
+  Widget _buildCurrentModelBanner(ThemeData theme, AppLocalizations l10n) {
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface;
+    final modelName = widget.isLoadingActiveModel
+        ? '...'
+        : widget.activeModel ?? l10n.t('dashboardCurrentModelUnknown');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outline.withAlpha(60)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withAlpha(18),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.memory_outlined,
+              size: 15,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            l10n.t('dashboardCurrentModelLabel'),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              modelName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontFamily: 'DejaVuSansMono',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVersionCard(
     ThemeData theme,
     AppLocalizations l10n,
@@ -294,68 +359,70 @@ class _GatewayControlsState extends State<GatewayControls> {
     final latestRelease = _latestRelease;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: theme.colorScheme.outline.withAlpha(60)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: theme.colorScheme.primary.withAlpha(18),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               Icons.integration_instructions_outlined,
-              size: 18,
+              size: 16,
               color: theme.colorScheme.primary,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   l10n.t('dashboardOpenclawVersionLabel'),
-                  style: theme.textTheme.labelMedium?.copyWith(
+                  style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   installedVersion,
-                  style: theme.textTheme.titleSmall?.copyWith(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     fontFamily: 'DejaVuSansMono',
                   ),
                 ),
                 if (latestRelease != null) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     l10n.t('gatewayLatestReleaseHint', {
                       'version': latestRelease.version,
                       'size': latestRelease.unpackedSizeLabel ??
                           AppConstants.openClawEstimatedSize,
                     }),
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.2,
                     ),
                   ),
                   if (latestRelease.nodeRequirement != null) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     Text(
                       l10n.t('gatewayNodeRequirementHint', {
                         'requirement': latestRelease.nodeRequirement,
                       }),
-                      style: theme.textTheme.bodySmall?.copyWith(
+                      style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.2,
                       ),
                     ),
                   ],
@@ -363,9 +430,33 @@ class _GatewayControlsState extends State<GatewayControls> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           _buildVersionAction(theme, l10n, provider),
         ],
+      ),
+    );
+  }
+
+  ButtonStyle _buildCompactOutlinedButtonStyle(ThemeData theme) {
+    return OutlinedButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      minimumSize: const Size(0, 34),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: theme.textTheme.labelSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  ButtonStyle _buildCompactFilledButtonStyle(ThemeData theme) {
+    return FilledButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      minimumSize: const Size(0, 34),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: theme.textTheme.labelSmall?.copyWith(
+        fontWeight: FontWeight.w600,
       ),
     );
   }
@@ -377,10 +468,11 @@ class _GatewayControlsState extends State<GatewayControls> {
   ) {
     if (_updating) {
       return FilledButton.icon(
+        style: _buildCompactFilledButtonStyle(theme),
         onPressed: null,
         icon: const SizedBox(
-          width: 18,
-          height: 18,
+          width: 16,
+          height: 16,
           child: CircularProgressIndicator(
             strokeWidth: 2,
             color: Colors.white,
@@ -392,10 +484,11 @@ class _GatewayControlsState extends State<GatewayControls> {
 
     if (_checkingForUpdate) {
       return OutlinedButton.icon(
+        style: _buildCompactOutlinedButtonStyle(theme),
         onPressed: null,
         icon: SizedBox(
-          width: 18,
-          height: 18,
+          width: 16,
+          height: 16,
           child: CircularProgressIndicator(
             strokeWidth: 2,
             color: theme.colorScheme.onSurface,
@@ -407,25 +500,28 @@ class _GatewayControlsState extends State<GatewayControls> {
 
     if (_hasUpdateAvailable) {
       return FilledButton.icon(
+        style: _buildCompactFilledButtonStyle(theme),
         onPressed: provider.state.status == GatewayStatus.stopping
             ? null
             : () => _runUpdate(provider),
-        icon: const Icon(Icons.system_update_alt),
+        icon: const Icon(Icons.system_update_alt, size: 16),
         label: Text(l10n.t('gatewayUpdate')),
       );
     }
 
     if (_latestRelease != null) {
       return OutlinedButton.icon(
+        style: _buildCompactOutlinedButtonStyle(theme),
         onPressed: _checkForUpdates,
-        icon: const Icon(Icons.verified_outlined),
+        icon: const Icon(Icons.verified_outlined, size: 16),
         label: Text(l10n.t('gatewayLatest')),
       );
     }
 
     return OutlinedButton.icon(
+      style: _buildCompactOutlinedButtonStyle(theme),
       onPressed: _checkForUpdates,
-      icon: const Icon(Icons.refresh),
+      icon: const Icon(Icons.refresh, size: 16),
       label: Text(l10n.t('gatewayCheckUpdate')),
     );
   }

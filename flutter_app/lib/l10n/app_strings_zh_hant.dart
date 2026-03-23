@@ -334,4 +334,13 @@ const Map<String, String> appStringsZhHant = {
   'settingsImportFailed': '匯入失敗：{error}',
   'statusInstalled': '已安裝',
   'statusNotInstalled': '未安裝',
+  'settingsSnapshotFileNameTitle': '匯出快照',
+  'settingsSnapshotFileNameLabel': '檔名',
+  'settingsSnapshotFileNameHelper': '快照將儲存到：{path}',
+  'settingsSnapshotFileEmpty': '所選快照檔案為空。',
+  'dashboardCurrentModelLabel': '目前模型',
+  'dashboardCurrentModelUnknown': '尚未設定',
+  'gatewayLatestVersionLabel': '最新版本',
+  'gatewayPackageSizeLabel': '套件大小',
+  'gatewayNodeRequirementShortLabel': 'Node.js',
 };

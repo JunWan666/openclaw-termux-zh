@@ -11,6 +11,7 @@ import '../providers/locale_provider.dart';
 import '../providers/node_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
+import '../services/snapshot_service.dart';
 import '../services/update_service.dart';
 import 'node_screen.dart';
 import 'setup_wizard_screen.dart';
@@ -120,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: DropdownButtonFormField<String>(
-                    value: localeProvider.localeCode,
+                    initialValue: localeProvider.localeCode,
                     decoration: InputDecoration(labelText: l10n.t('language')),
                     items: [
                       DropdownMenuItem(
@@ -414,7 +415,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<String> _getSnapshotPath() async {
+  Future<String?> _getSnapshotPath() async {
+    final directory = await _getSnapshotDirectory();
+    final fileName = await _promptSnapshotFileName(directory.path);
+    if (fileName == null || fileName.isEmpty) {
+      return null;
+    }
+    return '${directory.path}/$fileName';
+  }
+
+  Future<Directory> _getSnapshotDirectory() async {
     final hasPermission = await NativeBridge.hasStoragePermission();
     if (hasPermission) {
       final sdcard = await NativeBridge.getExternalStoragePath();
@@ -422,34 +432,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!await downloadDir.exists()) {
         await downloadDir.create(recursive: true);
       }
-      return '$sdcard/Download/openclaw-snapshot.json';
+      return downloadDir;
     }
     // Fallback to app-private directory
     final dir = await getApplicationDocumentsDirectory();
-    return '${dir.path}/openclaw-snapshot.json';
+    return dir;
+  }
+
+  String _defaultSnapshotFileName() {
+    final now = DateTime.now();
+    final year = now.year.toString().padLeft(4, '0');
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    final hour = now.hour.toString().padLeft(2, '0');
+    final minute = now.minute.toString().padLeft(2, '0');
+    final second = now.second.toString().padLeft(2, '0');
+    return 'openclaw-snapshot-$year-$month-$day-$hour$minute$second.json';
+  }
+
+  String _normalizeSnapshotFileName(String raw) {
+    final trimmed = raw.trim();
+    final safe = trimmed
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '-')
+        .replaceAll(RegExp(r'\s+'), '-');
+    final fallback = safe.isEmpty ? _defaultSnapshotFileName() : safe;
+    return fallback.toLowerCase().endsWith('.json')
+        ? fallback
+        : '$fallback.json';
+  }
+
+  Future<String?> _promptSnapshotFileName(String directoryPath) async {
+    final controller = TextEditingController(text: _defaultSnapshotFileName());
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.t('settingsSnapshotFileNameTitle')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.l10n.t('settingsSnapshotFileNameHelper', {
+                'path': directoryPath,
+              }),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: context.l10n.t('settingsSnapshotFileNameLabel'),
+                hintText: _defaultSnapshotFileName(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(context.l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext)
+                .pop(_normalizeSnapshotFileName(controller.text)),
+            child: Text(context.l10n.t('settingsExportSnapshot')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
   }
 
   Future<void> _exportSnapshot() async {
     try {
-      final openclawJson =
-          await NativeBridge.readRootfsFile('root/.openclaw/openclaw.json');
-      final persistentGatewayLogs =
-          await NativeBridge.isGatewayLogPersistenceEnabled();
-      final snapshot = {
-        'version': AppConstants.version,
-        'timestamp': DateTime.now().toIso8601String(),
-        'openclawConfig': openclawJson,
-        'dashboardUrl': _prefs.dashboardUrl,
-        'autoStart': _prefs.autoStartGateway,
-        'persistentGatewayLogs': persistentGatewayLogs,
-        'nodeEnabled': _prefs.nodeEnabled,
-        'nodeDeviceToken': _prefs.nodeDeviceToken,
-        'nodeGatewayHost': _prefs.nodeGatewayHost,
-        'nodeGatewayPort': _prefs.nodeGatewayPort,
-        'nodeGatewayToken': _prefs.nodeGatewayToken,
-      };
+      final snapshot =
+          await SnapshotService.buildSnapshot(AppConstants.version);
 
       final path = await _getSnapshotPath();
+      if (path == null || path.isEmpty) {
+        return;
+      }
       final file = File(path);
       await file
           .writeAsString(const JsonEncoder.withIndent('  ').convert(snapshot));
@@ -472,57 +535,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _importSnapshot() async {
+    final l10n = context.l10n;
     try {
-      final path = await _getSnapshotPath();
-      final file = File(path);
-
-      if (!await file.exists()) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.t('settingsSnapshotMissing', {'path': path})),
-          ),
-        );
+      final pickedName = await SnapshotService.pickAndRestoreSnapshot(
+        emptyFileMessage: l10n.t('settingsSnapshotFileEmpty'),
+      );
+      if (pickedName == null) {
         return;
-      }
-
-      final content = await file.readAsString();
-      final snapshot = jsonDecode(content) as Map<String, dynamic>;
-
-      // Restore openclaw.json into rootfs
-      final openclawConfig = snapshot['openclawConfig'] as String?;
-      if (openclawConfig != null) {
-        await NativeBridge.writeRootfsFile(
-            'root/.openclaw/openclaw.json', openclawConfig);
-      }
-
-      // Restore preferences
-      if (snapshot['dashboardUrl'] != null) {
-        _prefs.dashboardUrl = snapshot['dashboardUrl'] as String;
-      }
-      if (snapshot['autoStart'] != null) {
-        _prefs.autoStartGateway = snapshot['autoStart'] as bool;
-      }
-      if (snapshot['persistentGatewayLogs'] != null) {
-        await NativeBridge.setGatewayLogPersistenceEnabled(
-          snapshot['persistentGatewayLogs'] as bool,
-        );
-      }
-      if (snapshot['nodeEnabled'] != null) {
-        _prefs.nodeEnabled = snapshot['nodeEnabled'] as bool;
-      }
-      if (snapshot['nodeDeviceToken'] != null) {
-        _prefs.nodeDeviceToken = snapshot['nodeDeviceToken'] as String;
-      }
-      if (snapshot['nodeGatewayHost'] != null) {
-        _prefs.nodeGatewayHost = snapshot['nodeGatewayHost'] as String;
-      }
-      if (snapshot['nodeGatewayPort'] != null) {
-        _prefs.nodeGatewayPort = snapshot['nodeGatewayPort'] as int;
-      }
-      if (snapshot['nodeGatewayToken'] != null) {
-        _prefs.nodeGatewayToken = snapshot['nodeGatewayToken'] as String;
       }
 
       // Refresh UI
@@ -530,13 +549,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.t('settingsSnapshotRestored'))),
+        SnackBar(
+          content: Text(
+            l10n.t('settingsSnapshotRestored', {
+              'file': pickedName,
+            }),
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.t('settingsImportFailed', {'error': e})),
+          content: Text(l10n.t('settingsImportFailed', {'error': e})),
         ),
       );
     }

@@ -8,7 +8,10 @@ import '../models/optional_package.dart';
 import '../providers/setup_provider.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/package_service.dart';
+import '../services/provider_config_service.dart';
+import '../services/snapshot_service.dart';
 import '../widgets/progress_step.dart';
+import 'dashboard_screen.dart';
 import 'onboarding_screen.dart';
 import 'package_install_screen.dart';
 
@@ -59,6 +62,45 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       _started = true;
     });
     await provider.runSetup();
+  }
+
+  Future<void> _importSnapshotAndContinue() async {
+    final l10n = context.l10n;
+    try {
+      final pickedName = await SnapshotService.pickAndRestoreSnapshot(
+        emptyFileMessage: l10n.t('settingsSnapshotFileEmpty'),
+      );
+      if (pickedName == null || !mounted) {
+        return;
+      }
+
+      final gatewayConfigured =
+          await ProviderConfigService.hasRequiredGatewayConfig();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t('settingsSnapshotRestored', {'file': pickedName}),
+          ),
+        ),
+      );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => gatewayConfigured
+              ? const DashboardScreen()
+              : const OnboardingScreen(isFirstRun: true),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.t('settingsImportFailed', {'error': e})),
+        ),
+      );
+    }
   }
 
   @override
@@ -141,13 +183,26 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                     const SizedBox(height: 16),
                   ],
                   if (state.isComplete)
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => _goToOnboarding(context),
-                        icon: const Icon(Icons.arrow_forward),
-                        label: Text(l10n.t('setupWizardConfigureApiKeys')),
-                      ),
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () => _goToOnboarding(context),
+                            icon: const Icon(Icons.arrow_forward),
+                            label: Text(l10n.t('setupWizardConfigureApiKeys')),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _importSnapshotAndContinue,
+                            icon: const Icon(Icons.download_done_outlined),
+                            label: Text(l10n.t('settingsImportSnapshot')),
+                          ),
+                        ),
+                      ],
                     )
                   else if (!_started || state.hasError)
                     SizedBox(

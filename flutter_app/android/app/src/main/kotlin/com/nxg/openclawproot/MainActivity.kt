@@ -39,6 +39,7 @@ class MainActivity : FlutterActivity() {
     private lateinit var processManager: ProcessManager
     private var screenCaptureResult: MethodChannel.Result? = null
     private var screenCaptureDurationMs: Long = 5000L
+    private var snapshotPickResult: MethodChannel.Result? = null
     private var setupDone = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -352,6 +353,18 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "url required", null)
                     }
                 }
+                "pickSnapshotFile" -> {
+                    snapshotPickResult = result
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(
+                            Intent.EXTRA_MIME_TYPES,
+                            arrayOf("application/json", "text/json", "text/plain")
+                        )
+                    }
+                    startActivityForResult(intent, SNAPSHOT_PICK_REQUEST)
+                }
                 "copyToClipboard" -> {
                     val text = call.argument<String>("text")
                     if (text != null) {
@@ -662,6 +675,32 @@ class MainActivity : FlutterActivity() {
                 screenCaptureResult?.success(null)
                 screenCaptureResult = null
             }
+            return
+        }
+
+        if (requestCode == SNAPSHOT_PICK_REQUEST) {
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                try {
+                    val uri = data.data!!
+                    val content = contentResolver.openInputStream(uri)
+                        ?.bufferedReader()
+                        ?.use { it.readText() }
+                    val name = uri.lastPathSegment?.substringAfterLast('/') ?: "snapshot.json"
+                    snapshotPickResult?.success(
+                        hashMapOf(
+                            "name" to name,
+                            "content" to content
+                        )
+                    )
+                } catch (e: Exception) {
+                    snapshotPickResult?.error("SNAPSHOT_PICK_ERROR", e.message, null)
+                } finally {
+                    snapshotPickResult = null
+                }
+            } else {
+                snapshotPickResult?.success(null)
+                snapshotPickResult = null
+            }
         }
     }
 
@@ -670,6 +709,7 @@ class MainActivity : FlutterActivity() {
         const val NOTIFICATION_PERMISSION_REQUEST = 1001
         const val SCREEN_CAPTURE_REQUEST = 1002
         const val STORAGE_PERMISSION_REQUEST = 1003
+        const val SNAPSHOT_PICK_REQUEST = 1004
     }
 }
 
