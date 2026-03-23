@@ -50,6 +50,17 @@ class NativeBridge {
     return await _channel.invokeMethod('isGatewayRunning');
   }
 
+  static Future<bool> isGatewayLogPersistenceEnabled() async {
+    return await _channel.invokeMethod('isGatewayLogPersistenceEnabled');
+  }
+
+  static Future<bool> setGatewayLogPersistenceEnabled(bool enabled) async {
+    return await _channel.invokeMethod(
+      'setGatewayLogPersistenceEnabled',
+      {'enabled': enabled},
+    );
+  }
+
   static Future<bool> setupDirs() async {
     return await _channel.invokeMethod('setupDirs');
   }

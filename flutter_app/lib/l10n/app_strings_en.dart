@@ -345,6 +345,9 @@ const Map<String, String> appStringsEn = {
   'settingsGeneral': 'General',
   'settingsAutoStart': 'Auto-start gateway',
   'settingsAutoStartSubtitle': 'Start the gateway when the app opens',
+  'settingsPersistentGatewayLogs': 'Persist gateway logs',
+  'settingsPersistentGatewayLogsSubtitle':
+      'Write logs to /root/openclaw.log, rotate at 5 MB, keep 3 files total',
   'settingsBatteryOptimization': 'Battery Optimization',
   'settingsBatteryOptimized': 'Optimized (may kill background sessions)',
   'settingsBatteryUnrestricted': 'Unrestricted (recommended)',

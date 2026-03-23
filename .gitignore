@@ -31,3 +31,4 @@ release/*
 !release/*/
 release/*/*
 !release/*/Release.zh.md
+.codex-project-rules.md

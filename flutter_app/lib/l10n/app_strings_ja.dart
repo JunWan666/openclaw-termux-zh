@@ -282,6 +282,9 @@ const Map<String, String> appStringsJa = {
   'settingsGeneral': '一般',
   'settingsAutoStart': 'ゲートウェイを自動起動',
   'settingsAutoStartSubtitle': 'アプリ起動時にゲートウェイを開始',
+  'settingsPersistentGatewayLogs': 'ゲートウェイログを永続化',
+  'settingsPersistentGatewayLogsSubtitle':
+      '/root/openclaw.log に書き込み、5 MB 超でローテーションし、最大 3 世代保持します',
   'settingsBatteryOptimization': 'バッテリー最適化',
   'settingsBatteryOptimized': '最適化済み（バックグラウンドセッションが終了する場合があります）',
   'settingsBatteryUnrestricted': '制限なし（推奨）',

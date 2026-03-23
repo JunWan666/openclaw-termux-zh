@@ -134,6 +134,16 @@ class MainActivity : FlutterActivity() {
                 "isGatewayRunning" -> {
                     result.success(GatewayService.isProcessAlive())
                 }
+                "isGatewayLogPersistenceEnabled" -> {
+                    result.success(
+                        GatewayLogPersistence.isEnabled(applicationContext)
+                    )
+                }
+                "setGatewayLogPersistenceEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    GatewayLogPersistence.setEnabled(applicationContext, enabled)
+                    result.success(true)
+                }
                 "startTerminalService" -> {
                     try {
                         TerminalSessionService.start(applicationContext)

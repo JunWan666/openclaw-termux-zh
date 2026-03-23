@@ -277,6 +277,9 @@ const Map<String, String> appStringsZhHant = {
   'settingsGeneral': '一般',
   'settingsAutoStart': '自動啟動網關',
   'settingsAutoStartSubtitle': '應用打開時自動啟動網關',
+  'settingsPersistentGatewayLogs': '持久化網關日誌',
+  'settingsPersistentGatewayLogsSubtitle':
+      '寫入 /root/openclaw.log，單檔超過 5MB 自動輪轉，最多保留 3 份',
   'settingsBatteryOptimization': '電池最佳化',
   'settingsBatteryOptimized': '已優化（可能會終止後台會話）',
   'settingsBatteryUnrestricted': '不受限制（推薦）',

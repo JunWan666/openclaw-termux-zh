@@ -35,6 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _brewInstalled = false;
   bool _sshInstalled = false;
   bool _storageGranted = false;
+  bool _persistentGatewayLogs = false;
   bool _checkingUpdate = false;
 
   @override
@@ -53,7 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final prootPath = await NativeBridge.getProotPath();
       final status = await NativeBridge.getBootstrapStatus();
       final batteryOptimized = await NativeBridge.isBatteryOptimized();
-
+      final persistentGatewayLogs =
+          await NativeBridge.isGatewayLogPersistenceEnabled();
       final storageGranted = await NativeBridge.hasStoragePermission();
 
       // Check optional package statuses
@@ -66,6 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       setState(() {
         _batteryOptimized = batteryOptimized;
+        _persistentGatewayLogs = persistentGatewayLogs;
         _storageGranted = storageGranted;
         _arch = arch;
         _prootPath = prootPath;
@@ -102,6 +105,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (value) {
                     setState(() => _autoStart = value);
                     _prefs.autoStartGateway = value;
+                  },
+                ),
+                SwitchListTile(
+                  title: Text(l10n.t('settingsPersistentGatewayLogs')),
+                  subtitle:
+                      Text(l10n.t('settingsPersistentGatewayLogsSubtitle')),
+                  value: _persistentGatewayLogs,
+                  onChanged: (value) async {
+                    await NativeBridge.setGatewayLogPersistenceEnabled(value);
+                    setState(() => _persistentGatewayLogs = value);
                   },
                 ),
                 Padding(
@@ -420,12 +433,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final openclawJson =
           await NativeBridge.readRootfsFile('root/.openclaw/openclaw.json');
+      final persistentGatewayLogs =
+          await NativeBridge.isGatewayLogPersistenceEnabled();
       final snapshot = {
         'version': AppConstants.version,
         'timestamp': DateTime.now().toIso8601String(),
         'openclawConfig': openclawJson,
         'dashboardUrl': _prefs.dashboardUrl,
         'autoStart': _prefs.autoStartGateway,
+        'persistentGatewayLogs': persistentGatewayLogs,
         'nodeEnabled': _prefs.nodeEnabled,
         'nodeDeviceToken': _prefs.nodeDeviceToken,
         'nodeGatewayHost': _prefs.nodeGatewayHost,
@@ -487,6 +503,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       if (snapshot['autoStart'] != null) {
         _prefs.autoStartGateway = snapshot['autoStart'] as bool;
+      }
+      if (snapshot['persistentGatewayLogs'] != null) {
+        await NativeBridge.setGatewayLogPersistenceEnabled(
+          snapshot['persistentGatewayLogs'] as bool,
+        );
       }
       if (snapshot['nodeEnabled'] != null) {
         _prefs.nodeEnabled = snapshot['nodeEnabled'] as bool;

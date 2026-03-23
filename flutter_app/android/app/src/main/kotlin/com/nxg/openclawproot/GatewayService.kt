@@ -453,6 +453,7 @@ class GatewayService : Service() {
         try {
             val formatted = normalizeLogLine(message)
             if (formatted.isBlank()) return
+            GatewayLogPersistence.appendLine(applicationContext, formatted)
             mainHandler.post {
                 try {
                     logSink?.success(formatted)

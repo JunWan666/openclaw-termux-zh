@@ -277,6 +277,9 @@ const Map<String, String> appStringsZhHans = {
   'settingsGeneral': '常规',
   'settingsAutoStart': '自动启动网关',
   'settingsAutoStartSubtitle': '应用打开时自动启动网关',
+  'settingsPersistentGatewayLogs': '持久化网关日志',
+  'settingsPersistentGatewayLogsSubtitle':
+      '写入 /root/openclaw.log，单文件超过 5MB 自动轮转，最多保留 3 份',
   'settingsBatteryOptimization': '电池优化',
   'settingsBatteryOptimized': '已优化（可能会杀死后台会话）',
   'settingsBatteryUnrestricted': '不受限制（推荐）',

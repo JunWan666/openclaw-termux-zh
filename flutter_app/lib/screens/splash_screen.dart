@@ -95,12 +95,15 @@ class _SplashScreenState extends State<SplashScreen>
                 '$sdcard/Download/openclaw-snapshot-$oldVersion.json';
             final openclawJson = await NativeBridge.readRootfsFile(
                 'root/.openclaw/openclaw.json');
+            final persistentGatewayLogs =
+                await NativeBridge.isGatewayLogPersistenceEnabled();
             final snapshot = {
               'version': oldVersion,
               'timestamp': DateTime.now().toIso8601String(),
               'openclawConfig': openclawJson,
               'dashboardUrl': prefs.dashboardUrl,
               'autoStart': prefs.autoStartGateway,
+              'persistentGatewayLogs': persistentGatewayLogs,
               'nodeEnabled': prefs.nodeEnabled,
               'nodeDeviceToken': prefs.nodeDeviceToken,
               'nodeGatewayHost': prefs.nodeGatewayHost,
