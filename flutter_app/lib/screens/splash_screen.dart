@@ -130,9 +130,12 @@ class _SplashScreenState extends State<SplashScreen>
       if (setupComplete) {
         final gatewayConfigured =
             await ProviderConfigService.hasRequiredGatewayConfig();
+        final pendingSetupCompletionChoice =
+            prefs.pendingSetupCompletionChoice;
         if (!mounted) return;
 
         if (gatewayConfigured) {
+          prefs.pendingSetupCompletionChoice = false;
           prefs.setupComplete = true;
           prefs.isFirstRun = false;
         }
@@ -141,10 +144,15 @@ class _SplashScreenState extends State<SplashScreen>
           MaterialPageRoute(
             builder: (_) => gatewayConfigured
                 ? const DashboardScreen()
-                : const OnboardingScreen(isFirstRun: true),
+                : pendingSetupCompletionChoice
+                    ? const SetupWizardScreen(
+                        resumeCompletionChoice: true,
+                      )
+                    : const OnboardingScreen(isFirstRun: true),
           ),
         );
       } else {
+        prefs.pendingSetupCompletionChoice = false;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
         );

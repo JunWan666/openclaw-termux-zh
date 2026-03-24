@@ -416,6 +416,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final navigator = Navigator.of(context);
     final prefs = PreferencesService();
     await prefs.init();
+    prefs.pendingSetupCompletionChoice = false;
     prefs.setupComplete = true;
     prefs.isFirstRun = false;
 

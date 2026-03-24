@@ -77,8 +77,11 @@ const Map<String, String> appStringsEn = {
   'messagePlatformDetailRemoved': '{platform} removed',
   'messagePlatformDetailRemoveFailed': 'Failed to remove: {error}',
   'providersScreenActiveModel': 'Active Model',
+  'providersScreenActivePreset': 'Custom preset: {preset}',
   'providersScreenIntro':
       'Select a provider to configure its API key, endpoint, and model.',
+  'providersScreenPresetSwitch': 'Switch Preset',
+  'providersScreenPresetActivated': 'Switched to preset {preset}',
   'providersStatusActive': 'Active',
   'providersStatusConfigured': 'Configured',
   'providerDetailApiKey': 'API Key',
@@ -106,9 +109,38 @@ const Map<String, String> appStringsEn = {
   'providerDetailRemoveConfiguration': 'Remove Configuration',
   'providerDetailRemoved': '{provider} removed',
   'providerDetailRemoveFailed': 'Failed to remove: {error}',
-  'providerNameCustomOpenai': 'Custom OpenAI-Compatible',
+  'providerNameCustomOpenai': 'Custom Model Provider',
   'providerDescriptionCustomOpenai':
-      'Use any OpenAI-compatible provider with your own base URL and model',
+      'Create reusable custom provider presets with your own compatibility mode, base URL, and model',
+  'providerDescriptionCustomOpenaiWithCount':
+      '{count} custom presets configured. Tap to edit or add more.',
+  'customProviderPresetLabel': 'Preset',
+  'customProviderPresetNewAction': 'Create New Preset',
+  'customProviderCompatibility': 'Compatibility Mode',
+  'customProviderCompatibilityAuto': 'Auto Detect',
+  'customProviderCompatibilityOpenai': 'OpenAI Compatible',
+  'customProviderCompatibilityOpenaiResponses': 'OpenAI Responses API',
+  'customProviderCompatibilityAnthropic': 'Anthropic Compatible',
+  'customProviderCompatibilityGoogle': 'Google Generative AI',
+  'customProviderApiKeyHelper':
+      'Optional. Leave blank if your endpoint does not require authentication.',
+  'customProviderModelId': 'Model ID',
+  'customProviderModelIdEmpty': 'Model ID cannot be empty',
+  'customProviderProviderId': 'Provider ID / Endpoint ID',
+  'customProviderProviderIdHelper':
+      'Optional. Leave blank to auto-generate a unique provider ID for this preset.',
+  'customProviderProviderIdInvalid':
+      'Provider ID cannot contain "/" characters',
+  'customProviderAlias': 'Alias',
+  'customProviderAliasPlaceholder': 'Optional display name',
+  'customProviderAliasHelper':
+      'Optional. Used in the app to quickly distinguish multiple presets.',
+  'customProviderSaved': 'Preset {preset} saved and activated',
+  'customProviderRemoveTitle': 'Remove preset {preset}?',
+  'customProviderRemoveBody':
+      'This will delete the saved compatibility mode, endpoint, API key, alias, and model for this preset.',
+  'customProviderRemoved': 'Preset {preset} removed',
+  'customProviderActivePresetHint': 'Currently active preset: {preset}',
   'providerNameAnthropic': 'Anthropic',
   'providerDescriptionAnthropic':
       'Claude models for advanced reasoning and coding',
@@ -411,6 +443,16 @@ const Map<String, String> appStringsEn = {
   'settingsLicense': 'License',
   'settingsPlayStore': 'Play Store',
   'settingsEmail': 'Email',
+  'settingsCheckForUpdates': 'Check for Updates',
+  'settingsCheckForUpdatesSubtitle':
+      'Check this repository for a newer release',
+  'settingsUpdateAvailableTitle': 'Update Available',
+  'settingsUpdateAvailableBody':
+      'A new version is available.\n\nCurrent: {current}\nLatest: {latest}',
+  'settingsUpdateLater': 'Later',
+  'settingsUpdateDownload': 'Download',
+  'settingsLatestVersion': "You're on the latest version",
+  'settingsUpdateCheckFailed': 'Could not check for updates',
   'settingsSnapshotSaved': 'Snapshot saved to {path}',
   'settingsExportFailed': 'Export failed: {error}',
   'settingsSnapshotMissing': 'No snapshot found at {path}',

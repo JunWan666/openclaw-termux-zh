@@ -1,22 +1,23 @@
 class AppConstants {
   static const String appName = 'OpenClaw';
-  static const String version = '1.8.9';
+  static const String version = '1.9.0';
   static const String packageName = 'com.junwan666.openclawzh';
 
   /// Matches ANSI escape sequences (e.g. color codes in terminal output).
   static final ansiEscape = RegExp(r'\x1b\[[0-9;]*[a-zA-Z]');
 
   static const String authorName = 'JunWan';
-  static const String authorEmail = 'mithungowda.b7411@gmail.com';
-  static const String githubUrl = 'https://github.com/mithun50/openclaw-termux';
+  static const String authorEmail = 'susuya0712@gmail.com';
+  static const String githubUrl =
+      'https://github.com/JunWan666/openclaw-termux-zh';
   static const String license = 'MIT';
 
   static const String githubApiLatestRelease =
-      'https://api.github.com/repos/mithun50/openclaw-termux/releases/latest';
+      'https://api.github.com/repos/JunWan666/openclaw-termux-zh/releases/latest';
 
   // NextGenX
   static const String orgName = 'NextGenX';
-  static const String orgEmail = 'nxgextra@gmail.com';
+  static const String orgEmail = 'susuya0712@gmail.com';
   static const String instagramUrl =
       'https://www.instagram.com/nexgenxplorer_nxg';
   static const String youtubeUrl =

@@ -24,6 +24,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const _showOrgSection = false;
+
   final _prefs = PreferencesService();
   bool _autoStart = false;
   bool _nodeEnabled = false;
@@ -334,8 +336,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   leading: const Icon(Icons.person),
                 ),
                 ListTile(
-                  title: const Text('Check for Updates'),
-                  subtitle: const Text('Check GitHub for a newer release'),
+                  title: Text(l10n.t('settingsCheckForUpdates')),
+                  subtitle: Text(l10n.t('settingsCheckForUpdatesSubtitle')),
                   leading: _checkingUpdate
                       ? const SizedBox(
                           width: 24,
@@ -347,7 +349,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ListTile(
                   title: Text(l10n.t('settingsGithub')),
-                  subtitle: const Text('mithun50/openclaw-termux'),
+                  subtitle: const Text('JunWan666/openclaw-termux-zh'),
                   leading: const Icon(Icons.code),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -365,49 +367,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 ListTile(
+                  title: Text(l10n.t('settingsEmail')),
+                  subtitle: const Text(AppConstants.authorEmail),
+                  leading: const Icon(Icons.email_outlined),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse('mailto:${AppConstants.authorEmail}'),
+                  ),
+                ),
+                ListTile(
                   title: Text(l10n.t('settingsLicense')),
                   subtitle: const Text(AppConstants.license),
                   leading: const Icon(Icons.description),
                 ),
-                const Divider(),
-                _sectionHeader(theme, AppConstants.orgName.toUpperCase()),
-                ListTile(
-                  title: const Text('Instagram'),
-                  subtitle: const Text('@nexgenxplorer_nxg'),
-                  leading: const Icon(Icons.camera_alt),
-                  trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => launchUrl(
-                    Uri.parse(AppConstants.instagramUrl),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-                ListTile(
-                  title: const Text('YouTube'),
-                  subtitle: const Text('@nexgenxplorer'),
-                  leading: const Icon(Icons.play_circle_fill),
-                  trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => launchUrl(
-                    Uri.parse(AppConstants.youtubeUrl),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-                ListTile(
-                  title: Text(l10n.t('settingsPlayStore')),
-                  subtitle: const Text('NextGenX Apps'),
-                  leading: const Icon(Icons.shop),
-                  trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => launchUrl(
-                    Uri.parse(AppConstants.playStoreUrl),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-                ListTile(
-                  title: Text(l10n.t('settingsEmail')),
-                  subtitle: const Text(AppConstants.orgEmail),
-                  leading: const Icon(Icons.email_outlined),
-                  trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => launchUrl(
-                    Uri.parse('mailto:${AppConstants.orgEmail}'),
+                Visibility(
+                  visible: _showOrgSection,
+                  maintainState: true,
+                  child: Column(
+                    children: [
+                      const Divider(),
+                      _sectionHeader(theme, AppConstants.orgName.toUpperCase()),
+                      ListTile(
+                        title: const Text('Instagram'),
+                        subtitle: const Text('@nexgenxplorer_nxg'),
+                        leading: const Icon(Icons.camera_alt),
+                        trailing: const Icon(Icons.open_in_new, size: 18),
+                        onTap: () => launchUrl(
+                          Uri.parse(AppConstants.instagramUrl),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
+                      ListTile(
+                        title: const Text('YouTube'),
+                        subtitle: const Text('@nexgenxplorer'),
+                        leading: const Icon(Icons.play_circle_fill),
+                        trailing: const Icon(Icons.open_in_new, size: 18),
+                        onTap: () => launchUrl(
+                          Uri.parse(AppConstants.youtubeUrl),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
+                      ListTile(
+                        title: Text(l10n.t('settingsPlayStore')),
+                        subtitle: const Text('NextGenX Apps'),
+                        leading: const Icon(Icons.shop),
+                        trailing: const Icon(Icons.open_in_new, size: 18),
+                        onTap: () => launchUrl(
+                          Uri.parse(AppConstants.playStoreUrl),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -568,6 +578,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _checkForUpdates() async {
+    final l10n = context.l10n;
     setState(() => _checkingUpdate = true);
     try {
       final result = await UpdateService.check();
@@ -576,16 +587,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Update Available'),
+            title: Text(l10n.t('settingsUpdateAvailableTitle')),
             content: Text(
-              'A new version is available.\n\n'
-              'Current: ${AppConstants.version}\n'
-              'Latest: ${result.latest}',
+              l10n.t('settingsUpdateAvailableBody', {
+                'current': AppConstants.version,
+                'latest': result.latest,
+              }),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Later'),
+                child: Text(l10n.t('settingsUpdateLater')),
               ),
               FilledButton(
                 onPressed: () {
@@ -595,20 +607,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mode: LaunchMode.externalApplication,
                   );
                 },
-                child: const Text('Download'),
+                child: Text(l10n.t('settingsUpdateDownload')),
               ),
             ],
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("You're on the latest version")),
+          SnackBar(content: Text(l10n.t('settingsLatestVersion'))),
         );
       }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not check for updates')),
+        SnackBar(content: Text(l10n.t('settingsUpdateCheckFailed'))),
       );
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);

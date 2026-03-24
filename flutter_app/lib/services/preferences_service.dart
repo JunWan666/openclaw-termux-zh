@@ -4,6 +4,8 @@ class PreferencesService {
   static const _keyAutoStart = 'auto_start_gateway';
   static const _keySetupComplete = 'setup_complete';
   static const _keyFirstRun = 'first_run';
+  static const _keyPendingSetupCompletionChoice =
+      'pending_setup_completion_choice';
   static const _keyDashboardUrl = 'dashboard_url';
   static const _keyLocaleCode = 'locale_code';
   static const _keyNodeEnabled = 'node_enabled';
@@ -28,6 +30,11 @@ class PreferencesService {
 
   bool get isFirstRun => _prefs.getBool(_keyFirstRun) ?? true;
   set isFirstRun(bool value) => _prefs.setBool(_keyFirstRun, value);
+
+  bool get pendingSetupCompletionChoice =>
+      _prefs.getBool(_keyPendingSetupCompletionChoice) ?? false;
+  set pendingSetupCompletionChoice(bool value) =>
+      _prefs.setBool(_keyPendingSetupCompletionChoice, value);
 
   String? get dashboardUrl => _prefs.getString(_keyDashboardUrl);
   set dashboardUrl(String? value) {

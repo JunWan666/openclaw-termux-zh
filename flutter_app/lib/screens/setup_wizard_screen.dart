@@ -8,6 +8,7 @@ import '../models/optional_package.dart';
 import '../providers/setup_provider.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/package_service.dart';
+import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
 import '../services/snapshot_service.dart';
 import '../widgets/progress_step.dart';
@@ -16,7 +17,12 @@ import 'onboarding_screen.dart';
 import 'package_install_screen.dart';
 
 class SetupWizardScreen extends StatefulWidget {
-  const SetupWizardScreen({super.key});
+  final bool resumeCompletionChoice;
+
+  const SetupWizardScreen({
+    super.key,
+    this.resumeCompletionChoice = false,
+  });
 
   @override
   State<SetupWizardScreen> createState() => _SetupWizardScreenState();
@@ -26,6 +32,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   final OpenClawVersionService _versionService = OpenClawVersionService();
 
   bool _started = false;
+  bool _resolvingExistingSetupState = false;
+  bool _didRestoreCompletedSetupState = false;
   Map<String, bool> _pkgStatuses = {};
   List<OpenClawReleaseInfo> _availableReleases = const [];
   OpenClawReleaseInfo? _latestRelease;
@@ -36,7 +44,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   @override
   void initState() {
     super.initState();
+    _resolvingExistingSetupState = widget.resumeCompletionChoice;
     _loadOpenClawReleaseOptions();
+    if (widget.resumeCompletionChoice) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreCompletedSetupState();
+      });
+    }
   }
 
   Future<void> _loadOpenClawReleaseOptions() async {
@@ -95,6 +109,56 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     if (result == true) _refreshPkgStatuses();
   }
 
+  Future<PreferencesService> _loadPrefs() async {
+    final prefs = PreferencesService();
+    await prefs.init();
+    return prefs;
+  }
+
+  Future<void> _restoreCompletedSetupState() async {
+    if (_didRestoreCompletedSetupState || !mounted) {
+      return;
+    }
+    _didRestoreCompletedSetupState = true;
+
+    try {
+      await context.read<SetupProvider>().checkIfSetupNeeded();
+    } finally {
+      if (mounted) {
+        setState(() => _resolvingExistingSetupState = false);
+      }
+    }
+  }
+
+  Future<void> _setPendingSetupChoice(bool value) async {
+    final prefs = await _loadPrefs();
+    prefs.pendingSetupCompletionChoice = value;
+  }
+
+  Future<void> _finishSetupFlow() async {
+    final prefs = await _loadPrefs();
+    prefs.pendingSetupCompletionChoice = false;
+    prefs.setupComplete = true;
+    prefs.isFirstRun = false;
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const DashboardScreen(),
+      ),
+    );
+  }
+
+  Future<void> _completeIfGatewayConfigured() async {
+    final gatewayConfigured =
+        await ProviderConfigService.hasRequiredGatewayConfig();
+    if (!mounted || !gatewayConfigured) {
+      return;
+    }
+
+    await _finishSetupFlow();
+  }
+
   Future<void> _beginSetup(SetupProvider provider) async {
     setState(() {
       _started = true;
@@ -102,6 +166,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     await provider.runSetup(
       selectedOpenClawRelease: _selectedRelease ?? _latestRelease,
     );
+
+    if (!mounted || !provider.state.isComplete) {
+      return;
+    }
+
+    await _setPendingSetupChoice(true);
   }
 
   Future<void> _importSnapshotAndContinue() async {
@@ -126,13 +196,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ),
       );
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => gatewayConfigured
-              ? const DashboardScreen()
-              : const OnboardingScreen(isFirstRun: true),
-        ),
-      );
+      if (gatewayConfigured) {
+        await _finishSetupFlow();
+        return;
+      }
+
+      await _goToOnboarding();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,6 +223,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         child: Consumer<SetupProvider>(
           builder: (context, provider, _) {
             final state = provider.state;
+            final isResolvingCompletionChoice =
+                _resolvingExistingSetupState && !state.isComplete;
 
             // Load package statuses once setup completes
             if (state.isComplete && _pkgStatuses.isEmpty) {
@@ -191,6 +262,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   Expanded(
                     child: _buildSteps(state, theme, isDark, l10n),
                   ),
+                  if (isResolvingCompletionChoice)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
                   if (state.hasError) ...[
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 160),
@@ -228,7 +306,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: () => _goToOnboarding(context),
+                            onPressed: _goToOnboarding,
                             icon: const Icon(Icons.arrow_forward),
                             label: Text(l10n.t('setupWizardConfigureApiKeys')),
                           ),
@@ -244,6 +322,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         ),
                       ],
                     )
+                  else if (isResolvingCompletionChoice)
+                    const SizedBox.shrink()
                   else if (!_started || state.hasError)
                     Column(
                       children: [
@@ -265,7 +345,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         ),
                       ],
                     ),
-                  if (!_started) ...[
+                  if (!_started && !state.isComplete) ...[
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
@@ -276,7 +356,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                       ),
                     ),
                   ],
-                  if (!_started && _releaseOptionsError != null) ...[
+                  if (!_started &&
+                      !state.isComplete &&
+                      _releaseOptionsError != null) ...[
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
@@ -637,11 +719,14 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     }
   }
 
-  void _goToOnboarding(BuildContext context) {
-    Navigator.of(context).pushReplacement(
+  Future<void> _goToOnboarding() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const OnboardingScreen(isFirstRun: true),
+        builder: (_) => const OnboardingScreen(),
       ),
     );
+
+    if (!mounted) return;
+    await _completeIfGatewayConfigured();
   }
 }

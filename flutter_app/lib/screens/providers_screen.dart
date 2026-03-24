@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../app.dart';
 import '../l10n/app_localizations.dart';
 import '../models/ai_provider.dart';
+import '../models/custom_provider_preset.dart';
 import '../services/provider_config_service.dart';
+import 'custom_provider_detail_screen.dart';
 import 'provider_detail_screen.dart';
 
 /// Lists all AI providers with their configuration status.
@@ -16,7 +19,22 @@ class ProvidersScreen extends StatefulWidget {
 class _ProvidersScreenState extends State<ProvidersScreen> {
   String? _activeModel;
   Map<String, dynamic> _providers = {};
+  List<CustomProviderPreset> _customPresets = const [];
   bool _loading = true;
+  bool _switchingPreset = false;
+
+  CustomProviderPreset? get _activeCustomPreset {
+    final activeModel = _activeModel;
+    if (activeModel == null || activeModel.isEmpty) {
+      return null;
+    }
+    for (final preset in _customPresets) {
+      if (preset.modelRef == activeModel) {
+        return preset;
+      }
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -26,34 +44,101 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
 
   Future<void> _refresh() async {
     final config = await ProviderConfigService.readConfig();
-    if (mounted) {
-      setState(() {
-        _activeModel = config['activeModel'] as String?;
-        _providers = config['providers'] as Map<String, dynamic>? ?? {};
-        _loading = false;
-      });
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _activeModel = config['activeModel'] as String?;
+      _providers = Map<String, dynamic>.from(
+        config['providers'] as Map? ?? const <String, dynamic>{},
+      );
+      _customPresets = List<CustomProviderPreset>.from(
+        config['customPresets'] as List? ?? const <CustomProviderPreset>[],
+      );
+      _loading = false;
+    });
   }
 
   Future<void> _openProvider(AiProvider provider) async {
-    final providerConfig = _providers[provider.id] as Map<String, dynamic>?;
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => ProviderDetailScreen(
-          provider: provider,
-          existingApiKey: providerConfig?['apiKey'] as String?,
-          existingBaseUrl: providerConfig?['baseUrl'] as String?,
-          existingModel: providerConfig?['model'] as String? ?? _activeModel,
-        ),
-      ),
-    );
+    final navigator = Navigator.of(context);
+    final result = provider.id == AiProvider.customOpenai.id
+        ? await navigator.push<bool>(
+            MaterialPageRoute(
+              builder: (_) => const CustomProviderDetailScreen(),
+            ),
+          )
+        : await navigator.push<bool>(
+            MaterialPageRoute(
+              builder: (_) => ProviderDetailScreen(
+                provider: provider,
+                existingApiKey: (_providers[provider.id]
+                    as Map<String, dynamic>?)?['apiKey'] as String?,
+                existingBaseUrl: (_providers[provider.id]
+                    as Map<String, dynamic>?)?['baseUrl'] as String?,
+                existingModel: (_providers[provider.id]
+                        as Map<String, dynamic>?)?['model'] as String? ??
+                    _activeModel,
+              ),
+            ),
+          );
     if (result == true) {
-      _refresh();
+      await _refresh();
+    }
+  }
+
+  Future<void> _activateCustomPreset(CustomProviderPreset preset) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    setState(() => _switchingPreset = true);
+    try {
+      await ProviderConfigService.activateModel(preset.modelRef);
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t(
+              'providersScreenPresetActivated',
+              {'preset': preset.displayName},
+            ),
+          ),
+        ),
+      );
+      await _refresh();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t('providerDetailSaveFailed', {'error': '$e'}),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _switchingPreset = false);
+      }
     }
   }
 
   ({String label, bool isActive}) _statusInfo(AiProvider provider) {
     final l10n = context.l10n;
+    if (provider.id == AiProvider.customOpenai.id) {
+      if (_customPresets.isEmpty) {
+        return (label: '', isActive: false);
+      }
+      final isActive = _activeCustomPreset != null;
+      return (
+        label: isActive
+            ? l10n.t('providersStatusActive')
+            : l10n.t('providersStatusConfigured'),
+        isActive: isActive,
+      );
+    }
+
     final isConfigured = _providers.containsKey(provider.id);
     if (!isConfigured) {
       return (label: '', isActive: false);
@@ -74,11 +159,18 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
     );
   }
 
+  String _customPresetMenuLabel(CustomProviderPreset preset) {
+    final secondary =
+        preset.alias.isNotEmpty ? preset.modelId : preset.providerId;
+    return '${preset.displayName} ($secondary)';
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final activeCustomPreset = _activeCustomPreset;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.t('providersScreenTitle'))),
@@ -87,7 +179,6 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Active model card
                 if (_activeModel != null && _activeModel!.isNotEmpty) ...[
                   Card(
                     child: Padding(
@@ -124,9 +215,69 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
+                                if (activeCustomPreset != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    l10n.t(
+                                      'providersScreenActivePreset',
+                                      {
+                                        'preset': activeCustomPreset.displayName
+                                      },
+                                    ),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
+                          if (_customPresets.isNotEmpty)
+                            PopupMenuButton<CustomProviderPreset>(
+                              enabled: !_switchingPreset,
+                              tooltip: l10n.t('providersScreenPresetSwitch'),
+                              onSelected: _activateCustomPreset,
+                              itemBuilder: (_) => [
+                                for (final preset in _customPresets)
+                                  PopupMenuItem(
+                                    value: preset,
+                                    child: Text(
+                                      _customPresetMenuLabel(preset),
+                                    ),
+                                  ),
+                              ],
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      theme.colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_switchingPreset)
+                                      const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    else
+                                      const Icon(Icons.swap_horiz, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      l10n.t('providersScreenPresetSwitch'),
+                                      style: theme.textTheme.labelLarge,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -151,6 +302,13 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
     final iconBg = isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF3F4F6);
     final status = _statusInfo(provider);
     final l10n = context.l10n;
+    final subtitle =
+        provider.id == AiProvider.customOpenai.id && _customPresets.isNotEmpty
+            ? l10n.t(
+                'providerDescriptionCustomOpenaiWithCount',
+                {'count': _customPresets.length},
+              )
+            : provider.description(l10n);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -177,10 +335,12 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          provider.name(l10n),
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            provider.name(l10n),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         if (status.label.isNotEmpty) ...[
@@ -212,7 +372,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      provider.description(l10n),
+                      subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
