@@ -4,6 +4,7 @@ import '../app.dart';
 import '../l10n/app_localizations.dart';
 import '../models/ai_provider.dart';
 import '../models/custom_provider_preset.dart';
+import '../services/custom_provider_connection_test_service.dart';
 import '../services/provider_config_service.dart';
 
 class CustomProviderDetailScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _CustomProviderDetailScreenState
     extends State<CustomProviderDetailScreen> {
   static const _newPresetValue = '__new_preset__';
 
+  final _connectionTestService = CustomProviderConnectionTestService();
   late final TextEditingController _baseUrlController;
   late final TextEditingController _apiKeyController;
   late final TextEditingController _modelIdController;
@@ -32,8 +34,11 @@ class _CustomProviderDetailScreenState
   bool _loading = true;
   bool _saving = false;
   bool _removing = false;
+  bool _testingConnection = false;
   bool _obscureKey = true;
   bool _didChange = false;
+  String? _lastTestFingerprint;
+  CustomProviderConnectionTestResult? _lastConnectionTestResult;
 
   CustomProviderPreset? get _selectedPreset {
     if (_selectedPresetValue == _newPresetValue) {
@@ -49,6 +54,17 @@ class _CustomProviderDetailScreenState
 
   bool get _isEditingExisting => _selectedPreset != null;
 
+  String get _currentConnectionFingerprint => [
+        _compatibility.name,
+        _baseUrlController.text.trim(),
+        _apiKeyController.text.trim(),
+        _modelIdController.text.trim(),
+      ].join('\u0000');
+
+  bool get _hasFreshConnectionTest =>
+      _lastTestFingerprint == _currentConnectionFingerprint &&
+      _lastConnectionTestResult != null;
+
   @override
   void initState() {
     super.initState();
@@ -57,11 +73,17 @@ class _CustomProviderDetailScreenState
     _modelIdController = TextEditingController();
     _providerIdController = TextEditingController();
     _aliasController = TextEditingController();
+    _baseUrlController.addListener(_handleConnectionFieldChanged);
+    _apiKeyController.addListener(_handleConnectionFieldChanged);
+    _modelIdController.addListener(_handleConnectionFieldChanged);
     _loadPresets();
   }
 
   @override
   void dispose() {
+    _baseUrlController.removeListener(_handleConnectionFieldChanged);
+    _apiKeyController.removeListener(_handleConnectionFieldChanged);
+    _modelIdController.removeListener(_handleConnectionFieldChanged);
     _baseUrlController.dispose();
     _apiKeyController.dispose();
     _modelIdController.dispose();
@@ -73,6 +95,18 @@ class _CustomProviderDetailScreenState
   Future<bool> _handleBack() async {
     Navigator.of(context).pop(_didChange);
     return false;
+  }
+
+  void _handleConnectionFieldChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  void _clearConnectionTestState() {
+    _lastTestFingerprint = null;
+    _lastConnectionTestResult = null;
   }
 
   Future<void> _loadPresets({String? preferredProviderId}) async {
@@ -114,6 +148,7 @@ class _CustomProviderDetailScreenState
 
   void _applyPreset(CustomProviderPreset preset) {
     setState(() {
+      _clearConnectionTestState();
       _selectedPresetValue = preset.providerId;
       _compatibility = preset.compatibility;
       _baseUrlController.text = preset.baseUrl;
@@ -126,6 +161,7 @@ class _CustomProviderDetailScreenState
 
   void _applyBlankPreset() {
     setState(() {
+      _clearConnectionTestState();
       _selectedPresetValue = _newPresetValue;
       _compatibility = CustomProviderCompatibility.openaiChatCompletions;
       _baseUrlController.text = AiProvider.customOpenai.baseUrl;
@@ -141,21 +177,14 @@ class _CustomProviderDetailScreenState
     return uri != null && uri.hasScheme && uri.hasAuthority;
   }
 
-  String _presetLabel(CustomProviderPreset preset) {
-    final detail = preset.providerId == preset.displayName
-        ? preset.modelId
-        : preset.providerId;
-    return '${preset.displayName} ($detail)';
-  }
-
-  Future<void> _save() async {
+  bool _validateConnectionInputs() {
     final l10n = context.l10n;
     final baseUrl = _baseUrlController.text.trim();
     if (!_isValidBaseUrl(baseUrl)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.t('providerDetailEndpointInvalid'))),
       );
-      return;
+      return false;
     }
 
     final modelId = _modelIdController.text.trim();
@@ -163,6 +192,234 @@ class _CustomProviderDetailScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.t('customProviderModelIdEmpty'))),
       );
+      return false;
+    }
+
+    return true;
+  }
+
+  String _presetLabel(CustomProviderPreset preset) {
+    final detail = preset.providerId == preset.displayName
+        ? preset.modelId
+        : preset.providerId;
+    return '${preset.displayName} ($detail)';
+  }
+
+  Future<CustomProviderConnectionTestResult?> _runConnectionTest() async {
+    if (!_validateConnectionInputs()) {
+      return null;
+    }
+
+    final fingerprint = _currentConnectionFingerprint;
+    setState(() => _testingConnection = true);
+
+    try {
+      final result = await _connectionTestService.testConnection(
+        compatibility: _compatibility,
+        apiKey: _apiKeyController.text.trim(),
+        baseUrl: _baseUrlController.text.trim(),
+        modelId: _modelIdController.text.trim(),
+      );
+      if (!mounted) {
+        return result;
+      }
+      setState(() {
+        _lastTestFingerprint = fingerprint;
+        _lastConnectionTestResult = result;
+      });
+      return result;
+    } finally {
+      if (mounted) {
+        setState(() => _testingConnection = false);
+      }
+    }
+  }
+
+  Future<bool> _ensureConnectionCheckedBeforeSave() async {
+    final currentResult =
+        _hasFreshConnectionTest ? _lastConnectionTestResult : null;
+    if (currentResult?.success == true) {
+      return true;
+    }
+
+    final result = currentResult ?? await _runConnectionTest();
+    if (result == null) {
+      return false;
+    }
+
+    if (result.success) {
+      return true;
+    }
+
+    if (!mounted) {
+      return false;
+    }
+
+    final l10n = context.l10n;
+    final detail = _connectionTestDetailText(l10n, result);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.t('customProviderSaveFailedConnectionTitle')),
+        content: Text(
+          [
+            l10n.t('customProviderSaveFailedConnectionBody'),
+            if (detail != null && detail.isNotEmpty)
+              l10n.t('customProviderSaveFailedConnectionReason', {
+                'reason': detail,
+              }),
+          ].join('\n\n'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.t('commonContinue')),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
+  }
+
+  String _compatibilityText(
+    AppLocalizations l10n,
+    CustomProviderCompatibility compatibility,
+  ) {
+    return l10n.t(compatibility.labelKey);
+  }
+
+  String? _connectionTestDetailText(
+    AppLocalizations l10n,
+    CustomProviderConnectionTestResult result,
+  ) {
+    final parts = <String>[];
+    if (result.statusCode != null) {
+      parts.add(
+        l10n.t('customProviderTestHttpStatus', {
+          'status': result.statusCode,
+        }),
+      );
+    }
+    final detail = result.detail?.trim();
+    if (detail != null && detail.isNotEmpty) {
+      parts.add(detail);
+    }
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join(' · ');
+  }
+
+  Widget _buildConnectionTestCard(ThemeData theme, AppLocalizations l10n) {
+    final result = _lastConnectionTestResult;
+    final isFresh = _hasFreshConnectionTest;
+    final bool isSuccess = isFresh && result?.success == true;
+    final bool isFailure = isFresh && result?.success == false;
+    final bool isStale = result != null && !isFresh;
+
+    final Color accentColor;
+    final IconData icon;
+    final String title;
+
+    if (_testingConnection) {
+      accentColor = theme.colorScheme.primary;
+      icon = Icons.sync;
+      title = l10n.t('customProviderTestStatusChecking');
+    } else if (isSuccess) {
+      accentColor = AppColors.statusGreen;
+      icon = Icons.check_circle_outline;
+      title = l10n.t('customProviderTestStatusSuccess');
+    } else if (isFailure) {
+      accentColor = AppColors.statusRed;
+      icon = Icons.error_outline;
+      title = l10n.t('customProviderTestStatusFailure');
+    } else if (isStale) {
+      accentColor = AppColors.statusAmber;
+      icon = Icons.history_toggle_off;
+      title = l10n.t('customProviderTestStatusStale');
+    } else {
+      accentColor = theme.colorScheme.onSurfaceVariant;
+      icon = Icons.radio_button_unchecked;
+      title = l10n.t('customProviderTestStatusUntested');
+    }
+
+    final detailLines = <String>[];
+    if (result != null) {
+      if (result.autoDetected) {
+        detailLines.add(
+          l10n.t('customProviderTestAutoDetectedHint', {
+            'compatibility': _compatibilityText(l10n, result.compatibility),
+          }),
+        );
+      } else if (isFresh) {
+        detailLines.add(
+          l10n.t('customProviderTestCompatibilityHint', {
+            'compatibility': _compatibilityText(l10n, result.compatibility),
+          }),
+        );
+      }
+
+      final detail = _connectionTestDetailText(l10n, result);
+      if (detail != null && detail.isNotEmpty) {
+        detailLines.add(detail);
+      }
+      detailLines.add(
+        l10n.t('customProviderTestEndpointHint', {
+          'endpoint': result.endpoint.toString(),
+        }),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accentColor.withAlpha(12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accentColor.withAlpha(40)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: accentColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: accentColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                for (final line in detailLines) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    line,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final l10n = context.l10n;
+    if (!_validateConnectionInputs()) {
       return;
     }
 
@@ -174,6 +431,13 @@ class _CustomProviderDetailScreenState
       return;
     }
 
+    final allowSave = await _ensureConnectionCheckedBeforeSave();
+    if (!allowSave || !mounted) {
+      return;
+    }
+
+    final baseUrl = _baseUrlController.text.trim();
+    final modelId = _modelIdController.text.trim();
     setState(() => _saving = true);
     try {
       final preset = await ProviderConfigService.saveCustomProviderPreset(
@@ -503,9 +767,37 @@ class _CustomProviderDetailScreenState
                       helperText: l10n.t('customProviderAliasHelper'),
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  _fieldTitle(
+                    theme,
+                    l10n.t('customProviderConnectionTestLabel'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _testingConnection || _saving
+                        ? null
+                        : _runConnectionTest,
+                    icon: _testingConnection
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          )
+                        : const Icon(Icons.wifi_tethering_outlined),
+                    label: Text(
+                      _testingConnection
+                          ? l10n.t('customProviderTestingAction')
+                          : l10n.t('customProviderTestAction'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildConnectionTestCard(theme, l10n),
                   const SizedBox(height: 32),
                   FilledButton(
-                    onPressed: _saving ? null : _save,
+                    onPressed: _saving || _testingConnection ? null : _save,
                     child: _saving
                         ? const SizedBox(
                             height: 20,

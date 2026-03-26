@@ -80,8 +80,8 @@ class _GatewayControlsState extends State<GatewayControls> {
       final preferredVersion = _selectedRelease?.version;
       final selectedRelease =
           _findReleaseByVersion(mergedReleases, preferredVersion) ??
-          _findReleaseByVersion(mergedReleases, latestRelease.version) ??
-          latestRelease;
+              _findReleaseByVersion(mergedReleases, latestRelease.version) ??
+              latestRelease;
 
       if (!mounted) return;
       setState(() {
@@ -385,6 +385,12 @@ class _GatewayControlsState extends State<GatewayControls> {
         : _installedVersion ?? l10n.t('dashboardOpenclawVersionUnknown');
     final latestRelease = _latestRelease;
     final selectedRelease = _selectedRelease ?? latestRelease;
+    final installedVersionStatus = _buildInstalledVersionStatus(
+      theme,
+      l10n,
+      installedVersion: _installedVersion,
+      latestRelease: latestRelease,
+    );
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -432,8 +438,12 @@ class _GatewayControlsState extends State<GatewayControls> {
                         fontFamily: 'DejaVuSansMono',
                       ),
                     ),
+                    if (installedVersionStatus != null) ...[
+                      const SizedBox(height: 6),
+                      installedVersionStatus,
+                    ],
                     if (latestRelease != null) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 6),
                       Text(
                         l10n.t('gatewayLatestReleaseHint', {
                           'version': latestRelease.version,
@@ -454,7 +464,7 @@ class _GatewayControlsState extends State<GatewayControls> {
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             isExpanded: true,
-            value: selectedRelease?.version,
+            initialValue: selectedRelease?.version,
             decoration: InputDecoration(
               labelText: l10n.t('gatewaySelectVersion'),
               border: const OutlineInputBorder(),
@@ -518,6 +528,53 @@ class _GatewayControlsState extends State<GatewayControls> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget? _buildInstalledVersionStatus(
+    ThemeData theme,
+    AppLocalizations l10n, {
+    required String? installedVersion,
+    required OpenClawReleaseInfo? latestRelease,
+  }) {
+    final latestVersion = latestRelease?.version;
+    final normalizedInstalled = installedVersion?.trim();
+    if (latestVersion == null ||
+        normalizedInstalled == null ||
+        normalizedInstalled.isEmpty) {
+      return null;
+    }
+
+    late final Color color;
+    late final String label;
+    if (OpenClawVersionService.isUpdateAvailable(
+      installedVersion: normalizedInstalled,
+      latestVersion: latestVersion,
+    )) {
+      color = AppColors.statusAmber;
+      label = l10n.t('gatewayVersionUpdatable');
+    } else {
+      color = AppColors.statusGreen;
+      label = l10n.t('gatewayVersionCurrent');
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withAlpha(14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withAlpha(40)),
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
