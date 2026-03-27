@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../app.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/node_state.dart';
 import '../providers/node_provider.dart';
 import '../services/provider_config_service.dart';
+import '../services/update_flow_service.dart';
+import '../services/update_service.dart';
 import '../widgets/gateway_controls.dart';
 import '../widgets/status_card.dart';
 import 'command_shortcuts_screen.dart';
@@ -27,14 +30,34 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   String? _activeModel;
   bool _loadingActiveModel = true;
+  UpdateResult? _latestAppUpdate;
+  bool _checkingAppUpdate = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshActiveModel();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshAppUpdateStatus();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshAppUpdateStatus();
+    }
   }
 
   Future<void> _refreshActiveModel() async {
@@ -62,12 +85,148 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return slashIndex >= 0 ? trimmed.substring(slashIndex + 1) : trimmed;
   }
 
+  Future<void> _refreshAppUpdateStatus() async {
+    try {
+      final result = await UpdateService.check();
+      if (!mounted) return;
+      setState(() => _latestAppUpdate = result);
+    } catch (_) {
+      // Keep the header button quiet when the release API is temporarily unreachable.
+    }
+  }
+
+  Future<void> _handleAppUpdateTap() async {
+    if (_checkingAppUpdate) return;
+
+    final cachedResult = _latestAppUpdate;
+    if (cachedResult?.available == true) {
+      await UpdateFlowService.showUpdateDialog(context, cachedResult!);
+      return;
+    }
+
+    final l10n = context.l10n;
+    setState(() => _checkingAppUpdate = true);
+    try {
+      final result = await UpdateService.check();
+      if (!mounted) return;
+
+      setState(() => _latestAppUpdate = result);
+      if (result.available) {
+        await UpdateFlowService.showUpdateDialog(context, result);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.t('settingsLatestVersion'))),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.t('settingsUpdateCheckFailed'))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _checkingAppUpdate = false);
+      }
+    }
+  }
+
+  Widget _buildAppUpdateAction(ThemeData theme, AppLocalizations l10n) {
+    final hasUpdate = _latestAppUpdate?.available == true;
+    final iconColor =
+        hasUpdate ? AppColors.accent : theme.colorScheme.onSurfaceVariant;
+    final borderColor = hasUpdate
+        ? AppColors.accent.withAlpha(90)
+        : theme.colorScheme.outline.withAlpha(180);
+    final backgroundColor = hasUpdate
+        ? AppColors.accent
+            .withAlpha(theme.brightness == Brightness.dark ? 26 : 18)
+        : Colors.transparent;
+    final tooltip = hasUpdate
+        ? l10n.t('settingsUpdateAvailableTitle')
+        : l10n.t('settingsCheckForUpdates');
+    final semanticLabel = hasUpdate
+        ? '${l10n.t('settingsUpdateAvailableTitle')} ${_latestAppUpdate?.latest ?? ''}'
+            .trim()
+        : l10n.t('settingsCheckForUpdates');
+
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _checkingAppUpdate ? null : _handleAppUpdateTap,
+            borderRadius: BorderRadius.circular(999),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: borderColor),
+              ),
+              child: Center(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: _checkingAppUpdate
+                          ? SizedBox(
+                              key: const ValueKey('checking'),
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: iconColor,
+                              ),
+                            )
+                          : Icon(
+                              hasUpdate
+                                  ? Icons.system_update_alt_rounded
+                                  : Icons.system_update_alt_outlined,
+                              key: ValueKey('update-$hasUpdate'),
+                              size: 16,
+                              color: iconColor,
+                            ),
+                    ),
+                    if (hasUpdate && !_checkingAppUpdate)
+                      Positioned(
+                        right: -1,
+                        top: -1,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: AppColors.statusRed,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.scaffoldBackgroundColor,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openScreen(Widget screen) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => screen),
     );
     if (!mounted) return;
     await _refreshActiveModel();
+    await _refreshAppUpdateStatus();
   }
 
   @override
@@ -77,7 +236,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.t('appName')),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.t('appName')),
+            const SizedBox(width: 8),
+            _buildAppUpdateAction(theme, l10n),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),

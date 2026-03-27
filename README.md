@@ -7,7 +7,7 @@
   <h3 align="center">面向中文用户维护与分发的 OpenClaw Android 独立整合版本</h3>
   <p align="center">内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、配置体验和移动端使用流程。</p>
   <p align="center">
-    <img src="https://img.shields.io/badge/Version-v1.9.1-D32222?style=for-the-badge" alt="Version" />
+    <img src="https://img.shields.io/badge/Version-v1.9.2-D32222?style=for-the-badge" alt="Version" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
   </p>
@@ -56,8 +56,8 @@
 
 ## 当前发布版本
 
-- 版本：`v1.9.1`
-- 发布说明：见 [release/v1.9.1/Release.zh.md](release/v1.9.1/Release.zh.md)
+- 版本：`v1.9.2`
+- 发布说明：见 [release/v1.9.2/Release.zh.md](release/v1.9.2/Release.zh.md)
 - 改动日志：见 [CHANGELOG.md](CHANGELOG.md)
 - Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
 
@@ -68,11 +68,11 @@
 
 | 文件 | 适用设备 | 大小 | 最新下载 |
 |---|---|---:|---|
-| `OpenClaw-v1.9.1-universal.apk` | 不确定架构、想直接安装 | 43.83 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.1-universal.apk) |
-| `OpenClaw-v1.9.1-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.94 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.1-arm64-v8a.apk) |
-| `OpenClaw-v1.9.1-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.57 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.1-armeabi-v7a.apk) |
-| `OpenClaw-v1.9.1-x86_64.apk` | 模拟器或 x86_64 设备 | 27.14 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.1-x86_64.apk) |
-| `OpenClaw-v1.9.1.aab` | 应用商店分发 | 50.65 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.1.aab) |
+| `OpenClaw-v1.9.2-universal.apk` | 不确定架构、想直接安装 | 43.87 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2-universal.apk) |
+| `OpenClaw-v1.9.2-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.95 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2-arm64-v8a.apk) |
+| `OpenClaw-v1.9.2-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.58 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2-armeabi-v7a.apk) |
+| `OpenClaw-v1.9.2-x86_64.apk` | 模拟器或 x86_64 设备 | 27.15 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2-x86_64.apk) |
+| `OpenClaw-v1.9.2.aab` | 应用商店分发 | 50.69 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2.aab) |
 
 ---
 
@@ -86,12 +86,11 @@ OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 F
 - 可选工具包（如 Go、Homebrew、OpenSSH）
 - 节点能力接入（相机、位置、传感器等）
 
-## v1.9.1 亮点
+## v1.9.2 亮点
 
-- 新增 QQ 机器人接入页，可自动安装 `@tencent-connect/openclaw-qqbot@latest` 插件、快捷打开腾讯接入页面，并在保存时直接执行 `openclaw channels add --channel qqbot --token` 完成绑定。
-- 新增微信接入入口与独立绑定终端，可一键运行 `npx -y @tencent-weixin/openclaw-weixin-cli install`，通过终端里的二维码或链接完成个人微信绑定。
-- 应用内检查更新现在会自动识别机型并下载对应 APK，下载完成后直接调起 Android 系统安装器，失败时自动回退到浏览器下载页。
-- Android 侧新增安装包调用桥接、`FileProvider` 和对应权限，配合 ABI 资产选择测试，让后续更新链路更稳定。
+- 首页左上角 `OpenClaw` 标题右侧新增轻量化检查更新按钮，默认低存在感显示；检测到新版本后会自动变成更明显的更新图标，并带一个小红点提醒。
+- 首页会在首次进入、应用恢复前台，以及从设置等页面返回后静默刷新更新状态，不用反复手动钻进设置页确认。
+- 首页和设置页现在共用同一套应用内更新弹窗、下载、安装和失败回退逻辑，升级体验更统一。
 
 ---
 

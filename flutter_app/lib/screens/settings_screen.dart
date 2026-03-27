@@ -12,6 +12,7 @@ import '../providers/node_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import '../services/snapshot_service.dart';
+import '../services/update_flow_service.dart';
 import '../services/update_service.dart';
 import 'node_screen.dart';
 import 'setup_wizard_screen.dart';
@@ -584,31 +585,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final result = await UpdateService.check();
       if (!mounted) return;
       if (result.available) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(l10n.t('settingsUpdateAvailableTitle')),
-            content: Text(
-              l10n.t('settingsUpdateAvailableBody', {
-                'current': AppConstants.version,
-                'latest': result.latest,
-              }),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(l10n.t('settingsUpdateLater')),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _downloadAndInstallUpdate(result);
-                },
-                child: Text(l10n.t('settingsUpdateDownload')),
-              ),
-            ],
-          ),
-        );
+        await UpdateFlowService.showUpdateDialog(context, result);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.t('settingsLatestVersion'))),
@@ -624,140 +601,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _downloadAndInstallUpdate(UpdateResult result) async {
-    final l10n = context.l10n;
-    final progress = ValueNotifier<_UpdateProgressState>(
-      _UpdateProgressState(
-        title: l10n.t('settingsUpdateDownloadingTitle'),
-        detail: l10n.t('settingsUpdatePreparingDownload'),
-      ),
-    );
-    UpdateReleaseAsset? selectedAsset;
-    var dialogShown = false;
-
-    try {
-      final arch = await NativeBridge.getArch();
-      selectedAsset = result.preferredApkAssetForArch(arch);
-      if (selectedAsset == null) {
-        throw Exception(l10n.t('settingsUpdateNoCompatibleAsset'));
-      }
-
-      if (!mounted) return;
-      dialogShown = true;
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => PopScope(
-          canPop: false,
-          child: ValueListenableBuilder<_UpdateProgressState>(
-            valueListenable: progress,
-            builder: (context, state, _) {
-              final detailStyle =
-                  Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      );
-              final progressText = state.progress == null
-                  ? l10n.t('settingsUpdateProgressUnknown')
-                  : l10n.t('settingsUpdateProgressPercent', {
-                      'percent': (state.progress! * 100).clamp(0, 100).round(),
-                    });
-
-              return AlertDialog(
-                title: Text(state.title),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(state.detail),
-                    const SizedBox(height: 16),
-                    LinearProgressIndicator(value: state.progress),
-                    const SizedBox(height: 8),
-                    Text(progressText, style: detailStyle),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      );
-
-      progress.value = _UpdateProgressState(
-        title: l10n.t('settingsUpdateDownloadingTitle'),
-        detail: l10n.t('settingsUpdateDownloadingFile', {
-          'file': selectedAsset.name,
-        }),
-      );
-
-      final apkPath = await UpdateService.downloadAsset(
-        selectedAsset,
-        onProgress: (received, total) {
-          final normalizedProgress =
-              total > 0 ? (received / total).clamp(0.0, 1.0) : null;
-          progress.value = _UpdateProgressState(
-            title: l10n.t('settingsUpdateDownloadingTitle'),
-            detail: l10n.t('settingsUpdateDownloadingFile', {
-              'file': selectedAsset!.name,
-            }),
-            progress: normalizedProgress,
-          );
-        },
-      );
-
-      progress.value = _UpdateProgressState(
-        title: l10n.t('settingsUpdateDownloadingTitle'),
-        detail: l10n.t('settingsUpdateInstalling'),
-      );
-
-      await NativeBridge.installApk(apkPath);
-
-      if (dialogShown && mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        dialogShown = false;
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.t('settingsUpdateInstallerOpened'))),
-      );
-    } catch (_) {
-      if (dialogShown && mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        dialogShown = false;
-      }
-      await _openUpdateFallback(result, asset: selectedAsset);
-    } finally {
-      progress.dispose();
-    }
-  }
-
-  Future<void> _openUpdateFallback(
-    UpdateResult result, {
-    UpdateReleaseAsset? asset,
-  }) async {
-    if (!mounted) return;
-    final l10n = context.l10n;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.t('settingsUpdateFallbackBrowser'))),
-    );
-
-    final preferredUrl = asset?.downloadUrl ?? result.url;
-    final preferredUri = Uri.parse(preferredUrl);
-    final openedPreferred = await launchUrl(
-      preferredUri,
-      mode: LaunchMode.externalApplication,
-    );
-
-    if (openedPreferred || preferredUrl == result.url) {
-      return;
-    }
-
-    await launchUrl(
-      Uri.parse(result.url),
-      mode: LaunchMode.externalApplication,
-    );
-  }
-
   Widget _sectionHeader(ThemeData theme, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -771,16 +614,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-}
-
-class _UpdateProgressState {
-  const _UpdateProgressState({
-    required this.title,
-    required this.detail,
-    this.progress,
-  });
-
-  final String title;
-  final String detail;
-  final double? progress;
 }
