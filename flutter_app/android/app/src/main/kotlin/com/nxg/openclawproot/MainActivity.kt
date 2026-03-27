@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.app.Activity
@@ -30,6 +31,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.junwan666.openclawzh/native"
@@ -457,6 +459,19 @@ class MainActivity : FlutterActivity() {
                 "getExternalStoragePath" -> {
                     result.success(Environment.getExternalStorageDirectory().absolutePath)
                 }
+                "installApk" -> {
+                    val apkPath = call.argument<String>("apkPath")
+                    if (apkPath != null) {
+                        try {
+                            installApk(apkPath)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("APK_INSTALL_ERROR", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "apkPath required", null)
+                    }
+                }
                 "readRootfsFile" -> {
                     val path = call.argument<String>("path")
                     if (path != null) {
@@ -640,6 +655,35 @@ class MainActivity : FlutterActivity() {
 
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(urlNotificationId++, notification)
+    }
+
+    private fun installApk(apkPath: String) {
+        val apkFile = File(apkPath)
+        if (!apkFile.exists()) {
+            throw IllegalArgumentException("APK not found: $apkPath")
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
+            throw IllegalStateException(
+                "Allow OpenClaw to install unknown apps, then try again."
+            )
+        }
+
+        val apkUri = FileProvider.getUriForFile(
+            this,
+            "$packageName.fileprovider",
+            apkFile
+        )
+
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        startActivity(installIntent)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

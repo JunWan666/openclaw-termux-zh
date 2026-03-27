@@ -50,6 +50,12 @@ class _MessagePlatformsScreenState extends State<MessagePlatformsScreen> {
 
   bool _isConfigured(MessagePlatform platform) {
     final config = _platforms[platform.id] as Map<String, dynamic>?;
+    if (config?['configured'] == true) {
+      return true;
+    }
+    if (platform.isWeixin) {
+      return config != null && config.isNotEmpty;
+    }
     final appId = config?['appId'] as String?;
     final appSecret = config?['appSecret'] as String?;
     return appId != null &&

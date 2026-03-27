@@ -392,6 +392,15 @@ const Map<String, String> appStringsZhHans = {
   'settingsUpdateAvailableBody': '当前有新版本可用。\n\n当前：{current}\n最新：{latest}',
   'settingsUpdateLater': '稍后',
   'settingsUpdateDownload': '下载',
+  'settingsUpdateDownloadingTitle': '正在下载更新',
+  'settingsUpdatePreparingDownload': '正在准备适合当前设备的安装包...',
+  'settingsUpdateDownloadingFile': '正在下载 {file}',
+  'settingsUpdateInstalling': '正在打开安卓安装程序...',
+  'settingsUpdateInstallerOpened': '已打开安卓安装程序',
+  'settingsUpdateNoCompatibleAsset': '没有找到适合当前设备的 APK 安装包',
+  'settingsUpdateFallbackBrowser': '应用内更新失败，已回退到浏览器下载页',
+  'settingsUpdateProgressUnknown': '正在计算下载进度...',
+  'settingsUpdateProgressPercent': '已下载 {percent}%',
   'settingsLatestVersion': '已是最新版本',
   'settingsUpdateCheckFailed': '检查更新失败',
   'settingsSnapshotSaved': '快照已保存到 {path}',
@@ -407,14 +416,20 @@ const Map<String, String> appStringsZhHans = {
   'statusNotInstalled': '未安装',
   'dashboardMessagePlatformsTitle': '\u63a5\u5165\u6d88\u606f\u5e73\u53f0',
   'dashboardMessagePlatformsSubtitle':
-      '\u914d\u7f6e\u98de\u4e66 / Lark \u6d88\u606f\u5e73\u53f0\u63a5\u5165',
+      '\u914d\u7f6e\u98de\u4e66\u3001QQ\u3001\u5fae\u4fe1\u7b49\u6d88\u606f\u5e73\u53f0\u63a5\u5165',
   'messagePlatformsScreenTitle': '\u63a5\u5165\u6d88\u606f\u5e73\u53f0',
   'messagePlatformsScreenIntro':
-      '\u9009\u62e9\u4e00\u4e2a\u5e73\u53f0\uff0c\u914d\u7f6e\u5199\u5165 openclaw.json \u7684\u5b98\u65b9 channel \u5b57\u6bb5\u3002',
+      '\u9009\u62e9\u4e00\u4e2a\u5e73\u53f0\uff0c\u6309\u5176\u5b98\u65b9\u63a5\u5165\u65b9\u5f0f\u5b8c\u6210\u914d\u7f6e\u3002\u90e8\u5206\u5e73\u53f0\u4f1a\u76f4\u63a5\u5199\u5165 channel \u914d\u7f6e\uff0c\u90e8\u5206\u5e73\u53f0\u5219\u901a\u8fc7 CLI \u7ed1\u5b9a\u3002',
   'messagePlatformsStatusConfigured': '\u5df2\u914d\u7f6e',
   'messagePlatformNameFeishu': '\u98de\u4e66',
   'messagePlatformDescriptionFeishu':
       '\u6309\u7167\u5b98\u65b9 Lark / \u98de\u4e66 channel \u683c\u5f0f\u914d\u7f6e App ID \u548c App Secret',
+  'messagePlatformNameQqbot': 'QQ \u673a\u5668\u4eba',
+  'messagePlatformDescriptionQqbot':
+      '\u5148\u5b89\u88c5\u817e\u8baf QQ \u673a\u5668\u4eba\u63d2\u4ef6\uff0c\u518d\u7528 App ID \u548c App Secret \u5b8c\u6210\u7ed1\u5b9a',
+  'messagePlatformNameWeixin': '\u5fae\u4fe1',
+  'messagePlatformDescriptionWeixin':
+      '\u5728\u7ec8\u7aef\u91cc\u8fd0\u884c\u817e\u8baf\u5fae\u4fe1\u5b89\u88c5\u5668\uff0c\u518d\u901a\u8fc7\u626b\u7801\u6216\u6253\u5f00\u767b\u5f55\u94fe\u63a5\u5b8c\u6210\u7ed1\u5b9a',
   'messagePlatformDetailOfficialConfigHint':
       '\u5bf9\u5e94\u5b98\u65b9\u914d\u7f6e\u8282\u70b9\uff1aopenclaw.json \u4e2d\u7684 {path}',
   'messagePlatformDetailSchemaNote':
@@ -442,4 +457,66 @@ const Map<String, String> appStringsZhHans = {
   'messagePlatformDetailRemoveConfiguration': '\u79fb\u9664\u914d\u7f6e',
   'messagePlatformDetailRemoved': '\u5df2\u79fb\u9664 {platform}',
   'messagePlatformDetailRemoveFailed': '\u79fb\u9664\u5931\u8d25\uff1a{error}',
+  'messagePlatformDetailOpenPageFailed':
+      '\u65e0\u6cd5\u6253\u5f00\u5b98\u65b9\u63a5\u5165\u9875\u9762',
+  'messagePlatformDetailQqbotConnectTitle': 'QQ \u673a\u5668\u4eba\u63a5\u5165',
+  'messagePlatformDetailQqbotConnectBody':
+      '\u6253\u5f00\u817e\u8baf\u9875\u9762\u540e\uff0c\u5148\u626b\u7801\u767b\u5f55\u5e76\u521b\u5efa\u673a\u5668\u4eba\uff0c\u7136\u540e\u628a App ID \u548c App Secret \u586b\u56de\u6765\u3002',
+  'messagePlatformDetailQqbotOpenPage':
+      '\u6253\u5f00 QQ \u63a5\u5165\u9875\u9762',
+  'messagePlatformDetailQqbotPageHint':
+      '\u767b\u5f55\u540e\u53ef\u4ee5\u5728\u9875\u9762\u4e0a\u521b\u5efa\u673a\u5668\u4eba\uff0c\u540c\u4e00\u9875\u4e5f\u4f1a\u63d0\u4f9b\u626b\u7801\u8fdb\u5165 QQ \u673a\u5668\u4eba\u804a\u5929\u7684\u5165\u53e3\u3002',
+  'messagePlatformDetailQqbotPluginChecking':
+      '\u6b63\u5728\u68c0\u67e5 QQ \u673a\u5668\u4eba\u63d2\u4ef6\u662f\u5426\u5df2\u5b89\u88c5...',
+  'messagePlatformDetailQqbotPluginInstalling':
+      '\u6b63\u5728\u81ea\u52a8\u5b89\u88c5 QQ \u673a\u5668\u4eba\u63d2\u4ef6...',
+  'messagePlatformDetailQqbotPluginReady':
+      'QQ \u673a\u5668\u4eba\u63d2\u4ef6\u5df2\u5c31\u7eea\uff0c\u73b0\u5728\u53ef\u4ee5\u4fdd\u5b58\u63a5\u5165\u4fe1\u606f\u4e86\u3002',
+  'messagePlatformDetailQqbotPluginFailed':
+      'QQ \u673a\u5668\u4eba\u63d2\u4ef6\u5c1a\u672a\u5c31\u7eea',
+  'messagePlatformDetailQqbotPluginRetry': '\u91cd\u8bd5\u5b89\u88c5',
+  'messagePlatformDetailQqbotPluginInstallHint':
+      '\u9996\u6b21\u8fdb\u5165\u4f1a\u81ea\u52a8\u68c0\u67e5\u5e76\u5b89\u88c5\u8fd9\u4e2a\u63d2\u4ef6\uff1a{package}',
+  'messagePlatformDetailQqbotTokenHint':
+      '\u4fdd\u5b58\u65f6\u4f1a\u6267\u884c openclaw channels add --channel qqbot --token "<AppID>:<AppSecret>"\u3002',
+  'messagePlatformDetailQqbotSavedTitle':
+      'QQ \u673a\u5668\u4eba\u5df2\u7ed1\u5b9a',
+  'messagePlatformDetailQqbotSavedBodyRunning':
+      'QQ \u673a\u5668\u4eba\u914d\u7f6e\u5df2\u4fdd\u5b58\u3002\u5efa\u8bae\u73b0\u5728\u91cd\u542f\u7f51\u5173\uff0c\u8ba9\u65b0 channel \u7acb\u5373\u751f\u6548\u3002',
+  'messagePlatformDetailQqbotSavedBodyStopped':
+      'QQ \u673a\u5668\u4eba\u914d\u7f6e\u5df2\u4fdd\u5b58\u3002\u4f7f\u7528\u524d\u8bf7\u5148\u542f\u52a8\u6216\u91cd\u542f\u7f51\u5173\u3002',
+  'messagePlatformDetailGatewayRestartAction':
+      '\u7acb\u5373\u91cd\u542f\u7f51\u5173',
+  'messagePlatformDetailGatewayRestarting':
+      '\u6b63\u5728\u91cd\u542f\u7f51\u5173...',
+  'messagePlatformDetailGatewayRestarted':
+      '\u7f51\u5173\u5df2\u91cd\u542f\uff0cQQ \u673a\u5668\u4eba\u63a5\u5165\u5e94\u8be5\u5df2\u751f\u6548\u3002',
+  'messagePlatformDetailGatewayRestartFailed':
+      '\u91cd\u542f\u7f51\u5173\u5931\u8d25\uff1a{error}',
+  'messagePlatformDetailWeixinUsageTitle':
+      '\u5fae\u4fe1\u63a5\u5165\u6307\u5f15',
+  'messagePlatformDetailWeixinUsageBody':
+      '\u70b9\u51fb\u4e0b\u65b9\u6309\u94ae\u540e\uff0c\u4f1a\u6253\u5f00\u4e00\u4e2a\u81ea\u52a8\u6267\u884c\u5fae\u4fe1\u5b89\u88c5\u5668\u7684\u7ec8\u7aef\u3002\u7ec8\u7aef\u91cc\u53ef\u80fd\u4f1a\u8f93\u51fa\u4e8c\u7ef4\u7801\u6216\u767b\u5f55\u94fe\u63a5\uff0c\u4f60\u53ef\u4ee5\u622a\u56fe\u3001\u76f4\u63a5\u626b\u7801\uff0c\u6216\u8005\u70b9\u51fb/\u590d\u5236\u94fe\u63a5\u5b8c\u6210\u7ed1\u5b9a\u3002',
+  'messagePlatformDetailWeixinPluginChecking':
+      '\u6b63\u5728\u68c0\u67e5\u5fae\u4fe1\u63d2\u4ef6\u662f\u5426\u5df2\u5b89\u88c5...',
+  'messagePlatformDetailWeixinPluginInstalled':
+      '\u5fae\u4fe1\u63d2\u4ef6\u5df2\u5b89\u88c5\u3002',
+  'messagePlatformDetailWeixinPluginMissing':
+      '\u5fae\u4fe1\u63d2\u4ef6\u8fd8\u672a\u5b89\u88c5\u3002',
+  'messagePlatformDetailWeixinPluginFailed':
+      '\u6682\u65f6\u65e0\u6cd5\u68c0\u67e5\u5fae\u4fe1\u63d2\u4ef6\u72b6\u6001\u3002',
+  'messagePlatformDetailWeixinCommandHint':
+      '\u70b9\u51fb\u540e\u5c06\u5728\u7ec8\u7aef\u91cc\u6267\u884c\u4ee5\u4e0b\u5b89\u88c5\u547d\u4ee4\uff1a',
+  'messagePlatformDetailWeixinInstallAction':
+      '\u5b89\u88c5\u5e76\u7ed1\u5b9a\u5fae\u4fe1',
+  'messagePlatformDetailWeixinRebindAction':
+      '\u91cd\u65b0\u6253\u5f00\u5fae\u4fe1\u7ed1\u5b9a\u7ec8\u7aef',
+  'messagePlatformDetailWeixinTerminalTitle':
+      '\u5fae\u4fe1\u7ed1\u5b9a\u7ec8\u7aef',
+  'messagePlatformDetailWeixinTerminalStarting':
+      '\u6b63\u5728\u542f\u52a8\u5fae\u4fe1\u5b89\u88c5\u5668...',
+  'messagePlatformDetailWeixinTerminalCompleted':
+      '\u5b89\u88c5\u5668\u5df2\u9000\u51fa\uff0c\u63d2\u4ef6\u72b6\u6001\u5df2\u91cd\u65b0\u5237\u65b0\u3002',
+  'messagePlatformDetailWeixinTerminalFailed':
+      '\u542f\u52a8\u5fae\u4fe1\u5b89\u88c5\u5668\u5931\u8d25\uff1a{error}',
 };

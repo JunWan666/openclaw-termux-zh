@@ -1,13 +1,21 @@
 import 'dart:convert';
 
 import 'native_bridge.dart';
+import 'preferences_service.dart';
 
 /// Reads and writes messaging platform configuration in openclaw.json.
 class MessagePlatformConfigService {
   static const _configPath = '/root/.openclaw/openclaw.json';
   static const _feishuChannelId = 'feishu';
+  static const _qqbotChannelId = 'qqbot';
+  static const _weixinChannelId = 'weixin';
   static const _legacyLarkChannelId = 'lark';
   static const _defaultFeishuAccountId = 'default';
+  static const qqbotPluginPackage = '@tencent-connect/openclaw-qqbot@latest';
+  static const qqbotConnectUrl = 'https://q.qq.com/qqbot/openclaw/login.html';
+  static const weixinPluginPackage = '@tencent/openclaw-weixin';
+  static const weixinInstallerCommand =
+      'npx -y @tencent-weixin/openclaw-weixin-cli install';
 
   static String _shellEscape(String s) {
     return "'${s.replaceAll("'", "'\\''")}'";
@@ -15,6 +23,12 @@ class MessagePlatformConfigService {
 
   static bool _isNonEmptyString(dynamic value) =>
       value is String && value.trim().isNotEmpty;
+
+  static Future<PreferencesService> _loadPrefs() async {
+    final prefs = PreferencesService();
+    await prefs.init();
+    return prefs;
+  }
 
   static Map<String, dynamic>? _extractFeishuUiConfig(dynamic raw) {
     if (raw is! Map) return null;
@@ -104,32 +118,81 @@ class MessagePlatformConfigService {
     return payload;
   }
 
+  static Future<Map<String, dynamic>?> _readQqbotLocalConfig() async {
+    final prefs = await _loadPrefs();
+    final appId = prefs.qqbotAppId?.trim();
+    final appSecret = prefs.qqbotAppSecret?.trim();
+    if ((appId == null || appId.isEmpty) &&
+        (appSecret == null || appSecret.isEmpty)) {
+      return null;
+    }
+
+    return {
+      if (appId != null && appId.isNotEmpty) 'appId': appId,
+      if (appSecret != null && appSecret.isNotEmpty) 'appSecret': appSecret,
+      'configured': true,
+    };
+  }
+
+  static Future<void> _saveQqbotLocalConfig({
+    required String appId,
+    required String appSecret,
+  }) async {
+    final prefs = await _loadPrefs();
+    prefs.qqbotAppId = appId.trim();
+    prefs.qqbotAppSecret = appSecret.trim();
+  }
+
+  static Future<void> _clearQqbotLocalConfig() async {
+    final prefs = await _loadPrefs();
+    prefs.qqbotAppId = null;
+    prefs.qqbotAppSecret = null;
+  }
+
   static Future<Map<String, dynamic>> readConfig() async {
     try {
       final content = await NativeBridge.readRootfsFile(_configPath);
-      if (content == null || content.isEmpty) {
-        return {'platforms': <String, dynamic>{}};
-      }
-
-      final config = jsonDecode(content) as Map<String, dynamic>;
       final platforms = <String, dynamic>{};
-      final channels = config['channels'] as Map<String, dynamic>?;
-      if (channels != null) {
-        for (final entry in channels.entries) {
-          final key =
-              entry.key == _legacyLarkChannelId ? _feishuChannelId : entry.key;
-          final normalized = _normalizeUiConfig(
-            channelId: entry.key,
-            value: entry.value,
-          );
-          if (normalized.isNotEmpty || !platforms.containsKey(key)) {
-            platforms[key] = normalized;
+      if (content != null && content.isNotEmpty) {
+        final config = jsonDecode(content) as Map<String, dynamic>;
+        final channels = config['channels'] as Map<String, dynamic>?;
+        if (channels != null) {
+          for (final entry in channels.entries) {
+            final key = entry.key == _legacyLarkChannelId
+                ? _feishuChannelId
+                : entry.key;
+            final normalized = _normalizeUiConfig(
+              channelId: entry.key,
+              value: entry.value,
+            );
+            if (key == _qqbotChannelId && normalized.isEmpty) {
+              platforms[key] = {'configured': true};
+              continue;
+            }
+            if (normalized.isNotEmpty || !platforms.containsKey(key)) {
+              platforms[key] = normalized;
+            }
           }
         }
       }
+
+      final qqbotLocal = await _readQqbotLocalConfig();
+      if (qqbotLocal != null) {
+        platforms[_qqbotChannelId] = {
+          ...(platforms[_qqbotChannelId] as Map<String, dynamic>? ??
+              const <String, dynamic>{}),
+          ...qqbotLocal,
+        };
+      }
+
       return {'platforms': platforms};
     } catch (_) {
-      return {'platforms': <String, dynamic>{}};
+      final qqbotLocal = await _readQqbotLocalConfig();
+      return {
+        'platforms': {
+          if (qqbotLocal != null) _qqbotChannelId: qqbotLocal,
+        },
+      };
     }
   }
 
@@ -176,6 +239,14 @@ class MessagePlatformConfigService {
     required String channelId,
     required Map<String, dynamic> payload,
   }) async {
+    if (channelId == _qqbotChannelId) {
+      await configureQqbot(
+        appId: payload['appId'] as String? ?? '',
+        appSecret: payload['appSecret'] as String? ?? '',
+      );
+      return;
+    }
+
     final channelIdJson = jsonEncode(channelId);
     final storedPayload = _storagePayloadForSave(
       channelId: channelId,
@@ -238,6 +309,11 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
   static Future<void> removeChannelConfig({
     required String channelId,
   }) async {
+    if (channelId == _qqbotChannelId) {
+      await _clearQqbotLocalConfig();
+      return;
+    }
+
     final channelIdJson = jsonEncode(channelId);
 
     final script = '''
@@ -280,5 +356,65 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
     const encoder = JsonEncoder.withIndent('  ');
     await NativeBridge.writeRootfsFile(_configPath, encoder.convert(config));
+  }
+
+  static Future<bool> isQqbotPluginInstalled() async {
+    try {
+      final output = await NativeBridge.runInProot(
+        'openclaw plugins list',
+        timeout: 45,
+      );
+      final lower = output.toLowerCase();
+      return lower.contains('@tencent-connect/openclaw-qqbot') ||
+          lower.contains('qqbot');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> isWeixinPluginInstalled() async {
+    try {
+      final output = await NativeBridge.runInProot(
+        'openclaw plugins list',
+        timeout: 45,
+      );
+      final lower = output.toLowerCase();
+      return lower.contains('@tencent/openclaw-weixin') ||
+          lower.contains('openclaw-weixin') ||
+          lower.contains(_weixinChannelId);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> ensureQqbotPluginInstalled() async {
+    final installed = await isQqbotPluginInstalled();
+    if (installed) {
+      return;
+    }
+
+    await NativeBridge.runInProot(
+      'openclaw plugins install $qqbotPluginPackage',
+      timeout: 600,
+    );
+  }
+
+  static Future<void> configureQqbot({
+    required String appId,
+    required String appSecret,
+  }) async {
+    final normalizedAppId = appId.trim();
+    final normalizedAppSecret = appSecret.trim();
+    final token = '$normalizedAppId:$normalizedAppSecret';
+
+    await ensureQqbotPluginInstalled();
+    await NativeBridge.runInProot(
+      'openclaw channels add --channel qqbot --token ${_shellEscape(token)}',
+      timeout: 120,
+    );
+    await _saveQqbotLocalConfig(
+      appId: normalizedAppId,
+      appSecret: normalizedAppSecret,
+    );
   }
 }

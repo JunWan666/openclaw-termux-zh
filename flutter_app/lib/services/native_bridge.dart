@@ -178,6 +178,10 @@ class NativeBridge {
     return await _channel.invokeMethod('getExternalStoragePath');
   }
 
+  static Future<bool> installApk(String apkPath) async {
+    return await _channel.invokeMethod('installApk', {'apkPath': apkPath});
+  }
+
   static Future<String?> readRootfsFile(String path) async {
     return await _channel.invokeMethod('readRootfsFile', {'path': path});
   }

@@ -39,18 +39,24 @@ const Map<String, String> appStringsEn = {
   'dashboardProvidersSubtitle': 'Configure models and API keys',
   'dashboardMessagePlatformsTitle': 'Messaging Platforms',
   'dashboardMessagePlatformsSubtitle':
-      'Connect Feishu / Lark channels for gateway messaging',
+      'Connect gateway messaging channels such as Feishu, QQ, and Weixin',
   'dashboardCommandsTitle': 'Common Commands',
   'dashboardCommandsSubtitle':
       'View and copy frequently used OpenClaw commands',
   'providersScreenTitle': 'AI Providers',
   'messagePlatformsScreenTitle': 'Messaging Platforms',
   'messagePlatformsScreenIntro':
-      'Select a platform to configure the official channel fields written into openclaw.json.',
+      'Select a platform and follow its official integration flow. Depending on the platform, OpenClaw will write channel config directly or bind it through the CLI.',
   'messagePlatformsStatusConfigured': 'Configured',
   'messagePlatformNameFeishu': 'Feishu',
   'messagePlatformDescriptionFeishu':
       'Configure the official Lark / Feishu channel with App ID and App Secret',
+  'messagePlatformNameQqbot': 'QQ Bot',
+  'messagePlatformDescriptionQqbot':
+      'Install the Tencent QQ Bot plugin, then bind the bot with App ID and App Secret',
+  'messagePlatformNameWeixin': 'Weixin',
+  'messagePlatformDescriptionWeixin':
+      'Run the Tencent Weixin installer in the terminal, then scan the QR code or open the login link to bind your account',
   'messagePlatformDetailOfficialConfigHint':
       'Official config block: {path} in openclaw.json',
   'messagePlatformDetailSchemaNote':
@@ -77,6 +83,59 @@ const Map<String, String> appStringsEn = {
   'messagePlatformDetailRemoveConfiguration': 'Remove Configuration',
   'messagePlatformDetailRemoved': '{platform} removed',
   'messagePlatformDetailRemoveFailed': 'Failed to remove: {error}',
+  'messagePlatformDetailOpenPageFailed':
+      'Unable to open the official access page',
+  'messagePlatformDetailQqbotConnectTitle': 'Tencent QQ Bot Access',
+  'messagePlatformDetailQqbotConnectBody':
+      'Open the Tencent page, scan to sign in, create the bot, then copy its App ID and App Secret back here.',
+  'messagePlatformDetailQqbotOpenPage': 'Open QQ Access Page',
+  'messagePlatformDetailQqbotPageHint':
+      'After signing in you can create the bot there, and the same page also provides the QQ bot chat entry for scanning.',
+  'messagePlatformDetailQqbotPluginChecking':
+      'Checking whether the QQ Bot plugin is installed...',
+  'messagePlatformDetailQqbotPluginInstalling':
+      'Installing the QQ Bot plugin automatically...',
+  'messagePlatformDetailQqbotPluginReady':
+      'QQ Bot plugin is ready. You can now save the access info.',
+  'messagePlatformDetailQqbotPluginFailed': 'QQ Bot plugin is not ready yet',
+  'messagePlatformDetailQqbotPluginRetry': 'Retry Installation',
+  'messagePlatformDetailQqbotPluginInstallHint':
+      'The app will verify and install this plugin automatically on first entry: {package}',
+  'messagePlatformDetailQqbotTokenHint':
+      'Saving will run openclaw channels add --channel qqbot --token "<AppID>:<AppSecret>".',
+  'messagePlatformDetailQqbotSavedTitle': 'QQ Bot Bound',
+  'messagePlatformDetailQqbotSavedBodyRunning':
+      'QQ Bot access has been saved. Restart the gateway now so the new channel can take effect immediately.',
+  'messagePlatformDetailQqbotSavedBodyStopped':
+      'QQ Bot access has been saved. Start or restart the gateway before using the new channel.',
+  'messagePlatformDetailGatewayRestartAction': 'Restart Gateway Now',
+  'messagePlatformDetailGatewayRestarting': 'Restarting gateway...',
+  'messagePlatformDetailGatewayRestarted':
+      'Gateway restarted. QQ Bot access should now be active.',
+  'messagePlatformDetailGatewayRestartFailed':
+      'Failed to restart gateway: {error}',
+  'messagePlatformDetailWeixinUsageTitle': 'Weixin Access Guide',
+  'messagePlatformDetailWeixinUsageBody':
+      'Tap the button below to open a terminal that runs the official Weixin installer. The terminal may print a QR code or a login link. You can screenshot it, scan it directly, or tap/copy any link shown there to complete binding.',
+  'messagePlatformDetailWeixinPluginChecking':
+      'Checking whether the Weixin plugin is installed...',
+  'messagePlatformDetailWeixinPluginInstalled':
+      'Weixin plugin is already installed.',
+  'messagePlatformDetailWeixinPluginMissing':
+      'Weixin plugin is not installed yet.',
+  'messagePlatformDetailWeixinPluginFailed':
+      'Unable to check Weixin plugin status right now.',
+  'messagePlatformDetailWeixinCommandHint':
+      'Installer command that will be executed in the terminal:',
+  'messagePlatformDetailWeixinInstallAction': 'Install and Bind Weixin',
+  'messagePlatformDetailWeixinRebindAction': 'Reopen Weixin Binding Terminal',
+  'messagePlatformDetailWeixinTerminalTitle': 'Weixin Binding Terminal',
+  'messagePlatformDetailWeixinTerminalStarting':
+      'Starting the Weixin installer...',
+  'messagePlatformDetailWeixinTerminalCompleted':
+      'Installer exited. The plugin status has been refreshed.',
+  'messagePlatformDetailWeixinTerminalFailed':
+      'Failed to start the Weixin installer: {error}',
   'providersScreenActiveModel': 'Active Model',
   'providersScreenActivePreset': 'Custom preset: {preset}',
   'providersScreenIntro':
@@ -473,6 +532,17 @@ const Map<String, String> appStringsEn = {
       'A new version is available.\n\nCurrent: {current}\nLatest: {latest}',
   'settingsUpdateLater': 'Later',
   'settingsUpdateDownload': 'Download',
+  'settingsUpdateDownloadingTitle': 'Downloading update',
+  'settingsUpdatePreparingDownload': 'Preparing a compatible installer...',
+  'settingsUpdateDownloadingFile': 'Downloading {file}',
+  'settingsUpdateInstalling': 'Opening the Android installer...',
+  'settingsUpdateInstallerOpened': 'Android installer opened',
+  'settingsUpdateNoCompatibleAsset':
+      'No compatible APK was found for this device',
+  'settingsUpdateFallbackBrowser':
+      'In-app update failed. Opening the browser download page...',
+  'settingsUpdateProgressUnknown': 'Calculating download progress...',
+  'settingsUpdateProgressPercent': '{percent}% downloaded',
   'settingsLatestVersion': "You're on the latest version",
   'settingsUpdateCheckFailed': 'Could not check for updates',
   'settingsSnapshotSaved': 'Snapshot saved to {path}',

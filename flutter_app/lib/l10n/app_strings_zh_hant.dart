@@ -346,6 +346,23 @@ const Map<String, String> appStringsZhHant = {
   'settingsLicense': '授權',
   'settingsPlayStore': 'Play 商店',
   'settingsEmail': '電子郵件',
+  'settingsCheckForUpdates': '檢查更新',
+  'settingsCheckForUpdatesSubtitle': '檢查目前倉庫是否有新版本發布',
+  'settingsUpdateAvailableTitle': '發現新版本',
+  'settingsUpdateAvailableBody': '目前有新版本可用。\n\n目前：{current}\n最新：{latest}',
+  'settingsUpdateLater': '稍後',
+  'settingsUpdateDownload': '下載',
+  'settingsUpdateDownloadingTitle': '正在下載更新',
+  'settingsUpdatePreparingDownload': '正在準備適合目前裝置的安裝包...',
+  'settingsUpdateDownloadingFile': '正在下載 {file}',
+  'settingsUpdateInstalling': '正在打開 Android 安裝程式...',
+  'settingsUpdateInstallerOpened': '已打開 Android 安裝程式',
+  'settingsUpdateNoCompatibleAsset': '找不到適合這台裝置的 APK 安裝包',
+  'settingsUpdateFallbackBrowser': '應用內更新失敗，已回退到瀏覽器下載頁',
+  'settingsUpdateProgressUnknown': '正在計算下載進度...',
+  'settingsUpdateProgressPercent': '已下載 {percent}%',
+  'settingsLatestVersion': '已是最新版本',
+  'settingsUpdateCheckFailed': '檢查更新失敗',
   'settingsSnapshotSaved': '快照已儲存到 {path}',
   'settingsExportFailed': '匯出失敗：{error}',
   'settingsSnapshotMissing': '在 {path} 未找到快照',
@@ -362,4 +379,96 @@ const Map<String, String> appStringsZhHant = {
   'gatewayLatestVersionLabel': '最新版本',
   'gatewayPackageSizeLabel': '套件大小',
   'gatewayNodeRequirementShortLabel': 'Node.js',
+  'messagePlatformsScreenTitle': 'Messaging Platforms',
+  'messagePlatformsScreenIntro':
+      'Select a platform and follow its official integration flow. Depending on the platform, OpenClaw will write channel config directly or bind it through the CLI.',
+  'messagePlatformsStatusConfigured': 'Configured',
+  'messagePlatformNameFeishu': 'Feishu',
+  'messagePlatformDescriptionFeishu':
+      'Configure the official Lark / Feishu channel with App ID and App Secret',
+  'messagePlatformNameQqbot': 'QQ Bot',
+  'messagePlatformDescriptionQqbot':
+      'Install the Tencent QQ Bot plugin, then bind the bot with App ID and App Secret',
+  'messagePlatformNameWeixin': 'Weixin',
+  'messagePlatformDescriptionWeixin':
+      'Run the Tencent Weixin installer in the terminal, then scan the QR code or open the login link to bind your account',
+  'messagePlatformDetailOfficialConfigHint':
+      'Official config block: {path} in openclaw.json',
+  'messagePlatformDetailSchemaNote':
+      'Fields follow the official OpenClaw channel schema for Lark / Feishu.',
+  'messagePlatformDetailAppId': 'App ID',
+  'messagePlatformDetailAppIdEmpty': 'App ID cannot be empty',
+  'messagePlatformDetailAppSecret': 'App Secret',
+  'messagePlatformDetailAppSecretEmpty': 'App Secret cannot be empty',
+  'messagePlatformDetailBotName': 'Bot Name',
+  'messagePlatformDetailBotNameHelper':
+      'Optional. Override the bot display name in group chats.',
+  'messagePlatformDetailDomain': 'Service Region',
+  'messagePlatformDetailDomainHelper':
+      'Use Feishu for mainland China, or switch to Lark for international workspaces.',
+  'messagePlatformDetailDomainOptionFeishu': 'Feishu (Mainland China)',
+  'messagePlatformDetailDomainOptionLark': 'Lark (International)',
+  'messagePlatformDetailSaveAction': 'Save Configuration',
+  'messagePlatformDetailSaved': '{platform} configured',
+  'messagePlatformDetailSaveFailed': 'Failed to save: {error}',
+  'messagePlatformDetailRemoveTitle': 'Remove {platform}?',
+  'messagePlatformDetailRemoveBody':
+      'This will delete the saved channel settings for this platform.',
+  'messagePlatformDetailRemoveAction': 'Remove',
+  'messagePlatformDetailRemoveConfiguration': 'Remove Configuration',
+  'messagePlatformDetailRemoved': '{platform} removed',
+  'messagePlatformDetailRemoveFailed': 'Failed to remove: {error}',
+  'messagePlatformDetailOpenPageFailed':
+      'Unable to open the official access page',
+  'messagePlatformDetailQqbotConnectTitle': 'Tencent QQ Bot Access',
+  'messagePlatformDetailQqbotConnectBody':
+      'Open the Tencent page, scan to sign in, create the bot, then copy its App ID and App Secret back here.',
+  'messagePlatformDetailQqbotOpenPage': 'Open QQ Access Page',
+  'messagePlatformDetailQqbotPageHint':
+      'After signing in you can create the bot there, and the same page also provides the QQ bot chat entry for scanning.',
+  'messagePlatformDetailQqbotPluginChecking':
+      'Checking whether the QQ Bot plugin is installed...',
+  'messagePlatformDetailQqbotPluginInstalling':
+      'Installing the QQ Bot plugin automatically...',
+  'messagePlatformDetailQqbotPluginReady':
+      'QQ Bot plugin is ready. You can now save the access info.',
+  'messagePlatformDetailQqbotPluginFailed': 'QQ Bot plugin is not ready yet',
+  'messagePlatformDetailQqbotPluginRetry': 'Retry Installation',
+  'messagePlatformDetailQqbotPluginInstallHint':
+      'The app will verify and install this plugin automatically on first entry: {package}',
+  'messagePlatformDetailQqbotTokenHint':
+      'Saving will run openclaw channels add --channel qqbot --token "<AppID>:<AppSecret>".',
+  'messagePlatformDetailQqbotSavedTitle': 'QQ Bot Bound',
+  'messagePlatformDetailQqbotSavedBodyRunning':
+      'QQ Bot access has been saved. Restart the gateway now so the new channel can take effect immediately.',
+  'messagePlatformDetailQqbotSavedBodyStopped':
+      'QQ Bot access has been saved. Start or restart the gateway before using the new channel.',
+  'messagePlatformDetailGatewayRestartAction': 'Restart Gateway Now',
+  'messagePlatformDetailGatewayRestarting': 'Restarting gateway...',
+  'messagePlatformDetailGatewayRestarted':
+      'Gateway restarted. QQ Bot access should now be active.',
+  'messagePlatformDetailGatewayRestartFailed':
+      'Failed to restart gateway: {error}',
+  'messagePlatformDetailWeixinUsageTitle': 'Weixin Access Guide',
+  'messagePlatformDetailWeixinUsageBody':
+      'Tap the button below to open a terminal that runs the official Weixin installer. The terminal may print a QR code or a login link. You can screenshot it, scan it directly, or tap/copy any link shown there to complete binding.',
+  'messagePlatformDetailWeixinPluginChecking':
+      'Checking whether the Weixin plugin is installed...',
+  'messagePlatformDetailWeixinPluginInstalled':
+      'Weixin plugin is already installed.',
+  'messagePlatformDetailWeixinPluginMissing':
+      'Weixin plugin is not installed yet.',
+  'messagePlatformDetailWeixinPluginFailed':
+      'Unable to check Weixin plugin status right now.',
+  'messagePlatformDetailWeixinCommandHint':
+      'Installer command that will be executed in the terminal:',
+  'messagePlatformDetailWeixinInstallAction': 'Install and Bind Weixin',
+  'messagePlatformDetailWeixinRebindAction': 'Reopen Weixin Binding Terminal',
+  'messagePlatformDetailWeixinTerminalTitle': 'Weixin Binding Terminal',
+  'messagePlatformDetailWeixinTerminalStarting':
+      'Starting the Weixin installer...',
+  'messagePlatformDetailWeixinTerminalCompleted':
+      'Installer exited. The plugin status has been refreshed.',
+  'messagePlatformDetailWeixinTerminalFailed':
+      'Failed to start the Weixin installer: {error}',
 };

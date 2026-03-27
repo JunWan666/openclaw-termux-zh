@@ -15,6 +15,8 @@ class PreferencesService {
   static const _keyNodePublicKey = 'node_ed25519_public';
   static const _keyNodeGatewayToken = 'node_gateway_token';
   static const _keyLastAppVersion = 'last_app_version';
+  static const _keyQqbotAppId = 'qqbot_app_id';
+  static const _keyQqbotAppSecret = 'qqbot_app_secret';
 
   late SharedPreferences _prefs;
 
@@ -92,6 +94,24 @@ class PreferencesService {
       _prefs.setString(_keyLastAppVersion, value);
     } else {
       _prefs.remove(_keyLastAppVersion);
+    }
+  }
+
+  String? get qqbotAppId => _prefs.getString(_keyQqbotAppId);
+  set qqbotAppId(String? value) {
+    if (value != null && value.isNotEmpty) {
+      _prefs.setString(_keyQqbotAppId, value);
+    } else {
+      _prefs.remove(_keyQqbotAppId);
+    }
+  }
+
+  String? get qqbotAppSecret => _prefs.getString(_keyQqbotAppSecret);
+  set qqbotAppSecret(String? value) {
+    if (value != null && value.isNotEmpty) {
+      _prefs.setString(_keyQqbotAppSecret, value);
+    } else {
+      _prefs.remove(_keyQqbotAppSecret);
     }
   }
 

@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## v1.9.1 — QQ / 微信接入与应用内更新安装
+
+### 关键改动
+
+- **QQ 机器人接入**：消息平台页新增 QQ 机器人入口。进入页面时会自动检测并安装 `@tencent-connect/openclaw-qqbot@latest` 插件，可直接打开腾讯 QQ Bot 接入页；保存时会执行 `openclaw channels add --channel qqbot --token "<AppID>:<AppSecret>"` 完成绑定，并在完成后提示重启网关。
+- **微信接入引导**：新增微信接入入口与独立安装终端页，可检测 `@tencent/openclaw-weixin` 插件状态；未安装时可一键启动 `npx -y @tencent-weixin/openclaw-weixin-cli install`，在终端中查看二维码或登录链接完成绑定，也支持重新打开终端继续处理。
+- **应用内更新下载与安装**：检查更新现在会解析 GitHub Release 的全部资产，根据设备架构自动优先选择对应 APK，应用内完成下载后直接调用 Android 系统安装器；如果下载或安装失败，会自动回退到浏览器打开对应下载页。
+- **Android 安装桥接完善**：新增 `FileProvider` 和安装包调用通道，补充 `REQUEST_INSTALL_PACKAGES` 权限，并为 ABI 资产选择增加测试覆盖，提升更新链路稳定性。
+
 ## v1.9.0 — 自定义兼容提供商、API 检测与安装引导权限修正
 
 ### 关键改动

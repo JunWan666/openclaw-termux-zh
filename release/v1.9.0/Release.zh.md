@@ -14,11 +14,11 @@
 
 | 文件 | 适用设备 | 大小 | 下载 |
 |---|---|---:|---|
-| `OpenClaw-v1.9.0-universal.apk` | 不确定架构时优先下载 | 43.72 MB | [点击下载](./OpenClaw-v1.9.0-universal.apk) |
-| `OpenClaw-v1.9.0-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.90 MB | [点击下载](./OpenClaw-v1.9.0-arm64-v8a.apk) |
-| `OpenClaw-v1.9.0-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.53 MB | [点击下载](./OpenClaw-v1.9.0-armeabi-v7a.apk) |
-| `OpenClaw-v1.9.0-x86_64.apk` | 模拟器或 x86_64 设备 | 27.11 MB | [点击下载](./OpenClaw-v1.9.0-x86_64.apk) |
-| `OpenClaw-v1.9.0.aab` | 应用商店分发 | 50.54 MB | [点击下载](./OpenClaw-v1.9.0.aab) |
+| `OpenClaw-v1.9.0-universal.apk` | 不确定架构时优先下载 | 43.72 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.0/OpenClaw-v1.9.0-universal.apk) |
+| `OpenClaw-v1.9.0-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.90 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.0/OpenClaw-v1.9.0-arm64-v8a.apk) |
+| `OpenClaw-v1.9.0-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.53 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.0/OpenClaw-v1.9.0-armeabi-v7a.apk) |
+| `OpenClaw-v1.9.0-x86_64.apk` | 模拟器或 x86_64 设备 | 27.11 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.0/OpenClaw-v1.9.0-x86_64.apk) |
+| `OpenClaw-v1.9.0.aab` | 应用商店分发 | 50.54 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.0/OpenClaw-v1.9.0.aab) |
 
 ## 升级提示
 
