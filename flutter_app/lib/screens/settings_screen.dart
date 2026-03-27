@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../app.dart';
@@ -426,30 +425,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<String?> _getSnapshotPath() async {
-    final directory = await _getSnapshotDirectory();
-    final fileName = await _promptSnapshotFileName(directory.path);
-    if (fileName == null || fileName.isEmpty) {
-      return null;
-    }
-    return '${directory.path}/$fileName';
-  }
-
-  Future<Directory> _getSnapshotDirectory() async {
-    final hasPermission = await NativeBridge.hasStoragePermission();
-    if (hasPermission) {
-      final sdcard = await NativeBridge.getExternalStoragePath();
-      final downloadDir = Directory('$sdcard/Download');
-      if (!await downloadDir.exists()) {
-        await downloadDir.create(recursive: true);
-      }
-      return downloadDir;
-    }
-    // Fallback to app-private directory
-    final dir = await getApplicationDocumentsDirectory();
-    return dir;
-  }
-
   String _defaultSnapshotFileName() {
     final now = DateTime.now();
     final year = now.year.toString().padLeft(4, '0');
@@ -461,78 +436,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return 'openclaw-snapshot-$year-$month-$day-$hour$minute$second.json';
   }
 
-  String _normalizeSnapshotFileName(String raw) {
-    final trimmed = raw.trim();
-    final safe = trimmed
-        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '-')
-        .replaceAll(RegExp(r'\s+'), '-');
-    final fallback = safe.isEmpty ? _defaultSnapshotFileName() : safe;
-    return fallback.toLowerCase().endsWith('.json')
-        ? fallback
-        : '$fallback.json';
-  }
-
-  Future<String?> _promptSnapshotFileName(String directoryPath) async {
-    final controller = TextEditingController(text: _defaultSnapshotFileName());
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.l10n.t('settingsSnapshotFileNameTitle')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.t('settingsSnapshotFileNameHelper', {
-                'path': directoryPath,
-              }),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: context.l10n.t('settingsSnapshotFileNameLabel'),
-                hintText: _defaultSnapshotFileName(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(context.l10n.t('commonCancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext)
-                .pop(_normalizeSnapshotFileName(controller.text)),
-            child: Text(context.l10n.t('settingsExportSnapshot')),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    return result;
-  }
-
   Future<void> _exportSnapshot() async {
     try {
       final snapshot =
           await SnapshotService.buildSnapshot(AppConstants.version);
-
-      final path = await _getSnapshotPath();
-      if (path == null || path.isEmpty) {
+      final content = const JsonEncoder.withIndent('  ').convert(snapshot);
+      final saved = await NativeBridge.saveSnapshotFile(
+        suggestedName: _defaultSnapshotFileName(),
+        content: content,
+      );
+      if (saved == null) {
         return;
       }
-      final file = File(path);
-      await file
-          .writeAsString(const JsonEncoder.withIndent('  ').convert(snapshot));
+      final savedName =
+          (saved['name'] as String?) ?? _defaultSnapshotFileName();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(context.l10n.t('settingsSnapshotSaved', {'path': path})),
+          content: Text(
+            context.l10n.t('settingsSnapshotSaved', {'path': savedName}),
+          ),
         ),
       );
     } catch (e) {

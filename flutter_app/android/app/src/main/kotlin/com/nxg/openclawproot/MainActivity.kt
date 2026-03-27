@@ -27,6 +27,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -42,6 +43,9 @@ class MainActivity : FlutterActivity() {
     private var screenCaptureResult: MethodChannel.Result? = null
     private var screenCaptureDurationMs: Long = 5000L
     private var snapshotPickResult: MethodChannel.Result? = null
+    private var snapshotSaveResult: MethodChannel.Result? = null
+    private var pendingSnapshotContent: String? = null
+    private var pendingSnapshotName: String? = null
     private var pendingApkInstallResult: MethodChannel.Result? = null
     private var pendingApkInstallPath: String? = null
     private var setupDone = false
@@ -368,6 +372,27 @@ class MainActivity : FlutterActivity() {
                         )
                     }
                     startActivityForResult(intent, SNAPSHOT_PICK_REQUEST)
+                }
+                "saveSnapshotFile" -> {
+                    val suggestedName = call.argument<String>("suggestedName")
+                    val content = call.argument<String>("content")
+                    if (suggestedName.isNullOrBlank() || content == null) {
+                        result.error(
+                            "INVALID_ARGS",
+                            "suggestedName and content required",
+                            null
+                        )
+                    } else {
+                        snapshotSaveResult = result
+                        pendingSnapshotContent = content
+                        pendingSnapshotName = suggestedName
+                        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_TITLE, suggestedName)
+                        }
+                        startActivityForResult(intent, SNAPSHOT_SAVE_REQUEST)
+                    }
                 }
                 "copyToClipboard" -> {
                     val text = call.argument<String>("text")
@@ -797,6 +822,61 @@ class MainActivity : FlutterActivity() {
                 snapshotPickResult?.success(null)
                 snapshotPickResult = null
             }
+            return
+        }
+
+        if (requestCode == SNAPSHOT_SAVE_REQUEST) {
+            val pendingResult = snapshotSaveResult
+            val pendingContent = pendingSnapshotContent
+            val pendingName = pendingSnapshotName
+            snapshotSaveResult = null
+            pendingSnapshotContent = null
+            pendingSnapshotName = null
+
+            if (pendingResult == null || pendingContent == null || pendingName == null) {
+                return
+            }
+
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                try {
+                    val uri = data.data!!
+                    contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use {
+                        it.write(pendingContent)
+                    } ?: throw IllegalStateException("Unable to open destination for writing")
+
+                    pendingResult.success(
+                        hashMapOf(
+                            "name" to queryDisplayName(uri, pendingName),
+                            "uri" to uri.toString()
+                        )
+                    )
+                } catch (e: Exception) {
+                    pendingResult.error("SNAPSHOT_SAVE_ERROR", e.message, null)
+                }
+            } else {
+                pendingResult.success(null)
+            }
+            return
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri, fallback: String): String {
+        return try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (index >= 0) {
+                            cursor.getString(index) ?: fallback
+                        } else {
+                            fallback
+                        }
+                    } else {
+                        fallback
+                    }
+                } ?: fallback
+        } catch (_: Exception) {
+            fallback
         }
     }
 
@@ -807,6 +887,7 @@ class MainActivity : FlutterActivity() {
         const val STORAGE_PERMISSION_REQUEST = 1003
         const val SNAPSHOT_PICK_REQUEST = 1004
         const val INSTALL_UNKNOWN_APP_SOURCES_REQUEST = 1005
+        const val SNAPSHOT_SAVE_REQUEST = 1006
     }
 }
 

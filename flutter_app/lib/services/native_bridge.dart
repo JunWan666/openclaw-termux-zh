@@ -151,6 +151,18 @@ class NativeBridge {
     return Map<String, dynamic>.from(result);
   }
 
+  static Future<Map<String, dynamic>?> saveSnapshotFile({
+    required String suggestedName,
+    required String content,
+  }) async {
+    final result = await _channel.invokeMethod('saveSnapshotFile', {
+      'suggestedName': suggestedName,
+      'content': content,
+    });
+    if (result == null) return null;
+    return Map<String, dynamic>.from(result);
+  }
+
   static Stream<String> get gatewayLogStream {
     return _eventChannel
         .receiveBroadcastStream()

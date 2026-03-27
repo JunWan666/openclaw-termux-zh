@@ -151,6 +151,8 @@ const Map<String, String> appStringsEn = {
       'Override the default endpoint if your account uses a custom or regional API base URL.',
   'providerDetailEndpointHelperOpenaiCompatible':
       'Enter the OpenAI-compatible base URL up to /v1. Paths such as /chat/completions are added automatically.',
+  'providerDetailEndpointHelperZhipu':
+      'Use the official base URL up to /api/paas/v4. Do not append /v1; paths such as /chat/completions are added automatically.',
   'providerDetailEndpointInvalid': 'Enter a valid absolute API base URL',
   'providerDetailModel': 'Model',
   'providerDetailModelEmpty': 'Model name cannot be empty',
@@ -159,6 +161,7 @@ const Map<String, String> appStringsEn = {
   'providerDetailCustomModelHint': 'e.g. meta/llama-3.3-70b-instruct',
   'providerDetailModelHintOpenaiCompatible':
       'e.g. gpt-4o-mini, deepseek-chat, or your-provider/model',
+  'providerDetailModelHintZhipu': 'e.g. glm-5, glm-4.7, glm-4.6, glm-4.5-air',
   'providerDetailSaveAction': 'Save & Activate',
   'providerDetailSaved': '{provider} configured and activated',
   'providerDetailSaveFailed': 'Failed to save: {error}',
@@ -179,6 +182,7 @@ const Map<String, String> appStringsEn = {
   'customProviderCompatibility': 'Compatibility Mode',
   'customProviderCompatibilityAuto': 'Auto Detect',
   'customProviderCompatibilityOpenai': 'OpenAI Compatible',
+  'customProviderCompatibilityZhipu': 'Zhipu AI Compatible',
   'customProviderCompatibilityOpenaiResponses': 'OpenAI Responses API',
   'customProviderCompatibilityAnthropic': 'Anthropic Compatible',
   'customProviderCompatibilityGoogle': 'Google Generative AI',
@@ -225,6 +229,9 @@ const Map<String, String> appStringsEn = {
       'Claude models for advanced reasoning and coding',
   'providerNameOpenai': 'OpenAI',
   'providerDescriptionOpenai': 'GPT and o-series models',
+  'providerNameZhipu': 'Zhipu AI',
+  'providerDescriptionZhipu':
+      'GLM models from Zhipu with the official /api/paas/v4 endpoint preset',
   'providerNameQwen': 'Qwen',
   'providerDescriptionQwen':
       'Alibaba Cloud Qwen models via DashScope OpenAI-compatible API',
@@ -483,7 +490,7 @@ const Map<String, String> appStringsEn = {
   'settingsStorageMissing': 'Allow access to shared storage',
   'settingsStorageDialogTitle': 'Grant file access',
   'settingsStorageDialogBody':
-      'OpenClaw needs file management access to read and write snapshot files in shared storage. You will be taken to the system settings page next.',
+      'OpenClaw needs file management access so Ubuntu inside proot can access shared storage such as /sdcard. The Android permission page will open next.',
   'settingsStorageDialogAction': 'Continue',
   'onboardingStorageDialogTitle': 'Grant file access for onboarding',
   'onboardingStorageDialogBody':
@@ -511,7 +518,7 @@ const Map<String, String> appStringsEn = {
   'settingsOpenSsh': 'OpenSSH',
   'settingsMaintenance': 'Maintenance',
   'settingsExportSnapshot': 'Export Snapshot',
-  'settingsExportSnapshotSubtitle': 'Backup config to Downloads',
+  'settingsExportSnapshotSubtitle': 'Backup config to a folder you choose',
   'settingsImportSnapshot': 'Import Snapshot',
   'settingsImportSnapshotSubtitle': 'Restore config from backup',
   'settingsRerunSetup': 'Re-run setup',
@@ -547,7 +554,7 @@ const Map<String, String> appStringsEn = {
   'settingsUpdateProgressPercent': '{percent}% downloaded',
   'settingsLatestVersion': "You're on the latest version",
   'settingsUpdateCheckFailed': 'Could not check for updates',
-  'settingsSnapshotSaved': 'Snapshot saved to {path}',
+  'settingsSnapshotSaved': 'Snapshot exported: {path}',
   'settingsExportFailed': 'Export failed: {error}',
   'settingsSnapshotMissing': 'No snapshot found at {path}',
   'settingsSnapshotRestored':

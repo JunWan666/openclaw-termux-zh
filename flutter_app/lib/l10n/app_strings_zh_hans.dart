@@ -53,6 +53,8 @@ const Map<String, String> appStringsZhHans = {
   'providerDetailEndpointHelper': '如果你的账号使用自定义或区域专属端点，可以在这里覆盖默认地址。',
   'providerDetailEndpointHelperOpenaiCompatible':
       '填写兼容 OpenAI 的 API 基础地址到 /v1 即可，像 /chat/completions 这类后续路径会自动追加。',
+  'providerDetailEndpointHelperZhipu':
+      '填写智谱官方基础地址到 /api/paas/v4 即可，不要额外补 /v1，像 /chat/completions 这类后续路径会自动追加。',
   'providerDetailEndpointInvalid': '请输入有效的绝对 API 地址',
   'providerDetailModel': '模型',
   'providerDetailModelEmpty': '模型名称不能为空',
@@ -61,6 +63,7 @@ const Map<String, String> appStringsZhHans = {
   'providerDetailCustomModelHint': '例如：meta/llama-3.3-70b-instruct',
   'providerDetailModelHintOpenaiCompatible':
       '例如：gpt-4o-mini、deepseek-chat 或你的自定义模型名',
+  'providerDetailModelHintZhipu': '例如：glm-5、glm-4.7、glm-4.6、glm-4.5-air',
   'providerDetailSaveAction': '保存并激活',
   'providerDetailSaved': '已配置并激活 {provider}',
   'providerDetailSaveFailed': '保存失败：{error}',
@@ -78,6 +81,7 @@ const Map<String, String> appStringsZhHans = {
   'customProviderCompatibility': '兼容模式',
   'customProviderCompatibilityAuto': '自动检测',
   'customProviderCompatibilityOpenai': 'OpenAI Compatible',
+  'customProviderCompatibilityZhipu': '智谱 AI Compatible',
   'customProviderCompatibilityOpenaiResponses': 'OpenAI Responses API',
   'customProviderCompatibilityAnthropic': 'Anthropic Compatible',
   'customProviderCompatibilityGoogle': 'Google Generative AI',
@@ -115,6 +119,8 @@ const Map<String, String> appStringsZhHans = {
   'providerDescriptionAnthropic': 'Claude 系列模型，适合复杂推理与编程',
   'providerNameOpenai': 'OpenAI',
   'providerDescriptionOpenai': 'GPT 与 o 系列模型',
+  'providerNameZhipu': '智谱 AI',
+  'providerDescriptionZhipu': '智谱 GLM 系列模型，内置官方 /api/paas/v4 端点预设',
   'providerNameQwen': '通义千问',
   'providerDescriptionQwen': '通过 DashScope OpenAI 兼容接口接入千问模型',
   'providerNameMinimax': 'MiniMax',
@@ -347,7 +353,7 @@ const Map<String, String> appStringsZhHans = {
   'settingsStorageMissing': '允许访问共享存储',
   'settingsStorageDialogTitle': '授予文件访问权限',
   'settingsStorageDialogBody':
-      'OpenClaw 需要文件管理权限，才能在共享存储中读取和写入快照文件。接下来会跳转到系统设置页面。',
+      'OpenClaw 需要文件管理权限，这样 Ubuntu 才能在 proot 中访问 /sdcard 等共享存储。接下来会跳转到 Android 授权页面。',
   'settingsStorageDialogAction': '继续',
   'onboardingStorageDialogTitle': '为引导配置授予文件访问权限',
   'onboardingStorageDialogBody':
@@ -373,7 +379,7 @@ const Map<String, String> appStringsZhHans = {
   'settingsOpenSsh': 'OpenSSH',
   'settingsMaintenance': '维护',
   'settingsExportSnapshot': '导出快照',
-  'settingsExportSnapshotSubtitle': '将配置备份到 Downloads',
+  'settingsExportSnapshotSubtitle': '将配置备份到你选择的位置',
   'settingsImportSnapshot': '导入快照',
   'settingsImportSnapshotSubtitle': '从备份恢复配置',
   'settingsRerunSetup': '重新运行安装',
@@ -404,7 +410,7 @@ const Map<String, String> appStringsZhHans = {
   'settingsUpdateProgressPercent': '已下载 {percent}%',
   'settingsLatestVersion': '已是最新版本',
   'settingsUpdateCheckFailed': '检查更新失败',
-  'settingsSnapshotSaved': '快照已保存到 {path}',
+  'settingsSnapshotSaved': '快照已导出：{path}',
   'settingsExportFailed': '导出失败：{error}',
   'settingsSnapshotMissing': '在 {path} 未找到快照',
   'settingsSnapshotRestored': '快照 {file} 已恢复。请重启网关以生效。',

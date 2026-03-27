@@ -21,6 +21,7 @@ class AiProvider {
   final String? endpointHelperKey;
   final String? modelHintKey;
   final BaseUrlBehavior baseUrlBehavior;
+  final String? apiValue;
 
   const AiProvider({
     required this.id,
@@ -35,6 +36,7 @@ class AiProvider {
     this.endpointHelperKey,
     this.modelHintKey,
     this.baseUrlBehavior = BaseUrlBehavior.keepAsIs,
+    this.apiValue,
   });
 
   String name(AppLocalizations l10n) => l10n.t(nameKey);
@@ -54,7 +56,8 @@ class AiProvider {
 
   String normalizeBaseUrl(String input) {
     final trimmed = input.trim();
-    if (trimmed.isEmpty || baseUrlBehavior != BaseUrlBehavior.appendV1IfMissing) {
+    if (trimmed.isEmpty ||
+        baseUrlBehavior != BaseUrlBehavior.appendV1IfMissing) {
       return trimmed;
     }
 
@@ -123,6 +126,26 @@ class AiProvider {
     ],
     apiKeyHint: 'sk-...',
     supportsCustomBaseUrl: true,
+  );
+
+  static const zhipu = AiProvider(
+    id: 'zhipu',
+    nameKey: 'providerNameZhipu',
+    descriptionKey: 'providerDescriptionZhipu',
+    icon: Icons.hub,
+    color: Color(0xFF2563EB),
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultModels: [
+      'glm-5',
+      'glm-4.7',
+      'glm-4.6',
+      'glm-4.5-air',
+    ],
+    apiKeyHint: 'your-api-key',
+    supportsCustomBaseUrl: true,
+    endpointHelperKey: 'providerDetailEndpointHelperZhipu',
+    modelHintKey: 'providerDetailModelHintZhipu',
+    apiValue: 'openai-completions',
   );
 
   static const google = AiProvider(
@@ -258,6 +281,7 @@ class AiProvider {
     customOpenai,
     anthropic,
     openai,
+    zhipu,
     qwen,
     minimax,
     doubao,

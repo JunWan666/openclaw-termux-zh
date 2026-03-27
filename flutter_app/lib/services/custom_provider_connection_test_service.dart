@@ -155,6 +155,7 @@ class CustomProviderConnectionTestService {
       case CustomProviderCompatibility.autoDetect:
         throw StateError('autoDetect is resolved before building a request');
       case CustomProviderCompatibility.openaiChatCompletions:
+      case CustomProviderCompatibility.zhipuChatCompletions:
         return _ProbeRequest(
           endpoint: _appendPath(baseUrl, 'chat/completions'),
           headers: _bearerHeaders(apiKey),
@@ -249,6 +250,9 @@ class CustomProviderConnectionTestService {
         host.contains('generativelanguage')) {
       add(CustomProviderCompatibility.googleGenerativeAi);
     }
+    if (host.contains('bigmodel.cn')) {
+      add(CustomProviderCompatibility.zhipuChatCompletions);
+    }
     if (apiKey.startsWith('sk-ant') || host.contains('anthropic')) {
       add(CustomProviderCompatibility.anthropicMessages);
     }
@@ -256,6 +260,7 @@ class CustomProviderConnectionTestService {
       add(CustomProviderCompatibility.openaiResponses);
     }
     add(CustomProviderCompatibility.openaiChatCompletions);
+    add(CustomProviderCompatibility.zhipuChatCompletions);
     add(CustomProviderCompatibility.openaiResponses);
     add(CustomProviderCompatibility.anthropicMessages);
     add(CustomProviderCompatibility.googleGenerativeAi);

@@ -191,11 +191,15 @@ class ProviderConfigService {
     required String baseUrl,
     required String model,
   }) {
-    return {
+    final entry = <String, dynamic>{
       'apiKey': apiKey,
       'baseUrl': baseUrl,
       'models': [model],
     };
+    if (_isNonEmptyString(provider.apiValue)) {
+      entry['api'] = provider.apiValue;
+    }
+    return entry;
   }
 
   static String? _extractModelId(dynamic providerConfig) {
@@ -274,6 +278,8 @@ class ProviderConfigService {
       case CustomProviderCompatibility.autoDetect:
       case CustomProviderCompatibility.openaiChatCompletions:
         return 'custom-openai';
+      case CustomProviderCompatibility.zhipuChatCompletions:
+        return 'custom-zhipu';
       case CustomProviderCompatibility.openaiResponses:
         return 'custom-openai-responses';
       case CustomProviderCompatibility.anthropicMessages:
@@ -363,8 +369,9 @@ class ProviderConfigService {
       baseUrl: baseUrl!.trim(),
       apiKey: (providerConfig['apiKey'] as String? ?? '').trim(),
       alias: alias,
-      compatibility: CustomProviderCompatibility.fromApiValue(
-        providerConfig['api'] as String?,
+      compatibility: CustomProviderCompatibility.resolveSavedCompatibility(
+        apiValue: providerConfig['api'] as String?,
+        baseUrl: baseUrl,
       ),
     );
   }

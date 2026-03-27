@@ -51,6 +51,8 @@ const Map<String, String> appStringsJa = {
       'アカウントがカスタムまたはリージョン専用の API ベース URL を使う場合、既定のエンドポイントを上書きできます。',
   'providerDetailEndpointHelperOpenaiCompatible':
       'OpenAI 互換 API のベース URL は /v1 まで入力してください。/chat/completions などの後続パスは自動で追加されます。',
+  'providerDetailEndpointHelperZhipu':
+      '智譜 AI の公式ベース URL は /api/paas/v4 まで入力してください。/v1 は追加せず、/chat/completions などの後続パスは自動で追加されます。',
   'providerDetailEndpointInvalid': '有効な絶対 API ベース URL を入力してください',
   'providerDetailModel': 'モデル',
   'providerDetailModelEmpty': 'モデル名は必須です',
@@ -59,6 +61,7 @@ const Map<String, String> appStringsJa = {
   'providerDetailCustomModelHint': '例: meta/llama-3.3-70b-instruct',
   'providerDetailModelHintOpenaiCompatible':
       '例: gpt-4o-mini、deepseek-chat、または独自モデル名',
+  'providerDetailModelHintZhipu': '例: glm-5、glm-4.7、glm-4.6、glm-4.5-air',
   'providerDetailSaveAction': '保存して有効化',
   'providerDetailSaved': '{provider} を設定して有効化しました',
   'providerDetailSaveFailed': '保存に失敗しました: {error}',
@@ -70,6 +73,13 @@ const Map<String, String> appStringsJa = {
   'providerDetailRemoveFailed': '削除に失敗しました: {error}',
   'providerNameCustomOpenai': 'カスタム OpenAI 互換',
   'providerDescriptionCustomOpenai': '独自のベース URL とモデルで任意の OpenAI 互換プロバイダーを利用',
+  'customProviderCompatibility': '互換モード',
+  'customProviderCompatibilityAuto': '自動判定',
+  'customProviderCompatibilityOpenai': 'OpenAI Compatible',
+  'customProviderCompatibilityZhipu': 'Zhipu AI Compatible',
+  'customProviderCompatibilityOpenaiResponses': 'OpenAI Responses API',
+  'customProviderCompatibilityAnthropic': 'Anthropic Compatible',
+  'customProviderCompatibilityGoogle': 'Google Generative AI',
   'customProviderConnectionTestLabel': 'API 状態',
   'customProviderTestAction': '接続テスト',
   'customProviderTestingAction': 'テスト中...',
@@ -90,6 +100,8 @@ const Map<String, String> appStringsJa = {
   'providerDescriptionAnthropic': '高度な推論とコーディング向けの Claude モデル',
   'providerNameOpenai': 'OpenAI',
   'providerDescriptionOpenai': 'GPT と o シリーズのモデル',
+  'providerNameZhipu': 'Zhipu AI',
+  'providerDescriptionZhipu': '公式 /api/paas/v4 エンドポイントを既定値にした智譜 GLM モデル',
   'providerNameQwen': 'Qwen',
   'providerDescriptionQwen':
       'DashScope の OpenAI 互換 API 経由で利用できる Alibaba Cloud Qwen モデル',
@@ -317,7 +329,7 @@ const Map<String, String> appStringsJa = {
   'settingsStorageMissing': '共有ストレージへのアクセスを許可してください',
   'settingsStorageDialogTitle': 'ファイルアクセスを許可',
   'settingsStorageDialogBody':
-      'OpenClaw が共有ストレージ内のスナップショットを読み書きするには、ファイル管理アクセスが必要です。次にシステム設定ページを開きます。',
+      'OpenClaw では、Ubuntu が proot 内で /sdcard などの共有ストレージにアクセスできるよう、ファイル管理権限が必要です。続いて Android の権限ページを開きます。',
   'settingsStorageDialogAction': '続行',
   'onboardingStorageDialogTitle': 'オンボーディング用にファイルアクセスを許可',
   'onboardingStorageDialogBody':
@@ -343,7 +355,7 @@ const Map<String, String> appStringsJa = {
   'settingsOpenSsh': 'OpenSSH',
   'settingsMaintenance': 'メンテナンス',
   'settingsExportSnapshot': 'スナップショットをエクスポート',
-  'settingsExportSnapshotSubtitle': '設定を Downloads にバックアップ',
+  'settingsExportSnapshotSubtitle': '設定を選択した場所にバックアップ',
   'settingsImportSnapshot': 'スナップショットをインポート',
   'settingsImportSnapshotSubtitle': 'バックアップから設定を復元',
   'settingsRerunSetup': 'セットアップを再実行',
@@ -376,7 +388,7 @@ const Map<String, String> appStringsJa = {
   'settingsUpdateProgressPercent': '{percent}% ダウンロード済み',
   'settingsLatestVersion': 'すでに最新バージョンです',
   'settingsUpdateCheckFailed': '更新の確認に失敗しました',
-  'settingsSnapshotSaved': 'スナップショットを {path} に保存しました',
+  'settingsSnapshotSaved': 'スナップショットをエクスポートしました: {path}',
   'settingsExportFailed': 'エクスポートに失敗しました: {error}',
   'settingsSnapshotMissing': '{path} にスナップショットが見つかりません',
   'settingsSnapshotRestored': 'スナップショット {file} を復元しました。反映するにはゲートウェイを再起動してください。',

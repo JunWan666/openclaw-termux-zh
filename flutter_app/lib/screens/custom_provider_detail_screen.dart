@@ -293,6 +293,33 @@ class _CustomProviderDetailScreenState
     return l10n.t(compatibility.labelKey);
   }
 
+  String _endpointHelperText(AppLocalizations l10n) {
+    switch (_compatibility) {
+      case CustomProviderCompatibility.zhipuChatCompletions:
+        return l10n.t('providerDetailEndpointHelperZhipu');
+      case CustomProviderCompatibility.openaiChatCompletions:
+      case CustomProviderCompatibility.openaiResponses:
+        return l10n.t('providerDetailEndpointHelperOpenaiCompatible');
+      case CustomProviderCompatibility.autoDetect:
+      case CustomProviderCompatibility.anthropicMessages:
+      case CustomProviderCompatibility.googleGenerativeAi:
+        return l10n.t('providerDetailEndpointHelper');
+    }
+  }
+
+  String _modelHintText(AppLocalizations l10n) {
+    switch (_compatibility) {
+      case CustomProviderCompatibility.zhipuChatCompletions:
+        return l10n.t('providerDetailModelHintZhipu');
+      case CustomProviderCompatibility.autoDetect:
+      case CustomProviderCompatibility.openaiChatCompletions:
+      case CustomProviderCompatibility.openaiResponses:
+      case CustomProviderCompatibility.anthropicMessages:
+      case CustomProviderCompatibility.googleGenerativeAi:
+        return l10n.t('providerDetailModelHintOpenaiCompatible');
+    }
+  }
+
   String? _connectionTestDetailText(
     AppLocalizations l10n,
     CustomProviderConnectionTestResult result,
@@ -695,6 +722,23 @@ class _CustomProviderDetailScreenState
                       }
                       setState(() {
                         _compatibility = value;
+                        if (_selectedPreset == null) {
+                          final currentBaseUrl = _baseUrlController.text.trim();
+                          if (value ==
+                                  CustomProviderCompatibility
+                                      .zhipuChatCompletions &&
+                              (currentBaseUrl.isEmpty ||
+                                  currentBaseUrl ==
+                                      AiProvider.customOpenai.baseUrl)) {
+                            _baseUrlController.text = AiProvider.zhipu.baseUrl;
+                          } else if (value !=
+                                  CustomProviderCompatibility
+                                      .zhipuChatCompletions &&
+                              currentBaseUrl == AiProvider.zhipu.baseUrl) {
+                            _baseUrlController.text =
+                                AiProvider.customOpenai.baseUrl;
+                          }
+                        }
                         final normalized =
                             ProviderConfigService.normalizeCustomBaseUrl(
                           _baseUrlController.text,
@@ -714,8 +758,7 @@ class _CustomProviderDetailScreenState
                     keyboardType: TextInputType.url,
                     decoration: InputDecoration(
                       hintText: AiProvider.customOpenai.baseUrl,
-                      helperText: l10n
-                          .t('providerDetailEndpointHelperOpenaiCompatible'),
+                      helperText: _endpointHelperText(l10n),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -743,8 +786,7 @@ class _CustomProviderDetailScreenState
                   TextField(
                     controller: _modelIdController,
                     decoration: InputDecoration(
-                      hintText:
-                          l10n.t('providerDetailModelHintOpenaiCompatible'),
+                      hintText: _modelHintText(l10n),
                     ),
                   ),
                   const SizedBox(height: 24),

@@ -67,6 +67,36 @@ void main() {
       expect(result.autoDetected, isTrue);
     });
 
+    test('auto-detect prefers Zhipu endpoint when host is bigmodel.cn',
+        () async {
+      final adapter = _FakeHttpClientAdapter((options) async {
+        expect(
+          options.uri.toString(),
+          'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+        );
+        expect(options.headers['Authorization'], 'Bearer zhipu-test');
+        expect(options.data['model'], 'glm-5');
+        return _jsonResponse({'id': 'chatcmpl-test'}, 200);
+      });
+
+      final dio = Dio()..httpClientAdapter = adapter;
+      final service = CustomProviderConnectionTestService(dio: dio);
+
+      final result = await service.testConnection(
+        compatibility: CustomProviderCompatibility.autoDetect,
+        apiKey: 'zhipu-test',
+        baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+        modelId: 'glm-5',
+      );
+
+      expect(result.success, isTrue);
+      expect(
+        result.compatibility,
+        CustomProviderCompatibility.zhipuChatCompletions,
+      );
+      expect(result.autoDetected, isTrue);
+    });
+
     test('returns HTTP error details when probe fails', () async {
       final adapter = _FakeHttpClientAdapter((options) async {
         return _jsonResponse(
