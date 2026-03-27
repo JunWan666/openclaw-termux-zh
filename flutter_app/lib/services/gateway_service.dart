@@ -6,6 +6,7 @@ import '../constants.dart';
 import '../models/gateway_state.dart';
 import 'native_bridge.dart';
 import 'preferences_service.dart';
+import 'dashboard_url_resolver.dart';
 import 'message_platform_config_service.dart';
 import 'provider_config_service.dart';
 
@@ -17,8 +18,8 @@ class GatewayService {
   GatewayState _state = const GatewayState();
   DateTime? _startingAt;
   bool _startInProgress = false;
-  static final _tokenUrlRegex =
-      RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
+  bool _dashboardUrlProbeInFlight = false;
+  DateTime? _lastDashboardUrlProbeAt;
   static final _leadingTimestamp = RegExp(r'^(\d{4}-\d{2}-\d{2}T\S+)\s+(.*)$');
   static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
 
@@ -127,6 +128,9 @@ class GatewayService {
 
       _subscribeLogs();
       _startHealthCheck();
+      if (!DashboardUrlResolver.hasToken(savedUrl)) {
+        unawaited(_maybeRefreshDashboardUrl(force: true));
+      }
     } else if (prefs.autoStartGateway) {
       _updateState(_state.copyWith(
         logs: [..._state.logs, _ts('[INFO] Auto-starting gateway...')],
@@ -145,16 +149,151 @@ class GatewayService {
       }
       String? dashboardUrl;
       final cleanLog = _cleanForUrl(normalizedLog);
-      final urlMatch = _tokenUrlRegex.firstMatch(cleanLog);
-      if (urlMatch != null) {
-        dashboardUrl = urlMatch.group(0);
-        final prefs = PreferencesService();
-        prefs.init().then((_) => prefs.dashboardUrl = dashboardUrl);
-        NativeBridge.showUrlNotification(dashboardUrl!,
-            title: 'Dashboard Ready');
+      final resolvedUrl = DashboardUrlResolver.extractDashboardUrlFromText(
+        cleanLog,
+        baseUri: Uri.parse(AppConstants.gatewayUrl),
+      );
+      if (resolvedUrl != null) {
+        dashboardUrl = resolvedUrl;
+        unawaited(
+          _persistDashboardUrl(
+            resolvedUrl,
+            notify: resolvedUrl != _state.dashboardUrl,
+          ),
+        );
       }
       _updateState(_state.copyWith(logs: logs, dashboardUrl: dashboardUrl));
     });
+  }
+
+  Future<void> _persistDashboardUrl(
+    String dashboardUrl, {
+    bool notify = false,
+  }) async {
+    try {
+      final prefs = PreferencesService();
+      await prefs.init();
+      prefs.dashboardUrl = dashboardUrl;
+      if (notify) {
+        await NativeBridge.showUrlNotification(
+          dashboardUrl,
+          title: 'Dashboard Ready',
+        );
+      }
+    } catch (_) {
+      // Ignore dashboard URL persistence failures and keep the gateway running.
+    }
+  }
+
+  Future<void> _maybeRefreshDashboardUrl({bool force = false}) async {
+    if (_dashboardUrlProbeInFlight) {
+      return;
+    }
+
+    if (!force && DashboardUrlResolver.hasToken(_state.dashboardUrl)) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (!force &&
+        _lastDashboardUrlProbeAt != null &&
+        now.difference(_lastDashboardUrlProbeAt!) <
+            const Duration(seconds: 15)) {
+      return;
+    }
+
+    _dashboardUrlProbeInFlight = true;
+    _lastDashboardUrlProbeAt = now;
+    try {
+      final resolvedUrl = await _resolveDashboardUrlFromGateway();
+      if (resolvedUrl == null || resolvedUrl == _state.dashboardUrl) {
+        return;
+      }
+      await _persistDashboardUrl(resolvedUrl);
+      _updateState(_state.copyWith(dashboardUrl: resolvedUrl));
+    } finally {
+      _dashboardUrlProbeInFlight = false;
+    }
+  }
+
+  Future<String?> _resolveDashboardUrlFromGateway() async {
+    final prefs = PreferencesService();
+    await prefs.init();
+
+    final candidateUris = <Uri>{Uri.parse(AppConstants.gatewayUrl)};
+
+    void addCandidate(String? value) {
+      if (value == null || value.isEmpty) {
+        return;
+      }
+      final uri = Uri.tryParse(value);
+      if (uri == null) {
+        return;
+      }
+      candidateUris.add(DashboardUrlResolver.dashboardBaseUri(uri));
+    }
+
+    addCandidate(_state.dashboardUrl);
+    addCandidate(prefs.dashboardUrl);
+
+    for (final uri in candidateUris) {
+      final resolvedUrl = await _probeDashboardUrl(uri);
+      if (resolvedUrl != null) {
+        return resolvedUrl;
+      }
+    }
+
+    return null;
+  }
+
+  Future<String?> _probeDashboardUrl(Uri baseUri) async {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+    try {
+      var currentUri = DashboardUrlResolver.dashboardBaseUri(baseUri);
+
+      for (var redirectCount = 0; redirectCount < 4; redirectCount++) {
+        final request = await client.getUrl(currentUri);
+        request.followRedirects = false;
+        final response =
+            await request.close().timeout(const Duration(seconds: 3));
+        final location = response.headers.value(HttpHeaders.locationHeader);
+
+        if (location != null) {
+          final resolvedFromLocation =
+              DashboardUrlResolver.extractDashboardUrlFromText(
+            location,
+            baseUri: currentUri,
+          );
+          if (resolvedFromLocation != null) {
+            return resolvedFromLocation;
+          }
+        }
+
+        final body = await utf8.decodeStream(response).timeout(
+              const Duration(seconds: 3),
+            );
+        final resolvedFromBody =
+            DashboardUrlResolver.extractDashboardUrlFromText(
+          body,
+          baseUri: currentUri,
+        );
+        if (resolvedFromBody != null) {
+          return resolvedFromBody;
+        }
+
+        if (!response.isRedirect || location == null) {
+          break;
+        }
+
+        currentUri = currentUri.resolve(location);
+      }
+    } catch (_) {
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+
+    return null;
   }
 
   /// Patch /root/.openclaw/openclaw.json to clear denyCommands and set
@@ -286,8 +425,8 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       await MessagePlatformConfigService.migrateFeishuConfigIfNeeded();
       await _writeNodeAllowConfig();
       _startingAt = DateTime.now();
-      await NativeBridge.startGateway();
       _subscribeLogs();
+      await NativeBridge.startGateway();
       _startHealthCheck();
     } catch (e) {
       _updateState(_state.copyWith(
@@ -373,6 +512,11 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
           startedAt: DateTime.now(),
           logs: [..._state.logs, _ts('[INFO] Gateway is healthy')],
         ));
+      }
+
+      if (response.statusCode < 500 &&
+          !DashboardUrlResolver.hasToken(_state.dashboardUrl)) {
+        unawaited(_maybeRefreshDashboardUrl());
       }
     } catch (_) {
       if (_state.status == GatewayStatus.stopping) {

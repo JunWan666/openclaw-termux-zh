@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../constants.dart';
 import '../models/node_frame.dart';
 import '../models/node_state.dart';
+import 'dashboard_url_resolver.dart';
 import 'native_bridge.dart';
 import 'node_identity_service.dart';
 import 'node_ws_service.dart';
@@ -63,8 +64,10 @@ class NodeService {
     final prefs = PreferencesService();
     await prefs.init();
 
-    final targetHost = host ?? prefs.nodeGatewayHost ?? AppConstants.gatewayHost;
-    final targetPort = port ?? prefs.nodeGatewayPort ?? AppConstants.gatewayPort;
+    final targetHost =
+        host ?? prefs.nodeGatewayHost ?? AppConstants.gatewayHost;
+    final targetPort =
+        port ?? prefs.nodeGatewayPort ?? AppConstants.gatewayPort;
 
     _updateState(_state.copyWith(
       status: NodeStatus.connecting,
@@ -149,10 +152,10 @@ class NodeService {
     // 2. Extract from local dashboard URL
     final dashboardUrl = prefs.dashboardUrl;
     if (dashboardUrl != null) {
-      final tokenMatch = RegExp(r'[#?&]token=([0-9a-fA-F]+)').firstMatch(dashboardUrl);
-      if (tokenMatch != null) {
+      final token = DashboardUrlResolver.extractToken(dashboardUrl);
+      if (token != null) {
         _log('[NODE] Gateway token extracted from dashboard URL');
-        return tokenMatch.group(1);
+        return token;
       }
     }
 
@@ -226,7 +229,8 @@ class NodeService {
     _log('[NODE] Connect frame caps=$caps commands=$commands');
     _log('[NODE] Connect frame platform=android deviceFamily=Android');
     final response = await _ws.sendRequest(connectFrame);
-    _log('[NODE] Connect response ok=${response.isOk} payload=${response.payload}');
+    _log(
+        '[NODE] Connect response ok=${response.isOk} payload=${response.payload}');
 
     if (response.isOk) {
       // hello-ok
@@ -241,7 +245,8 @@ class NodeService {
       final code = errPayload['code'] as String? ?? '';
       final message = errPayload['message'] as String? ?? 'Connect failed';
 
-      if (code == 'TOKEN_INVALID' || code == 'NOT_PAIRED' ||
+      if (code == 'TOKEN_INVALID' ||
+          code == 'NOT_PAIRED' ||
           code == 'DEVICE_NOT_PAIRED') {
         _log('[NODE] Not paired, requesting pairing...');
         await _requestPairing();
@@ -365,13 +370,19 @@ class NodeService {
     Map<String, dynamic> commandParams = {};
     if (paramsJSON != null && paramsJSON.isNotEmpty) {
       try {
-        commandParams = Map<String, dynamic>.from(
-            jsonDecode(paramsJSON) as Map);
+        commandParams =
+            Map<String, dynamic>.from(jsonDecode(paramsJSON) as Map);
       } catch (_) {}
     }
 
     // Commands that require Activity in foreground (camera, screen, sensor, flash, location)
-    const foregroundCommands = ['camera', 'screen', 'sensor', 'flash', 'location'];
+    const foregroundCommands = [
+      'camera',
+      'screen',
+      'sensor',
+      'flash',
+      'location'
+    ];
     final commandPrefix = command.split('.').first;
     if (foregroundCommands.contains(commandPrefix) && !_isAppInForeground) {
       _log('[NODE] App backgrounded, bringing to foreground for $command');

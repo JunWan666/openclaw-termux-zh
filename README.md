@@ -7,7 +7,7 @@
   <h3 align="center">面向中文用户维护与分发的 OpenClaw Android 独立整合版本</h3>
   <p align="center">内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、配置体验和移动端使用流程。</p>
   <p align="center">
-    <img src="https://img.shields.io/badge/Version-v1.9.3-D32222?style=for-the-badge" alt="Version" />
+    <img src="https://img.shields.io/badge/Version-v1.9.4-D32222?style=for-the-badge" alt="Version" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
   </p>
@@ -56,8 +56,8 @@
 
 ## 当前发布版本
 
-- 版本：`v1.9.3`
-- 发布说明：见 [release/v1.9.3/Release.zh.md](release/v1.9.3/Release.zh.md)
+- 版本：`v1.9.4`
+- 发布说明：见 [release/v1.9.4/Release.zh.md](release/v1.9.4/Release.zh.md)
 - 改动日志：见 [CHANGELOG.md](CHANGELOG.md)
 - Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
 
@@ -67,11 +67,11 @@
 
 | 文件 | 适用设备 | 大小 | 最新下载 |
 |---|---|---:|---|
-| `OpenClaw-v1.9.3-universal.apk` | 不确定架构、想直接安装 | 43.87 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3-universal.apk) |
-| `OpenClaw-v1.9.3-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.95 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3-arm64-v8a.apk) |
-| `OpenClaw-v1.9.3-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.58 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3-armeabi-v7a.apk) |
-| `OpenClaw-v1.9.3-x86_64.apk` | 模拟器或 x86_64 设备 | 27.15 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3-x86_64.apk) |
-| `OpenClaw-v1.9.3.aab` | 应用商店分发 | 50.69 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3.aab) |
+| `OpenClaw-v1.9.4-universal.apk` | 不确定架构、想直接安装 | 43.89 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.4-universal.apk) |
+| `OpenClaw-v1.9.4-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.96 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.4-arm64-v8a.apk) |
+| `OpenClaw-v1.9.4-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.59 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.4-armeabi-v7a.apk) |
+| `OpenClaw-v1.9.4-x86_64.apk` | 模拟器或 x86_64 设备 | 27.16 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.4-x86_64.apk) |
+| `OpenClaw-v1.9.4.aab` | 应用商店分发 | 50.71 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.4.aab) |
 
 ---
 
@@ -85,11 +85,11 @@ OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 F
 - 可选工具包（如 Go、Homebrew、OpenSSH）
 - 节点能力接入（相机、位置、传感器等）
 
-## v1.9.3 亮点
+## v1.9.4 亮点
 
-- 修复应用内更新在下载完成后直接跳到浏览器下载页的问题；现在会优先尝试拉起 Android 系统安装器。
-- 当设备尚未允许 OpenClaw 安装未知应用时，更新流程会先打开系统授权页；授权返回后会继续尝试安装，不用自己再去找安装包。
-- 只有真正无法在应用内完成安装时，才会回退到浏览器下载页，并补充更明确的提示，方便区分“需要授权”和“安装异常”两类情况。
+- 修复部分用户在安装完成或网关重启后，首页控制台地址没有自动带上 `#token=` 的问题；现在优先从日志抓取，抓不到时还会主动向网关补探测一次。
+- token URL 解析不再只依赖固定的 `localhost` / `127.0.0.1` 格式，同时兼容不同 host、query / fragment token 形式，以及部分响应体里的 token 信息。
+- 启动网关时改为先订阅日志再启动进程，减少首条控制台 token 地址因为监听过晚而漏掉的概率；Node 侧读取网关 token 的逻辑也同步统一，行为更一致。
 
 ---
 

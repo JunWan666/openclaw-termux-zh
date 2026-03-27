@@ -9,6 +9,7 @@ import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
+import '../services/dashboard_url_resolver.dart';
 import '../services/terminal_service.dart';
 import '../services/preferences_service.dart';
 import '../widgets/terminal_toolbar.dart';
@@ -39,8 +40,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _altNotifier = ValueNotifier<bool>(false);
   final _screenshotKey = GlobalKey();
   static final _anyUrlRegex = RegExp(r'https?://[^\s<>\[\]"' "'" r'\)]+');
-  static final _tokenUrlRegex =
-      RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
   static final _ansiEscape = AppConstants.ansiEscape;
 
   /// Box-drawing and other TUI characters that break URLs when copied
@@ -155,9 +154,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             .replaceAll(_boxDrawing, '')
             .replaceAll(RegExp(r'\s+'), '');
         // Save token URL to preferences if found
-        final tokenMatch = _tokenUrlRegex.firstMatch(cleanForUrl);
-        if (tokenMatch != null) {
-          _saveTokenUrl(tokenMatch.group(0)!);
+        final dashboardUrl = DashboardUrlResolver.extractDashboardUrlFromText(
+          cleanForUrl,
+          baseUri: Uri.parse(AppConstants.gatewayUrl),
+        );
+        if (dashboardUrl != null) {
+          _saveTokenUrl(dashboardUrl);
         }
         // Detect onboarding completion from output text
         if (!_finished && _completionPattern.hasMatch(cleanText)) {
