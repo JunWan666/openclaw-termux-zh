@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants.dart';
@@ -139,6 +140,26 @@ class UpdateFlowService {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.t('settingsUpdateInstallerOpened'))),
       );
+    } on PlatformException catch (error) {
+      if (dialogShown && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        dialogShown = false;
+      }
+
+      if (!context.mounted) return;
+
+      if (error.code == 'APK_INSTALL_PERMISSION_DENIED') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.t('settingsUpdateInstallPermissionDenied'),
+            ),
+          ),
+        );
+        return;
+      }
+
+      await _openUpdateFallback(context, result, asset: selectedAsset);
     } catch (_) {
       if (dialogShown && context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();

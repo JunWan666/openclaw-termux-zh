@@ -370,6 +370,8 @@ const Map<String, String> appStringsJa = {
   'settingsUpdateInstallerOpened': 'Android のインストーラーを開きました',
   'settingsUpdateNoCompatibleAsset': 'この端末に対応する APK が見つかりません',
   'settingsUpdateFallbackBrowser': 'アプリ内アップデートに失敗したため、ブラウザのダウンロードページを開きます',
+  'settingsUpdateInstallPermissionDenied':
+      'OpenClaw に「不明なアプリのインストール」権限がないため、Android のインストーラーを開けませんでした。',
   'settingsUpdateProgressUnknown': 'ダウンロード進捗を計算しています...',
   'settingsUpdateProgressPercent': '{percent}% ダウンロード済み',
   'settingsLatestVersion': 'すでに最新バージョンです',

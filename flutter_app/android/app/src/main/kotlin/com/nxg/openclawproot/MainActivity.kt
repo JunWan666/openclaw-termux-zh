@@ -42,6 +42,8 @@ class MainActivity : FlutterActivity() {
     private var screenCaptureResult: MethodChannel.Result? = null
     private var screenCaptureDurationMs: Long = 5000L
     private var snapshotPickResult: MethodChannel.Result? = null
+    private var pendingApkInstallResult: MethodChannel.Result? = null
+    private var pendingApkInstallPath: String? = null
     private var setupDone = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -463,8 +465,7 @@ class MainActivity : FlutterActivity() {
                     val apkPath = call.argument<String>("apkPath")
                     if (apkPath != null) {
                         try {
-                            installApk(apkPath)
-                            result.success(true)
+                            installApk(apkPath, result)
                         } catch (e: Exception) {
                             result.error("APK_INSTALL_ERROR", e.message, null)
                         }
@@ -657,7 +658,7 @@ class MainActivity : FlutterActivity() {
         manager.notify(urlNotificationId++, notification)
     }
 
-    private fun installApk(apkPath: String) {
+    private fun installApk(apkPath: String, result: MethodChannel.Result) {
         val apkFile = File(apkPath)
         if (!apkFile.exists()) {
             throw IllegalArgumentException("APK not found: $apkPath")
@@ -666,11 +667,22 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !packageManager.canRequestPackageInstalls()
         ) {
-            throw IllegalStateException(
-                "Allow OpenClaw to install unknown apps, then try again."
+            pendingApkInstallResult = result
+            pendingApkInstallPath = apkPath
+
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:$packageName")
             )
+            startActivityForResult(intent, INSTALL_UNKNOWN_APP_SOURCES_REQUEST)
+            return
         }
 
+        launchApkInstaller(apkFile)
+        result.success(true)
+    }
+
+    private fun launchApkInstaller(apkFile: File) {
         val apkUri = FileProvider.getUriForFile(
             this,
             "$packageName.fileprovider",
@@ -688,6 +700,46 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == INSTALL_UNKNOWN_APP_SOURCES_REQUEST) {
+            val pendingResult = pendingApkInstallResult
+            val pendingPath = pendingApkInstallPath
+            pendingApkInstallResult = null
+            pendingApkInstallPath = null
+
+            if (pendingResult == null || pendingPath == null) {
+                return
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                !packageManager.canRequestPackageInstalls()
+            ) {
+                pendingResult.error(
+                    "APK_INSTALL_PERMISSION_DENIED",
+                    "Install unknown apps permission not granted.",
+                    null
+                )
+                return
+            }
+
+            try {
+                val apkFile = File(pendingPath)
+                if (!apkFile.exists()) {
+                    pendingResult.error(
+                        "APK_INSTALL_ERROR",
+                        "APK not found: $pendingPath",
+                        null
+                    )
+                    return
+                }
+
+                launchApkInstaller(apkFile)
+                pendingResult.success(true)
+            } catch (e: Exception) {
+                pendingResult.error("APK_INSTALL_ERROR", e.message, null)
+            }
+            return
+        }
+
         if (requestCode == SCREEN_CAPTURE_REQUEST) {
             if (resultCode == Activity.RESULT_OK && data != null) {
                 val intent = Intent(applicationContext, ScreenCaptureService::class.java).apply {
@@ -754,6 +806,7 @@ class MainActivity : FlutterActivity() {
         const val SCREEN_CAPTURE_REQUEST = 1002
         const val STORAGE_PERMISSION_REQUEST = 1003
         const val SNAPSHOT_PICK_REQUEST = 1004
+        const val INSTALL_UNKNOWN_APP_SOURCES_REQUEST = 1005
     }
 }
 

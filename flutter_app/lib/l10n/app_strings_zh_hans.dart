@@ -399,6 +399,7 @@ const Map<String, String> appStringsZhHans = {
   'settingsUpdateInstallerOpened': '已打开安卓安装程序',
   'settingsUpdateNoCompatibleAsset': '没有找到适合当前设备的 APK 安装包',
   'settingsUpdateFallbackBrowser': '应用内更新失败，已回退到浏览器下载页',
+  'settingsUpdateInstallPermissionDenied': 'OpenClaw 未被允许安装未知应用，因此无法打开安卓安装程序。',
   'settingsUpdateProgressUnknown': '正在计算下载进度...',
   'settingsUpdateProgressPercent': '已下载 {percent}%',
   'settingsLatestVersion': '已是最新版本',

@@ -7,7 +7,7 @@
   <h3 align="center">面向中文用户维护与分发的 OpenClaw Android 独立整合版本</h3>
   <p align="center">内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、配置体验和移动端使用流程。</p>
   <p align="center">
-    <img src="https://img.shields.io/badge/Version-v1.9.2-D32222?style=for-the-badge" alt="Version" />
+    <img src="https://img.shields.io/badge/Version-v1.9.3-D32222?style=for-the-badge" alt="Version" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
   </p>
@@ -21,7 +21,7 @@
   </p>
 </div>
 
-> 本仓库为汉化整合版本，主要用于中文用户维护与分发。
+> 本仓库为汉化整合版，主要用于中文用户维护与分发。
 >
 > 整合来源：
 > - 上游项目：[`mithun50/openclaw-termux`](https://github.com/mithun50/openclaw-termux)
@@ -43,7 +43,7 @@
     </td>
     <td align="center" width="25%">
       <strong>Ubuntu RootFS</strong><br />
-      <sub>非 root 环境下的 Linux 用户态</sub>
+      <sub>免 root 环境下的 Linux 用户态</sub>
     </td>
     <td align="center" width="25%">
       <strong>Node.js + OpenClaw</strong><br />
@@ -56,29 +56,28 @@
 
 ## 当前发布版本
 
-- 版本：`v1.9.2`
-- 发布说明：见 [release/v1.9.2/Release.zh.md](release/v1.9.2/Release.zh.md)
+- 版本：`v1.9.3`
+- 发布说明：见 [release/v1.9.3/Release.zh.md](release/v1.9.3/Release.zh.md)
 - 改动日志：见 [CHANGELOG.md](CHANGELOG.md)
 - Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
 
 ## 下载引导
 
 > 不确定手机架构时，优先下载 `universal.apk`。
-> 发布后续版本时，请同步更新下表中的文件名与版本号。
 
 | 文件 | 适用设备 | 大小 | 最新下载 |
 |---|---|---:|---|
-| `OpenClaw-v1.9.2-universal.apk` | 不确定架构、想直接安装 | 43.87 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2-universal.apk) |
-| `OpenClaw-v1.9.2-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.95 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2-arm64-v8a.apk) |
-| `OpenClaw-v1.9.2-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.58 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2-armeabi-v7a.apk) |
-| `OpenClaw-v1.9.2-x86_64.apk` | 模拟器或 x86_64 设备 | 27.15 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2-x86_64.apk) |
-| `OpenClaw-v1.9.2.aab` | 应用商店分发 | 50.69 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.2.aab) |
+| `OpenClaw-v1.9.3-universal.apk` | 不确定架构、想直接安装 | 43.87 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3-universal.apk) |
+| `OpenClaw-v1.9.3-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.95 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3-arm64-v8a.apk) |
+| `OpenClaw-v1.9.3-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.58 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3-armeabi-v7a.apk) |
+| `OpenClaw-v1.9.3-x86_64.apk` | 模拟器或 x86_64 设备 | 27.15 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3-x86_64.apk) |
+| `OpenClaw-v1.9.3.aab` | 应用商店分发 | 50.69 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.3.aab) |
 
 ---
 
 ## 项目简介
 
-OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 Flutter + proot Ubuntu 环境，在非 root 设备上提供：
+OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 Flutter + proot Ubuntu 环境，在免 root 设备上提供：
 
 - 一键安装 Ubuntu RootFS + Node.js + OpenClaw
 - 应用内终端、日志、Web 控制台与配置入口
@@ -86,11 +85,11 @@ OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 F
 - 可选工具包（如 Go、Homebrew、OpenSSH）
 - 节点能力接入（相机、位置、传感器等）
 
-## v1.9.2 亮点
+## v1.9.3 亮点
 
-- 首页左上角 `OpenClaw` 标题右侧新增轻量化检查更新按钮，默认低存在感显示；检测到新版本后会自动变成更明显的更新图标，并带一个小红点提醒。
-- 首页会在首次进入、应用恢复前台，以及从设置等页面返回后静默刷新更新状态，不用反复手动钻进设置页确认。
-- 首页和设置页现在共用同一套应用内更新弹窗、下载、安装和失败回退逻辑，升级体验更统一。
+- 修复应用内更新在下载完成后直接跳到浏览器下载页的问题；现在会优先尝试拉起 Android 系统安装器。
+- 当设备尚未允许 OpenClaw 安装未知应用时，更新流程会先打开系统授权页；授权返回后会继续尝试安装，不用自己再去找安装包。
+- 只有真正无法在应用内完成安装时，才会回退到浏览器下载页，并补充更明确的提示，方便区分“需要授权”和“安装异常”两类情况。
 
 ---
 
@@ -149,7 +148,7 @@ python scripts/build_release.py
 
 1. 同步上游 `main`
 2. 在独立分支处理冲突
-3. 回归测试（安装、RootFS 解压、网关启动、版本更新）
+3. 回归测试安装、RootFS 解压、网关启动与版本更新
 4. 更新本仓库 `CHANGELOG.md` 与对应版本 `Release.zh.md`
 
 ---

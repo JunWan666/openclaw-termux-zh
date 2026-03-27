@@ -359,6 +359,8 @@ const Map<String, String> appStringsZhHant = {
   'settingsUpdateInstallerOpened': '已打開 Android 安裝程式',
   'settingsUpdateNoCompatibleAsset': '找不到適合這台裝置的 APK 安裝包',
   'settingsUpdateFallbackBrowser': '應用內更新失敗，已回退到瀏覽器下載頁',
+  'settingsUpdateInstallPermissionDenied':
+      'OpenClaw 未被允許安裝未知應用，因此無法打開 Android 安裝程式。',
   'settingsUpdateProgressUnknown': '正在計算下載進度...',
   'settingsUpdateProgressPercent': '已下載 {percent}%',
   'settingsLatestVersion': '已是最新版本',

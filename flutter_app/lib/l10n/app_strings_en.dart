@@ -541,6 +541,8 @@ const Map<String, String> appStringsEn = {
       'No compatible APK was found for this device',
   'settingsUpdateFallbackBrowser':
       'In-app update failed. Opening the browser download page...',
+  'settingsUpdateInstallPermissionDenied':
+      'OpenClaw was not allowed to install unknown apps, so the Android installer could not be opened.',
   'settingsUpdateProgressUnknown': 'Calculating download progress...',
   'settingsUpdateProgressPercent': '{percent}% downloaded',
   'settingsLatestVersion': "You're on the latest version",
