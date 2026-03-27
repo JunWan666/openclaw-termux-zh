@@ -73,8 +73,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       final preferredVersion = _selectedRelease?.version;
       final selectedRelease =
           _findReleaseByVersion(mergedReleases, preferredVersion) ??
-          _findReleaseByVersion(mergedReleases, latestRelease.version) ??
-          latestRelease;
+              _findReleaseByVersion(mergedReleases, latestRelease.version) ??
+              latestRelease;
 
       if (!mounted) return;
       setState(() {
@@ -179,6 +179,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     try {
       final pickedName = await SnapshotService.pickAndRestoreSnapshot(
         emptyFileMessage: l10n.t('settingsSnapshotFileEmpty'),
+        restoreNodeEnabled: false,
       );
       if (pickedName == null || !mounted) {
         return;
@@ -543,7 +544,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   )
                 : IconButton(
                     tooltip: l10n.t('gatewayCheckUpdate'),
-                    onPressed: disableSelection ? null : _loadOpenClawReleaseOptions,
+                    onPressed:
+                        disableSelection ? null : _loadOpenClawReleaseOptions,
                     icon: const Icon(Icons.refresh),
                   ),
           ),

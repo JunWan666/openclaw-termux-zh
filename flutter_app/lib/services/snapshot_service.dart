@@ -27,7 +27,10 @@ class SnapshotService {
     };
   }
 
-  static Future<void> restoreSnapshot(Map<String, dynamic> snapshot) async {
+  static Future<void> restoreSnapshot(
+    Map<String, dynamic> snapshot, {
+    bool restoreNodeEnabled = true,
+  }) async {
     final prefs = PreferencesService();
     await prefs.init();
 
@@ -50,7 +53,9 @@ class SnapshotService {
         snapshot['persistentGatewayLogs'] as bool,
       );
     }
-    if (snapshot['nodeEnabled'] != null) {
+    if (!restoreNodeEnabled) {
+      prefs.nodeEnabled = false;
+    } else if (snapshot['nodeEnabled'] != null) {
       prefs.nodeEnabled = snapshot['nodeEnabled'] as bool;
     }
     if (snapshot['nodeDeviceToken'] != null) {
@@ -69,6 +74,7 @@ class SnapshotService {
 
   static Future<String?> pickAndRestoreSnapshot({
     required String emptyFileMessage,
+    bool restoreNodeEnabled = true,
   }) async {
     final picked = await NativeBridge.pickSnapshotFile();
     if (picked == null) {
@@ -82,7 +88,10 @@ class SnapshotService {
     }
 
     final snapshot = jsonDecode(content) as Map<String, dynamic>;
-    await restoreSnapshot(snapshot);
+    await restoreSnapshot(
+      snapshot,
+      restoreNodeEnabled: restoreNodeEnabled,
+    );
     return pickedName;
   }
 }

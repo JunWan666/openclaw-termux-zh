@@ -26,8 +26,8 @@ OpenClaw provides an Android-ready AI gateway workflow using Flutter + proot Ubu
 
 ## Current Version
 
-- Version: `v1.8.9`
-- Release notes: [release/v1.8.9/Release.zh.md](../release/v1.8.9/Release.zh.md)
+- Version: `v1.9.0`
+- Release notes: [release/v1.9.0/Release.zh.md](../release/v1.9.0/Release.zh.md)
 - Change details: [CHANGELOG.md](../CHANGELOG.md)
 
 ---
