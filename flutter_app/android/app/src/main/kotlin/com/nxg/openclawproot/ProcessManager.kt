@@ -1,4 +1,4 @@
-﻿package com.junwan666.openclawzh
+package com.junwan666.openclawzh
 
 import android.os.Build
 import android.os.Environment
@@ -22,6 +22,7 @@ class ProcessManager(
     private val homeDir get() = "$filesDir/home"
     private val configDir get() = "$filesDir/config"
     private val libDir get() = "$filesDir/lib"
+    private val nativeRuntimeDir get() = "$filesDir/native"
 
     companion object {
         // Match proot-distro v4.37.0 defaults
@@ -30,7 +31,23 @@ class ProcessManager(
             "#1 SMP PREEMPT_DYNAMIC Fri, 10 Oct 2025 00:00:00 +0000"
     }
 
-    fun getProotPath(): String = "$nativeLibDir/libproot.so"
+    private fun resolveHostNativePath(fileName: String): String {
+        val directSource = File("$nativeLibDir/$fileName")
+        if (directSource.exists() && directSource.length() > 0L) {
+            return directSource.absolutePath
+        }
+
+        val runtimePath = File("$nativeRuntimeDir/$fileName")
+        if (runtimePath.exists() && runtimePath.length() > 0L) {
+            return runtimePath.absolutePath
+        }
+
+        throw IllegalStateException(
+            "Native runtime binary is missing: $fileName (checked ${directSource.absolutePath} and ${runtimePath.absolutePath})"
+        )
+    }
+
+    fun getProotPath(): String = resolveHostNativePath("libproot.so")
 
     // ================================================================
     // Host-side environment for proot binary itself.
@@ -41,11 +58,13 @@ class ProcessManager(
         // proot temp directory for its internal use
         "PROOT_TMP_DIR" to tmpDir,
         // Loader executables for proot's execve interception
-        "PROOT_LOADER" to "$nativeLibDir/libprootloader.so",
-        "PROOT_LOADER_32" to "$nativeLibDir/libprootloader32.so",
+        "PROOT_LOADER" to resolveHostNativePath("libprootloader.so"),
+        "PROOT_LOADER_32" to resolveHostNativePath("libprootloader32.so"),
         // LD_LIBRARY_PATH: proot itself needs libtalloc.so.2
         // This does NOT leak into the guest (env -i cleans it)
-        "LD_LIBRARY_PATH" to "$libDir:$nativeLibDir",
+        "LD_LIBRARY_PATH" to listOf(libDir, nativeLibDir, nativeRuntimeDir)
+            .distinct()
+            .joinToString(":"),
         // NOTE: Do NOT set PROOT_NO_SECCOMP. proot-distro does NOT set it.
         // Seccomp BPF filter provides efficient syscall interception AND
         // proper fork/clone child process tracking.
@@ -363,6 +382,45 @@ class ProcessManager(
         pb.environment().putAll(env)
         pb.redirectErrorStream(false)
 
+        return pb.start()
+    }
+
+    fun startProotLoginShell(): Process {
+        val arch = ArchUtils.getArch()
+        val machine = when (arch) {
+            "arm" -> "armv7l"
+            else -> arch
+        }
+        val kernelRelease = "\\Linux\\localhost\\$FAKE_KERNEL_RELEASE" +
+            "\\$FAKE_KERNEL_VERSION\\$machine\\localdomain\\-1\\"
+
+        val cmd = commonProotFlags().toMutableList().apply {
+            add(1, "--change-id=0:0")
+            add(2, "--sysvipc")
+            add(3, "--kernel-release=$kernelRelease")
+            addAll(
+                listOf(
+                    "/usr/bin/env", "-i",
+                    "HOME=/root",
+                    "USER=root",
+                    "LANG=C.UTF-8",
+                    "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                    "TERM=xterm-256color",
+                    "TMPDIR=/tmp",
+                    "NODE_OPTIONS=--require /root/.openclaw/bionic-bypass.js",
+                    "CHOKIDAR_USEPOLLING=true",
+                    "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
+                    "UV_USE_IO_URING=0",
+                    "/bin/bash",
+                    "-l",
+                )
+            )
+        }
+
+        val pb = ProcessBuilder(cmd)
+        pb.environment().clear()
+        pb.environment().putAll(prootEnv())
+        pb.redirectErrorStream(true)
         return pb.start()
     }
 }

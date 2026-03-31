@@ -1,4 +1,5 @@
 class DashboardUrlResolver {
+  static const _noiseSuffixes = ['gatewayws', 'copied', 'copy'];
   static final _urlRegex =
       RegExp(r'''https?://[^\s<>"'\]\)]+''', caseSensitive: false);
   static final _tokenRegex = RegExp(
@@ -13,11 +14,11 @@ class DashboardUrlResolver {
   static String? extractToken(String text) {
     final tokenMatch = _tokenRegex.firstMatch(text);
     if (tokenMatch != null) {
-      return tokenMatch.group(1);
+      return _sanitizeToken(tokenMatch.group(1));
     }
 
     final jsonMatch = _jsonTokenRegex.firstMatch(text);
-    return jsonMatch?.group(1);
+    return _sanitizeToken(jsonMatch?.group(1));
   }
 
   static bool hasToken(String? url) {
@@ -31,6 +32,26 @@ class DashboardUrlResolver {
     return dashboardBaseUri(baseUri)
         .replace(fragment: 'token=$token')
         .toString();
+  }
+
+  static String? normalizeDashboardUrl(String? value, {Uri? baseUri}) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+
+    final trimmed = _trimCandidate(value.trim());
+    final resolved = extractDashboardUrlFromText(trimmed, baseUri: baseUri);
+    if (resolved != null) {
+      return resolved;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    final token = extractToken(trimmed);
+    if (uri != null && token != null) {
+      return buildDashboardUrl(uri, token);
+    }
+
+    return trimmed;
   }
 
   static String? extractDashboardUrlFromText(String text, {Uri? baseUri}) {
@@ -64,5 +85,30 @@ class DashboardUrlResolver {
 
   static String _trimCandidate(String value) {
     return value.replaceFirst(RegExp(r'[\s),.;]+$'), '');
+  }
+
+  static String? _sanitizeToken(String? token) {
+    if (token == null) {
+      return null;
+    }
+
+    var sanitized = token.trim();
+    var changed = true;
+    while (changed) {
+      changed = false;
+      final lower = sanitized.toLowerCase();
+      for (final suffix in _noiseSuffixes) {
+        if (sanitized.length <= suffix.length) {
+          continue;
+        }
+        if (lower.endsWith(suffix)) {
+          sanitized = sanitized.substring(0, sanitized.length - suffix.length);
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    return sanitized.isEmpty ? null : sanitized;
   }
 }

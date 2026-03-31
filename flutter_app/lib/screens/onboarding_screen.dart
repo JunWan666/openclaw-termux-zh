@@ -149,10 +149,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }
         // Strip ANSI escape codes for text analysis
         final cleanText = _outputBuffer.replaceAll(_ansiEscape, '');
-        // For URL matching, strip whitespace + box-drawing chars
-        final cleanForUrl = cleanText
-            .replaceAll(_boxDrawing, '')
-            .replaceAll(RegExp(r'\s+'), '');
+        // For URL matching, strip terminal-only noise but keep whitespace
+        // boundaries so later log labels do not get glued onto the token.
+        final cleanForUrl = cleanText.replaceAll(_boxDrawing, '');
         // Save token URL to preferences if found
         final dashboardUrl = DashboardUrlResolver.extractDashboardUrlFromText(
           cleanForUrl,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../constants.dart';
+import '../services/dashboard_url_resolver.dart';
 import '../services/preferences_service.dart';
 
 class WebDashboardScreen extends StatefulWidget {
@@ -57,7 +58,12 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       await prefs.init();
       url = prefs.dashboardUrl;
     }
-    _controller.loadRequest(Uri.parse(url ?? AppConstants.gatewayUrl));
+    final resolvedUrl = DashboardUrlResolver.normalizeDashboardUrl(
+          url,
+          baseUri: Uri.parse(AppConstants.gatewayUrl),
+        ) ??
+        AppConstants.gatewayUrl;
+    _controller.loadRequest(Uri.parse(resolvedUrl));
   }
 
   Future<void> _applyDefaultZoom() async {

@@ -252,7 +252,8 @@ const Map<String, String> appStringsEn = {
   'providerNameXai': 'xAI',
   'providerDescriptionXai': 'Grok models from xAI',
   'dashboardPackagesTitle': 'Packages',
-  'dashboardPackagesSubtitle': 'Install optional tools (Go, Homebrew, SSH)',
+  'dashboardPackagesSubtitle':
+      'Install optional tools (Go, Homebrew, SSH, cpolar)',
   'dashboardSshTitle': 'SSH Access',
   'dashboardSshSubtitle': 'Remote terminal access via SSH',
   'dashboardLogsTitle': 'Logs',
@@ -347,6 +348,26 @@ const Map<String, String> appStringsEn = {
   'packageGoDescription': 'Go programming language compiler and tools',
   'packageBrewDescription': 'The missing package manager for Linux',
   'packageSshDescription': 'SSH client and server for secure remote access',
+  'packageCpolarDescription':
+      'Tunnel local services to the public internet with cpolar',
+  'packageCpolarGuideTitle': 'Quick Start',
+  'packageCpolarGuideBody':
+      'After installation, open the token page first to get your authtoken, then run the commands below in the terminal to start cpolar and manage tunnels from the local 9200 Web UI.',
+  'packageCpolarTokenPage': 'Token Page',
+  'packageCpolarOpenDashboard': 'Open Web UI',
+  'packageCpolarCopyCommands': 'Copy Commands',
+  'packageCpolarRuntimeTitle': 'Runtime Controls',
+  'packageCpolarRuntimeBody':
+      'Start cpolar here, then open the local Web UI to sign in. The Web UI writes the token automatically after login.',
+  'packageCpolarInstallLogsTitle': 'Installation Logs',
+  'packageCpolarPreparingInstall': 'Preparing cpolar installation...',
+  'packageCpolarStatusRunning': 'Running',
+  'packageCpolarStatusStopped': 'Stopped',
+  'packageCpolarStart': 'Start',
+  'packageCpolarStop': 'Stop',
+  'packageCpolarDashboardStarting':
+      'cpolar is starting. The local Web UI may take a moment to respond.',
+  'packageCpolarOperationFailed': 'cpolar action failed: {error}',
   'setupWizardTitle': 'Setup OpenClaw',
   'setupWizardIntroIdle':
       'This will download Ubuntu, Node.js, and OpenClaw into a self-contained environment.',
@@ -516,6 +537,7 @@ const Map<String, String> appStringsEn = {
   'settingsGo': 'Go (Golang)',
   'settingsHomebrew': 'Homebrew',
   'settingsOpenSsh': 'OpenSSH',
+  'settingsCpolar': 'cpolar',
   'settingsMaintenance': 'Maintenance',
   'settingsExportSnapshot': 'Export Snapshot',
   'settingsExportSnapshotSubtitle': 'Backup config to a folder you choose',

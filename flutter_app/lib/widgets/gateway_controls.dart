@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +11,7 @@ import '../models/gateway_state.dart';
 import '../providers/gateway_provider.dart';
 import '../screens/logs_screen.dart';
 import '../screens/web_dashboard_screen.dart';
+import '../services/dashboard_url_resolver.dart';
 import '../services/openclaw_version_service.dart';
 
 class GatewayControls extends StatefulWidget {
@@ -35,12 +38,21 @@ class _GatewayControlsState extends State<GatewayControls> {
   bool _loadingInstalledVersion = true;
   bool _loadingReleaseOptions = false;
   bool _updating = false;
+  Timer? _installProgressTimer;
+  double? _installProgress;
+  double _installProgressCeiling = 0.0;
 
   @override
   void initState() {
     super.initState();
     _refreshInstalledVersion();
     _loadReleaseOptions();
+  }
+
+  @override
+  void dispose() {
+    _installProgressTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _refreshInstalledVersion({bool showLoading = true}) async {
@@ -124,16 +136,21 @@ class _GatewayControlsState extends State<GatewayControls> {
     final shouldRestart = provider.state.isRunning ||
         provider.state.status == GatewayStatus.starting;
 
+    _startInstallProgress();
     setState(() => _updating = true);
     try {
+      _setInstallProgress(0.08, ceiling: 0.18);
       if (provider.state.status != GatewayStatus.stopped) {
+        _setInstallProgress(0.18, ceiling: 0.28);
         await provider.stop();
       }
 
+      _setInstallProgress(0.30, ceiling: 0.94);
       await _versionService.installVersion(
         selectedRelease.version,
         releaseInfo: selectedRelease,
       );
+      _setInstallProgress(0.95, ceiling: 0.99);
       await _refreshInstalledVersion(showLoading: false);
       await _loadReleaseOptions();
 
@@ -149,10 +166,13 @@ class _GatewayControlsState extends State<GatewayControls> {
       );
 
       if (shouldRestart && mounted) {
+        _setInstallProgress(0.98, ceiling: 0.995);
         await provider.start();
       }
+      await _completeInstallProgress();
     } catch (e) {
       if (shouldRestart && mounted) {
+        _setInstallProgress(0.97, ceiling: 0.99);
         await provider.start();
       }
       if (!mounted) return;
@@ -164,10 +184,73 @@ class _GatewayControlsState extends State<GatewayControls> {
         ),
       );
     } finally {
+      _stopInstallProgress(reset: true);
       if (mounted) {
         setState(() => _updating = false);
       }
     }
+  }
+
+  void _startInstallProgress() {
+    _installProgressTimer?.cancel();
+    _installProgress = 0.03;
+    _installProgressCeiling = 0.16;
+    _installProgressTimer = Timer.periodic(
+      const Duration(milliseconds: 700),
+      (_) {
+        if (!mounted || !_updating || _installProgress == null) {
+          return;
+        }
+        final current = _installProgress!;
+        final ceiling = _installProgressCeiling;
+        if (current >= ceiling) {
+          return;
+        }
+        final next =
+            (current + ((ceiling - current) * 0.18)).clamp(0.0, ceiling);
+        setState(() => _installProgress = next);
+      },
+    );
+  }
+
+  void _setInstallProgress(double value, {double? ceiling}) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      final current = _installProgress ?? 0.0;
+      _installProgress = value > current ? value : current;
+      if (ceiling != null) {
+        _installProgressCeiling = ceiling > _installProgressCeiling
+            ? ceiling
+            : _installProgressCeiling;
+      }
+    });
+  }
+
+  Future<void> _completeInstallProgress() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _installProgress = 1.0);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+  }
+
+  void _stopInstallProgress({bool reset = false}) {
+    _installProgressTimer?.cancel();
+    _installProgressTimer = null;
+    _installProgressCeiling = 0.0;
+    if (reset && mounted) {
+      setState(() => _installProgress = null);
+    }
+  }
+
+  String _installProgressText() {
+    final progress = _installProgress;
+    if (progress == null) {
+      return '0%';
+    }
+    return '${(progress * 100).clamp(0, 100).round()}%';
   }
 
   @override
@@ -178,6 +261,11 @@ class _GatewayControlsState extends State<GatewayControls> {
     return Consumer<GatewayProvider>(
       builder: (context, provider, _) {
         final state = provider.state;
+        final dashboardUrl = DashboardUrlResolver.normalizeDashboardUrl(
+              state.dashboardUrl,
+              baseUri: Uri.parse(AppConstants.gatewayUrl),
+            ) ??
+            AppConstants.gatewayUrl;
 
         return Card(
           child: Padding(
@@ -204,17 +292,19 @@ class _GatewayControlsState extends State<GatewayControls> {
                     children: [
                       Expanded(
                         child: GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).push(
+                          onTap: () async {
+                            await Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => WebDashboardScreen(
-                                  url: state.dashboardUrl,
+                                  url: dashboardUrl,
                                 ),
                               ),
                             );
+                            if (!mounted) return;
+                            await provider.syncState();
                           },
                           child: Text(
-                            state.dashboardUrl ?? AppConstants.gatewayUrl,
+                            dashboardUrl,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.primary,
                               fontFamily: 'DejaVuSansMono',
@@ -228,9 +318,7 @@ class _GatewayControlsState extends State<GatewayControls> {
                         icon: const Icon(Icons.copy, size: 18),
                         tooltip: l10n.t('gatewayCopyUrl'),
                         onPressed: () {
-                          final url =
-                              state.dashboardUrl ?? AppConstants.gatewayUrl;
-                          Clipboard.setData(ClipboardData(text: url));
+                          Clipboard.setData(ClipboardData(text: dashboardUrl));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(l10n.t('gatewayUrlCopied')),
@@ -527,6 +615,24 @@ class _GatewayControlsState extends State<GatewayControls> {
               _buildVersionAction(theme, l10n, provider, selectedRelease),
             ],
           ),
+          if (_updating && _installProgress != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: LinearProgressIndicator(value: _installProgress),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  _installProgressText(),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'DejaVuSansMono',
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -621,7 +727,8 @@ class _GatewayControlsState extends State<GatewayControls> {
             color: Colors.white,
           ),
         ),
-        label: Text(l10n.t('gatewayApplyingVersion')),
+        label: Text(
+            '${l10n.t('gatewayApplyingVersion')} ${_installProgressText()}'),
       );
     }
 

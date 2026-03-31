@@ -13,26 +13,43 @@ class TerminalService {
       '#1 SMP PREEMPT_DYNAMIC Fri, 10 Oct 2025 00:00:00 +0000';
 
   /// Get paths and host-side proot environment variables.
-  /// Host env should ONLY contain proot-specific vars — guest env is
+  /// Host env should ONLY contain proot-specific vars; guest env is
   /// set via `env -i` inside the command, matching proot-distro.
   ///
-  /// Also ensures directories and resolv.conf exist — Android may clear
+  /// Also ensures directories and resolv.conf exist; Android may clear
   /// them during an app update (#40). Every screen that uses proot calls
   /// this method, so it's the single place to guarantee the files exist.
   static Future<Map<String, String>> getProotShellConfig() async {
     // Ensure dirs + resolv.conf exist before any proot operation (#40).
-    try { await NativeBridge.setupDirs(); } catch (_) {}
-    try { await NativeBridge.writeResolv(); } catch (_) {}
+    try {
+      await NativeBridge.setupDirs();
+    } catch (_) {}
+    try {
+      await NativeBridge.writeResolv();
+    } catch (_) {}
 
     final filesDir = await _channel.invokeMethod<String>('getFilesDir') ?? '';
-    final nativeLibDir = await _channel.invokeMethod<String>('getNativeLibDir') ?? '';
+    final nativeLibDir =
+        await _channel.invokeMethod<String>('getNativeLibDir') ?? '';
 
     final rootfsDir = '$filesDir/rootfs/ubuntu';
     final tmpDir = '$filesDir/tmp';
     final configDir = '$filesDir/config';
     final homeDir = '$filesDir/home';
-    final prootPath = '$nativeLibDir/libproot.so';
+    final nativeRuntimeDir = '$filesDir/native';
+    final prootPath = await NativeBridge.getProotPath();
     final libDir = '$filesDir/lib';
+    final prootLoaderPath = _preferExistingPath([
+      '$nativeLibDir/libprootloader.so',
+      '$nativeRuntimeDir/libprootloader.so',
+    ]);
+    final prootLoader32Path = _preferExistingPath([
+      '$nativeLibDir/libprootloader32.so',
+      '$nativeRuntimeDir/libprootloader32.so',
+    ]);
+    final ldLibraryPath = <String>{libDir, nativeLibDir, nativeRuntimeDir}
+        .where((path) => path.isNotEmpty)
+        .join(':');
 
     // Direct Dart fallback: create resolv.conf if it still doesn't exist
     // after the native method channel calls (#40).
@@ -44,7 +61,7 @@ class TerminalService {
         resolvFile.writeAsStringSync(resolvContent);
       }
     } catch (_) {}
-    // Also write into rootfs /etc/ so DNS works even if bind-mount fails
+    // Also write into rootfs /etc/ so DNS works even if bind-mount fails.
     try {
       final rootfsResolv = File('$rootfsDir/etc/resolv.conf');
       if (!rootfsResolv.existsSync()) {
@@ -64,33 +81,44 @@ class TerminalService {
       'libDir': libDir,
       'nativeLibDir': nativeLibDir,
       'storageGranted': storageGranted.toString(),
-      // Host-side proot env — ONLY proot-specific vars.
+      // Host-side proot env; ONLY proot-specific vars.
       // Do NOT set PROOT_NO_SECCOMP (proot-distro doesn't set it).
       // Do NOT set HOME/TERM/LANG here (those go in guest env via env -i).
       'PROOT_TMP_DIR': tmpDir,
-      'PROOT_LOADER': '$nativeLibDir/libprootloader.so',
-      'PROOT_LOADER_32': '$nativeLibDir/libprootloader32.so',
-      'LD_LIBRARY_PATH': '$libDir:$nativeLibDir',
+      'PROOT_LOADER': prootLoaderPath,
+      'PROOT_LOADER_32': prootLoader32Path,
+      'LD_LIBRARY_PATH': ldLibraryPath,
     };
+  }
+
+  static String _preferExistingPath(List<String> candidates) {
+    for (final path in candidates) {
+      if (path.isNotEmpty && File(path).existsSync()) {
+        return path;
+      }
+    }
+    return candidates.firstWhere((path) => path.isNotEmpty, orElse: () => '');
   }
 
   /// Build proot arguments matching ProcessManager.kt's gateway mode
   /// (proot-distro command_login). Uses `env -i` for a clean guest
-  /// environment — prevents Android JVM vars from leaking into proot.
+  /// environment; prevents Android JVM vars from leaking into proot.
   static List<String> buildProotArgs(Map<String, String> config,
       {int columns = 80, int rows = 24}) {
     final procFakes = '${config['configDir']}/proc_fakes';
     final sysFakes = '${config['configDir']}/sys_fakes';
     final rootfsDir = config['rootfsDir']!;
 
-    // Detect architecture for uname struct
-    // flutter_pty runs on the same device, so we can use Dart's Platform
-    String machine = 'aarch64'; // default
+    // Detect architecture for uname struct.
+    // flutter_pty runs on the same device, so we can use Dart's Platform.
+    String machine = 'aarch64';
     try {
-      // Will be set by the caller if needed; for now default arm64
+      if (Platform.version.contains('arm')) {
+        machine = 'armv7l';
+      }
     } catch (_) {}
 
-    // Full uname struct matching proot-distro command_login
+    // Full uname struct matching proot-distro command_login.
     final kernelRelease = '\\Linux\\localhost\\$_fakeKernelRelease'
         '\\$_fakeKernelVersion\\$machine\\localdomain\\-1\\';
 
@@ -131,7 +159,7 @@ class TerminalService {
       '--bind=${config['homeDir']}:/root/home',
     ];
 
-    // Bind-mount shared storage if permission is granted (Termux-style)
+    // Bind-mount shared storage if permission is granted (Termux-style).
     if (config['storageGranted'] == 'true') {
       args.addAll([
         '--bind=/storage:/storage',
@@ -143,7 +171,8 @@ class TerminalService {
       // Clean guest environment via env -i (matching proot-distro).
       // This prevents Android JVM vars (LD_PRELOAD, CLASSPATH, DEX2OAT,
       // ANDROID_ROOT, etc.) from leaking into the proot guest.
-      '/usr/bin/env', '-i',
+      '/usr/bin/env',
+      '-i',
       'HOME=/root',
       'USER=root',
       'LANG=C.UTF-8',
@@ -161,7 +190,7 @@ class TerminalService {
   }
 
   /// Host-side environment map for Pty.start().
-  /// Only proot-specific vars — no guest vars (those are in env -i).
+  /// Only proot-specific vars; no guest vars (those are in env -i).
   static Map<String, String> buildHostEnv(Map<String, String> config) {
     return {
       'PROOT_TMP_DIR': config['PROOT_TMP_DIR']!,

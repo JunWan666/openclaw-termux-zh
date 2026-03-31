@@ -37,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _goInstalled = false;
   bool _brewInstalled = false;
   bool _sshInstalled = false;
+  bool _cpolarInstalled = false;
   bool _storageGranted = false;
   bool _persistentGatewayLogs = false;
   bool _checkingUpdate = false;
@@ -68,6 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final brewInstalled =
           File('$rootfs/home/linuxbrew/.linuxbrew/bin/brew').existsSync();
       final sshInstalled = File('$rootfs/usr/bin/ssh').existsSync();
+      final cpolarInstalled = File('$rootfs/usr/local/bin/cpolar').existsSync();
 
       setState(() {
         _batteryOptimized = batteryOptimized;
@@ -79,6 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _goInstalled = goInstalled;
         _brewInstalled = brewInstalled;
         _sshInstalled = sshInstalled;
+        _cpolarInstalled = cpolarInstalled;
         _loading = false;
       });
     } catch (e) {
@@ -291,6 +294,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ? l10n.t('statusInstalled')
                       : l10n.t('statusNotInstalled')),
                   leading: const Icon(Icons.vpn_key),
+                ),
+                ListTile(
+                  title: Text(l10n.t('settingsCpolar')),
+                  subtitle: Text(_cpolarInstalled
+                      ? l10n.t('statusInstalled')
+                      : l10n.t('statusNotInstalled')),
+                  leading: const Icon(Icons.hub),
                 ),
                 const Divider(),
                 _sectionHeader(theme, l10n.t('settingsMaintenance')),

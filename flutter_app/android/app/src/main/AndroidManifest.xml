@@ -82,6 +82,11 @@
             android:foregroundServiceType="specialUse" />
 
         <service
+            android:name=".CpolarForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+
+        <service
             android:name=".SshForegroundService"
             android:exported="false"
             android:foregroundServiceType="specialUse" />

@@ -5,6 +5,7 @@ import '../app.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/node_state.dart';
+import '../providers/gateway_provider.dart';
 import '../providers/node_provider.dart';
 import '../services/provider_config_service.dart';
 import '../services/update_flow_service.dart';
@@ -225,6 +226,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       MaterialPageRoute(builder: (_) => screen),
     );
     if (!mounted) return;
+    await context.read<GatewayProvider>().syncState();
     await _refreshActiveModel();
     await _refreshAppUpdateStatus();
   }

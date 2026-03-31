@@ -1,6 +1,6 @@
-class AppConstants {
+﻿class AppConstants {
   static const String appName = 'OpenClaw';
-  static const String version = '1.9.5';
+  static const String version = '1.9.6';
   static const String packageName = 'com.junwan666.openclawzh';
 
   /// Matches ANSI escape sequences (e.g. color codes in terminal output).
@@ -35,7 +35,7 @@ class AppConstants {
   static const String rootfsArmhf = '${ubuntuRootfsUrl}armhf.tar.gz';
   static const String rootfsAmd64 = '${ubuntuRootfsUrl}amd64.tar.gz';
 
-  // Node.js binary tarball 鈥?downloaded directly by Flutter, extracted by Java.
+  // Node.js binary tarball 閳?downloaded directly by Flutter, extracted by Java.
   // Bypasses curl/gpg/NodeSource which fail inside proot.
   static const String nodeVersion = '22.16.0';
   static const String openClawEstimatedSize = '~95 MB';
@@ -89,3 +89,5 @@ class AppConstants {
     }
   }
 }
+
+

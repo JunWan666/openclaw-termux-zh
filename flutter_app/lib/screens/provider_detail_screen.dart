@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../app.dart';
 import '../l10n/app_localizations.dart';
 import '../models/ai_provider.dart';
+import '../providers/gateway_provider.dart';
 import '../services/provider_config_service.dart';
 
 /// Form screen to configure API key and model for a single AI provider.
@@ -87,6 +90,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
 
   Future<void> _save() async {
     final l10n = context.l10n;
+    final gatewayProvider = context.read<GatewayProvider>();
     final apiKey = _apiKeyController.text.trim();
     if (apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,6 +124,9 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
         baseUrl: normalizedBaseUrl,
         model: model,
       );
+      await gatewayProvider.applyConfigChanges(
+        source: '${widget.provider.id} provider settings',
+      );
       if (_supportsCustomBaseUrl) {
         _baseUrlController.text = normalizedBaseUrl;
       }
@@ -150,6 +157,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
 
   Future<void> _remove() async {
     final l10n = context.l10n;
+    final gatewayProvider = context.read<GatewayProvider>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -178,6 +186,9 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
     try {
       await ProviderConfigService.removeProviderConfig(
           provider: widget.provider);
+      await gatewayProvider.applyConfigChanges(
+        source: '${widget.provider.id} provider settings',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

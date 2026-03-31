@@ -1,13 +1,13 @@
-<div align="center">
+﻿<div align="center">
   <h1>OpenClaw 中文整合版（openclaw-termux-zh）</h1>
   <p>
     <a href="README.md">简体中文</a> | <a href="docs/README_en.md">English</a>
   </p>
   <img src="assets/ic_launcher.png" alt="OpenClaw" width="160" />
   <h3 align="center">面向中文用户维护与分发的 OpenClaw Android 独立整合版本</h3>
-  <p align="center">内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、配置体验和移动端使用流程。</p>
+  <p align="center">内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、移动端配置体验与 Android 原生集成。</p>
   <p align="center">
-    <img src="https://img.shields.io/badge/Version-v1.9.5-D32222?style=for-the-badge" alt="Version" />
+    <img src="https://img.shields.io/badge/Version-v1.9.6-D32222?style=for-the-badge" alt="Version" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
   </p>
@@ -21,96 +21,49 @@
   </p>
 </div>
 
-> 本仓库为汉化整合版，主要用于中文用户维护与分发。
+> 本仓库为中文整合版，主要用于中文用户维护与分发。
 >
 > 整合来源：
 > - 上游项目：[`mithun50/openclaw-termux`](https://github.com/mithun50/openclaw-termux)
 > - 汉化分支作者：[`TIANLI0/openclaw-termux` 的 `feature/translation` 分支](https://github.com/TIANLI0/openclaw-termux/tree/feature/translation)
->
-> 本仓库在上游基础上整合了 i18n（简中 / 繁中 / 日文）相关改动，并以中文文档为主。
-
-## 技术栈
-
-<table>
-  <tr>
-    <td align="center" width="25%">
-      <strong>Flutter + Dart</strong><br />
-      <sub>Android UI、i18n、多页面交互</sub>
-    </td>
-    <td align="center" width="25%">
-      <strong>Kotlin</strong><br />
-      <sub>前台服务、PRoot 启动、系统桥接</sub>
-    </td>
-    <td align="center" width="25%">
-      <strong>Ubuntu RootFS</strong><br />
-      <sub>免 root 环境下的 Linux 用户态</sub>
-    </td>
-    <td align="center" width="25%">
-      <strong>Node.js + OpenClaw</strong><br />
-      <sub>AI Gateway、CLI 与更新链路</sub>
-    </td>
-  </tr>
-</table>
-
----
 
 ## 当前发布版本
 
-- 版本：`v1.9.5`
-- 发布说明：见 [release/v1.9.5/Release.zh.md](release/v1.9.5/Release.zh.md)
+- 版本：`v1.9.6`
+- 发布说明：见 [release/v1.9.6/Release.zh.md](release/v1.9.6/Release.zh.md)
 - 改动日志：见 [CHANGELOG.md](CHANGELOG.md)
 - Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
 
-## 下载引导
+## 下载指南
 
 > 不确定手机架构时，优先下载 `universal.apk`。
 
-| 文件 | 适用设备 | 大小 | 最新下载 |
+| 文件 | 适用设备 | 大小 | 下载 |
 |---|---|---:|---|
-| `OpenClaw-v1.9.5-universal.apk` | 不确定架构、想直接安装 | 43.89 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.5-universal.apk) |
-| `OpenClaw-v1.9.5-arm64-v8a.apk` | 大多数现代 Android 手机 | 26.96 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.5-arm64-v8a.apk) |
-| `OpenClaw-v1.9.5-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.59 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.5-armeabi-v7a.apk) |
-| `OpenClaw-v1.9.5-x86_64.apk` | 模拟器或 x86_64 设备 | 27.16 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.5-x86_64.apk) |
-| `OpenClaw-v1.9.5.aab` | 应用商店分发 | 50.71 MB | [直接下载](https://github.com/JunWan666/openclaw-termux-zh/releases/latest/download/OpenClaw-v1.9.5.aab) |
+| `OpenClaw-v1.9.6-universal.apk` | 不确定架构、想直接安装 | 44.01 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.6/OpenClaw-v1.9.6-universal.apk) |
+| `OpenClaw-v1.9.6-arm64-v8a.apk` | 大多数现代 Android 手机 | 27.01 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.6/OpenClaw-v1.9.6-arm64-v8a.apk) |
+| `OpenClaw-v1.9.6-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 26.64 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.6/OpenClaw-v1.9.6-armeabi-v7a.apk) |
+| `OpenClaw-v1.9.6-x86_64.apk` | 模拟器或 x86_64 设备 | 27.22 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.6/OpenClaw-v1.9.6-x86_64.apk) |
+| `OpenClaw-v1.9.6.aab` | 应用商店分发 | 50.82 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.6/OpenClaw-v1.9.6.aab) |
 
----
+## v1.9.6 亮点
 
-## 项目简介
-
-OpenClaw 是一个在 Android 上运行的 AI Gateway 方案。该项目通过 Flutter + proot Ubuntu 环境，在免 root 设备上提供：
-
-- 一键安装 Ubuntu RootFS + Node.js + OpenClaw
-- 应用内终端、日志、Web 控制台与配置入口
-- 网关管理、健康检查、版本选择与更新
-- 可选工具包（如 Go、Homebrew、OpenSSH）
-- 节点能力接入（相机、位置、传感器等）
-
-## v1.9.5 亮点
-
-- 快照导出改为直接调用 Android 系统保存面板，可自行选择保存位置与文件名，不再需要去应用目录里翻备份文件。
-- 新增独立的 `智谱 AI` 提供商，内置官方 `https://open.bigmodel.cn/api/paas/v4` 基础地址与常用 `GLM` 模型预设。
-- 自定义提供商新增 `智谱 AI Compatible` 兼容模式，连接测试、自动识别和已保存配置恢复逻辑都已适配 `bigmodel.cn`，避免被错误补成 `/v1`。
-
----
-
-## 主要特性（中文整合版）
-
-- 中文优先文档与维护流程
-- i18n 文案与页面整合（含简中 / 繁中 / 日文）
-- 保留上游核心功能与结构，便于后续同步
-- 版本变更统一记录到 Release 文档与 Changelog
-
----
+- 新增 cpolar 可选组件，支持安装、卸载、启动、停止、状态显示、Web 面板入口，以及安装日志实时滚动输出。
+- 修复 QQ / 微信接入在部分设备上的 PRoot 原生库缺失问题，消息平台插件初始化更稳定。
+- 首页控制台地址会自动清理误拼接到 token 后面的 `copy`、`copied`、`GatewayWS` 后缀，返回首页后也会主动同步网关运行状态。
+- 切换 OpenClaw 版本时新增百分比进度提示，等待过程更直观。
+- 修改模型提供商、消息平台等关键配置后，若网关正在运行，会自动重启网关应用配置。
 
 ## 快速开始
 
 ### 方式一：Android APK（推荐）
 
-1. 从上方“下载引导”表格选择对应 APK。
+1. 从上方“下载指南”中选择适合自己设备的 APK。
 2. 安装后打开应用。
-3. 如需指定 OpenClaw 版本，可先在安装页上方选择版本，再点击 **Begin Setup**。
-4. 在应用内完成 Onboarding 与 API Key / 提供商配置。
+3. 如需指定 OpenClaw 版本，可先在安装页上方选择版本，再点击“开始安装”。
+4. 完成 Onboarding、模型提供商与 API Key 配置。
 5. 启动 Gateway。
+6. 点击首页地址，或在浏览器访问 `http://127.0.0.1:18789` 打开 Web 控制台。
 
 ### 方式二：源码构建
 
@@ -121,50 +74,24 @@ flutter pub get
 flutter build apk --release
 ```
 
-说明：如果你需要可运行的 proot 相关 `.so`，请按仓库脚本准备 `jniLibs` 后再打包。
-
-推荐：也可直接使用仓库内的 Python 发布脚本，它会交互输入版本号 / 构建号，并自动将 APK / AAB 整理到 `release/v版本/` 目录：
+如需直接生成发布目录中的 APK / AAB，可使用仓库自带脚本：
 
 ```bash
-python scripts/build_release.py
+python scripts/build_release.py --version 1.9.6 --build-number 39
 ```
-
----
 
 ## 目录说明
 
 - `flutter_app/`：Flutter Android 主应用
 - `lib/`：Node / CLI 相关脚本
 - `scripts/`：构建与依赖准备脚本
-- `release/`：发布产物与对应版本说明
+- `release/`：发布产物与版本说明
 - `docs/README_en.md`：英文文档
-- `CHANGELOG.md`：版本与改动记录
-
----
-
-## 与上游同步建议
-
-如果后续要继续跟进上游更新，建议流程：
-
-1. 同步上游 `main`
-2. 在独立分支处理冲突
-3. 回归测试安装、RootFS 解压、网关启动与版本更新
-4. 更新本仓库 `CHANGELOG.md` 与对应版本 `Release.zh.md`
-
----
+- `CHANGELOG.md`：版本改动记录
 
 ## 免责声明
 
-本仓库为社区维护的汉化整合版本，不代表上游官方发布。若你用于生产或长期环境，请自行评估兼容性与风险。
-
----
-
-## 致谢
-
-- 上游作者与贡献者：[`mithun50/openclaw-termux`](https://github.com/mithun50/openclaw-termux)
-- 汉化 / 整合贡献者：[`TIANLI0`](https://github.com/TIANLI0)、本仓库维护者及社区用户
-
----
+本仓库为社区维护的中文整合版本，不代表上游官方发布。若用于生产环境，请自行评估兼容性与风险。
 
 ## 许可证
 

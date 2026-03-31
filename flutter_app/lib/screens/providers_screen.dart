@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../app.dart';
 import '../l10n/app_localizations.dart';
 import '../models/ai_provider.dart';
 import '../models/custom_provider_preset.dart';
+import '../providers/gateway_provider.dart';
 import '../services/provider_config_service.dart';
 import 'custom_provider_detail_screen.dart';
 import 'provider_detail_screen.dart';
@@ -89,9 +91,13 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   Future<void> _activateCustomPreset(CustomProviderPreset preset) async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = context.l10n;
+    final gatewayProvider = context.read<GatewayProvider>();
     setState(() => _switchingPreset = true);
     try {
       await ProviderConfigService.activateModel(preset.modelRef);
+      await gatewayProvider.applyConfigChanges(
+        source: 'provider preset ${preset.displayName}',
+      );
       if (!mounted) {
         return;
       }

@@ -21,6 +21,35 @@ class MessagePlatformConfigService {
     return "'${s.replaceAll("'", "'\\''")}'";
   }
 
+  static String _wrapOpenclawCommand(String command) {
+    return '''
+if [ -f /root/.openclaw/bionic-bypass.js ]; then
+  export NODE_OPTIONS="--require /root/.openclaw/bionic-bypass.js"
+fi
+export CHOKIDAR_USEPOLLING=true
+export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+export UV_USE_IO_URING=0
+$command
+''';
+  }
+
+  static Future<String> _runOpenclawCommand(
+    String command, {
+    int timeout = 120,
+  }) async {
+    try {
+      await NativeBridge.setupDirs();
+    } catch (_) {}
+    try {
+      await NativeBridge.writeResolv();
+    } catch (_) {}
+
+    return NativeBridge.runInProot(
+      _wrapOpenclawCommand(command),
+      timeout: timeout,
+    );
+  }
+
   static bool _isNonEmptyString(dynamic value) =>
       value is String && value.trim().isNotEmpty;
 
@@ -360,7 +389,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
   static Future<bool> isQqbotPluginInstalled() async {
     try {
-      final output = await NativeBridge.runInProot(
+      final output = await _runOpenclawCommand(
         'openclaw plugins list',
         timeout: 45,
       );
@@ -374,7 +403,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
   static Future<bool> isWeixinPluginInstalled() async {
     try {
-      final output = await NativeBridge.runInProot(
+      final output = await _runOpenclawCommand(
         'openclaw plugins list',
         timeout: 45,
       );
@@ -393,7 +422,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       return;
     }
 
-    await NativeBridge.runInProot(
+    await _runOpenclawCommand(
       'openclaw plugins install $qqbotPluginPackage',
       timeout: 600,
     );
@@ -408,7 +437,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     final token = '$normalizedAppId:$normalizedAppSecret';
 
     await ensureQqbotPluginInstalled();
-    await NativeBridge.runInProot(
+    await _runOpenclawCommand(
       'openclaw channels add --channel qqbot --token ${_shellEscape(token)}',
       timeout: 120,
     );

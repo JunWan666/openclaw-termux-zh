@@ -1,4 +1,4 @@
-﻿package com.junwan666.openclawzh
+package com.junwan666.openclawzh
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -110,6 +110,8 @@ class MainActivity : FlutterActivity() {
                     if (command != null) {
                         Thread {
                             try {
+                                bootstrapManager.setupDirectories()
+                                bootstrapManager.writeResolvConf()
                                 val output = processManager.runInProotSync(command, timeout)
                                 runOnUiThread { result.success(output) }
                             } catch (e: Exception) {
@@ -141,7 +143,16 @@ class MainActivity : FlutterActivity() {
                     }.start()
                 }
                 "isGatewayRunning" -> {
-                    result.success(GatewayService.isProcessAlive())
+                    Thread {
+                        try {
+                            val running = GatewayService.isProcessAlive()
+                            runOnUiThread { result.success(running) }
+                        } catch (e: Exception) {
+                            runOnUiThread {
+                                result.error("SERVICE_ERROR", e.message, null)
+                            }
+                        }
+                    }.start()
                 }
                 "isGatewayLogPersistenceEnabled" -> {
                     result.success(
@@ -195,6 +206,44 @@ class MainActivity : FlutterActivity() {
                     val text = call.argument<String>("text") ?: "Node connected"
                     NodeForegroundService.updateStatus(text)
                     result.success(true)
+                }
+                "startCpolarService" -> {
+                    val binaryPath = call.argument<String>("binaryPath")
+                    val configPath = call.argument<String>("configPath")
+                    val logPath = call.argument<String>("logPath")
+                    val webPort = call.argument<Int>("webPort") ?: 9200
+
+                    if (binaryPath != null && configPath != null && logPath != null) {
+                        try {
+                            CpolarForegroundService.start(
+                                applicationContext,
+                                binaryPath,
+                                configPath,
+                                logPath,
+                                webPort
+                            )
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("SERVICE_ERROR", e.message, null)
+                        }
+                    } else {
+                        result.error(
+                            "INVALID_ARGS",
+                            "binaryPath, configPath, and logPath required",
+                            null
+                        )
+                    }
+                }
+                "stopCpolarService" -> {
+                    try {
+                        CpolarForegroundService.stop(applicationContext)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("SERVICE_ERROR", e.message, null)
+                    }
+                }
+                "isCpolarServiceRunning" -> {
+                    result.success(CpolarForegroundService.isRunning)
                 }
                 "startSshd" -> {
                     val port = call.argument<Int>("port") ?: 8022

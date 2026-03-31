@@ -1,4 +1,4 @@
-﻿package com.junwan666.openclawzh
+package com.junwan666.openclawzh
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -34,23 +34,43 @@ class GatewayService : Service() {
         private var instance: GatewayService? = null
         private val mainHandler = Handler(Looper.getMainLooper())
 
+        private fun isGatewayPortResponding(
+            port: Int = 18789,
+            timeoutMs: Int = 150,
+        ): Boolean {
+            return try {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress("127.0.0.1", port), timeoutMs)
+                    true
+                }
+            } catch (_: Exception) {
+                false
+            }
+        }
+
         /** Check if the gateway process is actually alive (not just the flag).
-         *  Safe to call from the main thread 鈥?no blocking I/O. */
+         *  Includes a loopback port probe so Flutter can still detect an
+         *  already-running gateway even if the service instance was recreated. */
         fun isProcessAlive(): Boolean {
-            val inst = instance ?: return false
-            if (inst.stopping) return false
-            if (!isRunning) return false
-            val proc = inst.gatewayProcess
-            // If we have a process reference, check if it's actually alive
-            if (proc != null) return proc.isAlive
-            // No process ref yet 鈥?still in setup phase.
-            // If the gateway thread is alive, setup is ongoing 鈥?report true.
-            // This covers slow devices where dir setup takes a long time.
-            val thread = inst.gatewayThread
-            if (thread != null && thread.isAlive) return true
-            // Fallback: within startup window (120s)
-            val elapsed = System.currentTimeMillis() - inst.startTime
-            return elapsed < 120_000
+            val inst = instance
+            if (inst?.stopping == true) return false
+
+            if (inst?.gatewayProcess?.isAlive == true) return true
+
+            // During startup the foreground service may not have a child
+            // process reference yet, but the worker thread is still alive.
+            if (inst?.gatewayThread?.isAlive == true) return true
+
+            // Extra safety: if the service state got desynced but the local
+            // gateway is still listening, report it as running.
+            if (isGatewayPortResponding()) return true
+
+            if (inst != null && isRunning) {
+                val elapsed = System.currentTimeMillis() - inst.startTime
+                return elapsed < 120_000
+            }
+
+            return false
         }
 
         fun start(context: Context) {
@@ -69,6 +89,25 @@ class GatewayService : Service() {
 
         fun stopAndWait(context: Context, timeoutMs: Long = 15_000L): Boolean {
             val existing = instance
+            if (existing == null && isGatewayPortResponding()) {
+                stop(context)
+                killResidualGatewayProcesses()
+
+                val deadline = System.currentTimeMillis() + timeoutMs
+                while (System.currentTimeMillis() < deadline) {
+                    if (!isGatewayPortResponding()) {
+                        return true
+                    }
+                    try {
+                        Thread.sleep(200)
+                    } catch (_: InterruptedException) {
+                        break
+                    }
+                }
+
+                return !isGatewayPortResponding()
+            }
+
             existing?.requestStop("user")
             stop(context)
 
@@ -87,6 +126,25 @@ class GatewayService : Service() {
 
             (instance ?: existing)?.requestStop("force-cleanup")
             return (instance ?: existing)?.isShutdownComplete() ?: true
+        }
+
+        private fun killResidualGatewayProcesses() {
+            val patterns = listOf(
+                "openclaw gateway --verbose",
+                "openclaw.mjs gateway",
+                "node-wrapper.js",
+            )
+
+            for (pattern in patterns) {
+                try {
+                    val escaped = pattern.replace("'", "'\"'\"'")
+                    ProcessBuilder(
+                        "/system/bin/sh",
+                        "-c",
+                        "ps -A | grep -F '$escaped' | grep -v grep | while read -r line; do pid=\$(echo \"\$line\" | awk '{print \$2}'); kill -9 \"\$pid\" 2>/dev/null; done"
+                    ).start().waitFor()
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -135,14 +193,7 @@ class GatewayService : Service() {
 
     /** Check if gateway port is already in use (another instance running). */
     private fun isPortInUse(port: Int = 18789): Boolean {
-        return try {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress("127.0.0.1", port), 1000)
-                true
-            }
-        } catch (_: Exception) {
-            false
-        }
+        return isGatewayPortResponding(port, timeoutMs = 1000)
     }
 
     private fun startGateway() {

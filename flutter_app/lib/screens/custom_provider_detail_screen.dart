@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../app.dart';
 import '../l10n/app_localizations.dart';
 import '../models/ai_provider.dart';
 import '../models/custom_provider_preset.dart';
+import '../providers/gateway_provider.dart';
 import '../services/custom_provider_connection_test_service.dart';
 import '../services/provider_config_service.dart';
 
@@ -446,6 +448,7 @@ class _CustomProviderDetailScreenState
 
   Future<void> _save() async {
     final l10n = context.l10n;
+    final gatewayProvider = context.read<GatewayProvider>();
     if (!_validateConnectionInputs()) {
       return;
     }
@@ -475,6 +478,9 @@ class _CustomProviderDetailScreenState
         providerId: providerId.isEmpty ? null : providerId,
         alias: _aliasController.text.trim(),
         previousProviderId: _selectedPreset?.providerId,
+      );
+      await gatewayProvider.applyConfigChanges(
+        source: 'custom provider preset ${preset.displayName}',
       );
       if (!mounted) {
         return;
@@ -506,6 +512,7 @@ class _CustomProviderDetailScreenState
 
   Future<void> _remove() async {
     final l10n = context.l10n;
+    final gatewayProvider = context.read<GatewayProvider>();
     final preset = _selectedPreset;
     if (preset == null) {
       return;
@@ -539,6 +546,9 @@ class _CustomProviderDetailScreenState
     try {
       await ProviderConfigService.removeCustomProviderPreset(
         providerId: preset.providerId,
+      );
+      await gatewayProvider.applyConfigChanges(
+        source: 'custom provider preset ${preset.displayName}',
       );
       if (!mounted) {
         return;

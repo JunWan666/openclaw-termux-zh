@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dashboard_url_resolver.dart';
+
 class PreferencesService {
   static const _keyAutoStart = 'auto_start_gateway';
   static const _keySetupComplete = 'setup_complete';
@@ -38,10 +40,22 @@ class PreferencesService {
   set pendingSetupCompletionChoice(bool value) =>
       _prefs.setBool(_keyPendingSetupCompletionChoice, value);
 
-  String? get dashboardUrl => _prefs.getString(_keyDashboardUrl);
+  String? get dashboardUrl {
+    final rawValue = _prefs.getString(_keyDashboardUrl);
+    final normalized = DashboardUrlResolver.normalizeDashboardUrl(rawValue);
+    if (rawValue != normalized) {
+      if (normalized != null) {
+        _prefs.setString(_keyDashboardUrl, normalized);
+      } else {
+        _prefs.remove(_keyDashboardUrl);
+      }
+    }
+    return normalized;
+  }
   set dashboardUrl(String? value) {
-    if (value != null) {
-      _prefs.setString(_keyDashboardUrl, value);
+    final normalized = DashboardUrlResolver.normalizeDashboardUrl(value);
+    if (normalized != null) {
+      _prefs.setString(_keyDashboardUrl, normalized);
     } else {
       _prefs.remove(_keyDashboardUrl);
     }

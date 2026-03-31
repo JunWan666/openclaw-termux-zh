@@ -1,4 +1,4 @@
-﻿package com.junwan666.openclawzh
+package com.junwan666.openclawzh
 
 import android.content.Context
 import android.net.ConnectivityManager
@@ -11,6 +11,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
+import java.util.zip.ZipFile
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
@@ -27,11 +28,21 @@ class BootstrapManager(
     private val homeDir get() = "$filesDir/home"
     private val configDir get() = "$filesDir/config"
     private val libDir get() = "$filesDir/lib"
+    private val nativeRuntimeDir get() = "$filesDir/native"
 
     fun setupDirectories() {
-        listOf(rootfsDir, tmpDir, homeDir, configDir, "$homeDir/.openclaw", libDir).forEach {
+        listOf(
+            rootfsDir,
+            tmpDir,
+            homeDir,
+            configDir,
+            "$homeDir/.openclaw",
+            libDir,
+            nativeRuntimeDir,
+        ).forEach {
             File(it).mkdirs()
         }
+        setupNativeRuntimeBinaries()
         // Termux's proot links against libtalloc.so.2 but Android extracts it
         // as libtalloc.so (jniLibs naming convention). Create a copy with the
         // correct SONAME so the dynamic linker finds it.
@@ -40,12 +51,83 @@ class BootstrapManager(
         setupFakeSysdata()
     }
 
+    private fun setupNativeRuntimeBinaries() {
+        listOf(
+            "libproot.so",
+            "libprootloader.so",
+            "libprootloader32.so",
+            "libtalloc.so",
+        ).forEach { libName ->
+            ensureNativeRuntimeBinary(libName)
+        }
+    }
+
+    private fun ensureNativeRuntimeBinary(libName: String) {
+        val target = File("$nativeRuntimeDir/$libName")
+        if (target.exists() && target.length() > 0L) {
+            target.setReadable(true, false)
+            target.setExecutable(true, false)
+            return
+        }
+
+        val directSource = File("$nativeLibDir/$libName")
+        if (directSource.exists() && directSource.length() > 0L) {
+            directSource.copyTo(target, overwrite = true)
+            target.setReadable(true, false)
+            target.setExecutable(true, false)
+            return
+        }
+
+        extractNativeLibraryFromApk(libName, target)
+    }
+
+    private fun extractNativeLibraryFromApk(libName: String, target: File) {
+        val apkPath = context.applicationInfo.sourceDir ?: return
+        val abiDirs = resolveApkAbiDirs()
+
+        ZipFile(apkPath).use { zip ->
+            for (abiDir in abiDirs) {
+                val entry = zip.getEntry("lib/$abiDir/$libName") ?: continue
+                target.parentFile?.mkdirs()
+                zip.getInputStream(entry).use { input ->
+                    FileOutputStream(target).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                target.setReadable(true, false)
+                target.setExecutable(true, false)
+                return
+            }
+        }
+    }
+
+    private fun resolveApkAbiDirs(): List<String> {
+        val supported = Build.SUPPORTED_ABIS?.mapNotNull { abi ->
+            when (abi.lowercase()) {
+                "arm64-v8a" -> "arm64-v8a"
+                "armeabi-v7a", "armeabi" -> "armeabi-v7a"
+                "x86_64" -> "x86_64"
+                "x86" -> "x86"
+                else -> null
+            }
+        } ?: emptyList()
+
+        return (supported + listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86"))
+            .distinct()
+    }
+
     private fun setupLibtalloc() {
-        val source = File("$nativeLibDir/libtalloc.so")
+        val runtimeSource = File("$nativeRuntimeDir/libtalloc.so")
+        val source = if (runtimeSource.exists() && runtimeSource.length() > 0L) {
+            runtimeSource
+        } else {
+            File("$nativeLibDir/libtalloc.so")
+        }
         val target = File("$libDir/libtalloc.so.2")
-        if (source.exists() && !target.exists()) {
-            source.copyTo(target)
+        if (source.exists() && (!target.exists() || target.length() != source.length())) {
+            source.copyTo(target, overwrite = true)
             target.setExecutable(true)
+            target.setReadable(true, false)
         }
     }
 

@@ -55,5 +55,45 @@ void main() {
         isFalse,
       );
     });
+
+    test('strips copy suffix accidentally appended after token links', () {
+      final url = DashboardUrlResolver.extractDashboardUrlFromText(
+        'OpenClaw: http://127.0.0.1:18789/#token=deadbeefcafecopy',
+      );
+
+      expect(url, 'http://127.0.0.1:18789/#token=deadbeefcafe');
+    });
+
+    test('strips short token copy suffix from stored dashboard url', () {
+      final url = DashboardUrlResolver.normalizeDashboardUrl(
+        'http://127.0.0.1:18789/#token=abcdcopy',
+      );
+
+      expect(url, 'http://127.0.0.1:18789/#token=abcd');
+    });
+
+    test('strips copied suffix accidentally appended after token links', () {
+      final url = DashboardUrlResolver.extractDashboardUrlFromText(
+        'OpenClaw: http://127.0.0.1:18789/#token=deadbeefcafecopied',
+      );
+
+      expect(url, 'http://127.0.0.1:18789/#token=deadbeefcafe');
+    });
+
+    test('strips GatewayWS suffix accidentally glued onto token links', () {
+      final url = DashboardUrlResolver.extractDashboardUrlFromText(
+        'OpenClaw: http://127.0.0.1:18789/#token=deadbeefcafeGatewayWS',
+      );
+
+      expect(url, 'http://127.0.0.1:18789/#token=deadbeefcafe');
+    });
+
+    test('normalizes stored dashboard url with GatewayWS suffix', () {
+      final url = DashboardUrlResolver.normalizeDashboardUrl(
+        'http://127.0.0.1:18789/#token=deadbeefcafeGatewayWS',
+      );
+
+      expect(url, 'http://127.0.0.1:18789/#token=deadbeefcafe');
+    });
   });
 }

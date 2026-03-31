@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../models/setup_state.dart';
 import '../models/optional_package.dart';
 import '../providers/setup_provider.dart';
+import '../services/cpolar_package_service.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/package_service.dart';
 import '../services/preferences_service.dart';
@@ -101,12 +102,65 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   Future<void> _installPackage(OptionalPackage package) async {
+    if (package.id == 'cpolar') {
+      await _installCpolarPackage();
+      return;
+    }
+
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PackageInstallScreen(package: package),
       ),
     );
     if (result == true) _refreshPkgStatuses();
+  }
+
+  Future<void> _installCpolarPackage() async {
+    final l10n = context.l10n;
+    NavigatorState? dialogNavigator;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        dialogNavigator = Navigator.of(ctx);
+        return AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text('${l10n.t('packagesInstall')} cpolar...'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      await CpolarPackageService.installOrUpdateLatest();
+      if (dialogNavigator != null) {
+        dialogNavigator!.pop();
+      }
+      await _refreshPkgStatuses();
+    } catch (e) {
+      if (dialogNavigator != null) {
+        dialogNavigator!.pop();
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t('packageCpolarOperationFailed', {'error': e.toString()}),
+          ),
+        ),
+      );
+    }
   }
 
   Future<PreferencesService> _loadPrefs() async {
@@ -641,6 +695,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         return l10n.t('packageBrewDescription');
       case 'ssh':
         return l10n.t('packageSshDescription');
+      case 'cpolar':
+        return l10n.t('packageCpolarDescription');
       default:
         return package.description;
     }

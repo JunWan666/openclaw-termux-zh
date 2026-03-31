@@ -20,16 +20,16 @@ class GatewayService {
   bool _startInProgress = false;
   bool _dashboardUrlProbeInFlight = false;
   DateTime? _lastDashboardUrlProbeAt;
+  bool _stateSyncInFlight = false;
   static final _leadingTimestamp = RegExp(r'^(\d{4}-\d{2}-\d{2}T\S+)\s+(.*)$');
-  static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
+  static final _boxDrawing = RegExp('[\\u2500-\\u257F\\u25C6\\u25C7]+');
 
-  /// Strip ANSI, box-drawing chars, and whitespace to reconstruct URLs
-  /// split by terminal line wrapping or TUI borders.
+  /// Strip terminal-only noise while preserving whitespace boundaries so
+  /// adjacent log labels do not get glued onto `#token=...` URLs.
   static String _cleanForUrl(String text) {
     return text
         .replaceAll(AppConstants.ansiEscape, '')
-        .replaceAll(_boxDrawing, '')
-        .replaceAll(RegExp(r'\s+'), '');
+        .replaceAll(_boxDrawing, '');
   }
 
   static String _formatTimestamp(DateTime dt) {
@@ -139,6 +139,71 @@ class GatewayService {
     }
   }
 
+  Future<void> syncStateFromSystem() async {
+    if (_stateSyncInFlight) {
+      return;
+    }
+
+    _stateSyncInFlight = true;
+    try {
+      final prefs = PreferencesService();
+      await prefs.init();
+      final persistedDashboardUrl = DashboardUrlResolver.normalizeDashboardUrl(
+        prefs.dashboardUrl,
+        baseUri: Uri.parse(AppConstants.gatewayUrl),
+      );
+      final currentDashboardUrl = DashboardUrlResolver.normalizeDashboardUrl(
+        _state.dashboardUrl,
+        baseUri: Uri.parse(AppConstants.gatewayUrl),
+      );
+      final dashboardUrl = currentDashboardUrl ?? persistedDashboardUrl;
+      final isRunning = await NativeBridge.isGatewayRunning();
+
+      if (_state.status == GatewayStatus.stopping && isRunning) {
+        return;
+      }
+
+      if (isRunning) {
+        _startingAt ??= DateTime.now();
+        _subscribeLogs();
+        _ensureHealthCheck();
+
+        final healthy = await checkHealth();
+        _updateState(_state.copyWith(
+          status: healthy ? GatewayStatus.running : GatewayStatus.starting,
+          clearError: true,
+          startedAt: healthy ? (_state.startedAt ?? DateTime.now()) : null,
+          dashboardUrl: dashboardUrl,
+        ));
+
+        if (!DashboardUrlResolver.hasToken(dashboardUrl)) {
+          unawaited(_maybeRefreshDashboardUrl(force: true));
+        }
+        return;
+      }
+
+      if (_state.status == GatewayStatus.stopped) {
+        if (dashboardUrl != null && dashboardUrl != _state.dashboardUrl) {
+          _updateState(_state.copyWith(dashboardUrl: dashboardUrl));
+        }
+        return;
+      }
+
+      _startingAt = null;
+      _cancelAllTimers();
+      await _logSubscription?.cancel();
+      _logSubscription = null;
+      _updateState(_state.copyWith(
+        status: GatewayStatus.stopped,
+        clearError: true,
+        clearStartedAt: true,
+        dashboardUrl: dashboardUrl,
+      ));
+    } finally {
+      _stateSyncInFlight = false;
+    }
+  }
+
   void _subscribeLogs() {
     _logSubscription?.cancel();
     _logSubscription = NativeBridge.gatewayLogStream.listen((log) {
@@ -147,6 +212,10 @@ class GatewayService {
       if (logs.length > 500) {
         logs.removeRange(0, logs.length - 500);
       }
+      final currentDashboardUrl = DashboardUrlResolver.normalizeDashboardUrl(
+        _state.dashboardUrl,
+        baseUri: Uri.parse(AppConstants.gatewayUrl),
+      );
       String? dashboardUrl;
       final cleanLog = _cleanForUrl(normalizedLog);
       final resolvedUrl = DashboardUrlResolver.extractDashboardUrlFromText(
@@ -158,11 +227,16 @@ class GatewayService {
         unawaited(
           _persistDashboardUrl(
             resolvedUrl,
-            notify: resolvedUrl != _state.dashboardUrl,
+            notify: resolvedUrl != currentDashboardUrl,
           ),
         );
       }
-      _updateState(_state.copyWith(logs: logs, dashboardUrl: dashboardUrl));
+      _updateState(
+        _state.copyWith(
+          logs: logs,
+          dashboardUrl: dashboardUrl ?? currentDashboardUrl,
+        ),
+      );
     });
   }
 
@@ -171,12 +245,19 @@ class GatewayService {
     bool notify = false,
   }) async {
     try {
+      final normalizedUrl = DashboardUrlResolver.normalizeDashboardUrl(
+        dashboardUrl,
+        baseUri: Uri.parse(AppConstants.gatewayUrl),
+      );
+      if (normalizedUrl == null) {
+        return;
+      }
       final prefs = PreferencesService();
       await prefs.init();
-      prefs.dashboardUrl = dashboardUrl;
+      prefs.dashboardUrl = normalizedUrl;
       if (notify) {
         await NativeBridge.showUrlNotification(
-          dashboardUrl,
+          normalizedUrl,
           title: 'Dashboard Ready',
         );
       }
@@ -396,7 +477,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     ));
 
     try {
-      // Ensure directories exist — Android may have cleared them (#40).
+      // Ensure directories exist - Android may have cleared them (#40).
       // Non-fatal: the GatewayService foreground service also creates them.
       try {
         await NativeBridge.setupDirs();
@@ -482,9 +563,16 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     _healthTimer = null;
   }
 
+  void _ensureHealthCheck() {
+    if (_initialDelayTimer != null || _healthTimer != null) {
+      return;
+    }
+    _startHealthCheck();
+  }
+
   void _startHealthCheck() {
     _cancelAllTimers();
-    // Delay the first health check by 30s — Node.js inside proot needs time to start.
+    // Delay the first health check by 30s - Node.js inside proot needs time to start.
     // Use a Timer (not Future.delayed) so it can be cancelled on stop().
     _initialDelayTimer = Timer(const Duration(seconds: 30), () {
       _initialDelayTimer = null;
@@ -555,6 +643,34 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       return response.statusCode < 500;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<void> applyConfigChanges({String source = 'configuration'}) async {
+    final shouldRestart = _state.status == GatewayStatus.running ||
+        _state.status == GatewayStatus.starting;
+
+    if (!shouldRestart) {
+      _updateState(_state.copyWith(logs: [
+        ..._state.logs,
+        _ts('[INFO] $source updated. Changes will apply the next time the gateway starts.'),
+      ]));
+      return;
+    }
+
+    _updateState(_state.copyWith(logs: [
+      ..._state.logs,
+      _ts('[INFO] $source updated, restarting gateway to apply changes...'),
+    ]));
+
+    try {
+      await stop();
+      await start();
+    } catch (e) {
+      _updateState(_state.copyWith(logs: [
+        ..._state.logs,
+        _ts('[ERROR] Failed to re-apply $source automatically: $e'),
+      ]));
     }
   }
 

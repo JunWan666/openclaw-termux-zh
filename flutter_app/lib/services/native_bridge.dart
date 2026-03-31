@@ -220,6 +220,28 @@ class NativeBridge {
     return await _channel.invokeMethod('getSshdPort');
   }
 
+  static Future<bool> startCpolarService({
+    required String binaryPath,
+    required String configPath,
+    required String logPath,
+    int webPort = 9200,
+  }) async {
+    return await _channel.invokeMethod('startCpolarService', {
+      'binaryPath': binaryPath,
+      'configPath': configPath,
+      'logPath': logPath,
+      'webPort': webPort,
+    });
+  }
+
+  static Future<bool> stopCpolarService() async {
+    return await _channel.invokeMethod('stopCpolarService');
+  }
+
+  static Future<bool> isCpolarServiceRunning() async {
+    return await _channel.invokeMethod('isCpolarServiceRunning');
+  }
+
   static Future<List<String>> getDeviceIps() async {
     final result = await _channel.invokeMethod('getDeviceIps');
     return List<String>.from(result);
