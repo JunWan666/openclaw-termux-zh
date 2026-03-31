@@ -89,6 +89,15 @@ python scripts/build_release.py --version 1.9.7 --build-number 40
 - `docs/README_en.md`：英文文档
 - `CHANGELOG.md`：版本改动记录
 
+## 交流反馈
+
+如需交流使用经验、排查问题或反馈建议，欢迎加入 `OpenClaw-zh` 开源项目交流群。
+
+<div align="center">
+  <img src="docs/openclaw-termux-zh-weixin-04-07.png" alt="OpenClaw-zh 开源项目交流群 微信群二维码" width="320" />
+  <p>微信扫码加入交流群</p>
+</div>
+
 ## 免责声明
 
 本仓库为社区维护的中文整合版本，不代表上游官方发布。若用于生产环境，请自行评估兼容性与风险。
