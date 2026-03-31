@@ -230,10 +230,9 @@ class OpenClawVersionService {
       throw Exception('Version cannot be empty');
     }
 
-    final release =
-        releaseInfo?.version == normalizedVersion
-            ? releaseInfo!
-            : await fetchRelease(normalizedVersion);
+    final release = releaseInfo?.version == normalizedVersion
+        ? releaseInfo!
+        : await fetchRelease(normalizedVersion);
     await ensureNodeRequirement(release.nodeRequirement);
     await NativeBridge.runInProot(
       'node $_nodeWrapper $_npmCli install -g openclaw@$normalizedVersion',
@@ -321,6 +320,20 @@ class OpenClawVersionService {
     }
 
     return compareVersions(latestVersion, installedVersion) > 0;
+  }
+
+  static bool isSameVersion({
+    required String? installedVersion,
+    required String? targetVersion,
+  }) {
+    if (installedVersion == null ||
+        installedVersion.trim().isEmpty ||
+        targetVersion == null ||
+        targetVersion.trim().isEmpty) {
+      return false;
+    }
+
+    return compareVersions(installedVersion, targetVersion) == 0;
   }
 
   static int compareVersions(String left, String right) {

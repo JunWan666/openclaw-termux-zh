@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models/gateway_state.dart';
+import 'gateway_auth_config_service.dart';
 import 'native_bridge.dart';
 import 'preferences_service.dart';
 import 'dashboard_url_resolver.dart';
@@ -43,12 +44,15 @@ class GatewayService {
     return '$year-$month-$day $hour:$minute:$second';
   }
 
-  static String _normalizeLogLine(String line) {
+  static String? _normalizeLogLine(String line) {
     final clean = line.replaceAll(AppConstants.ansiEscape, '').trim();
     if (clean.isEmpty) return clean;
 
     var timestampMatch = _leadingTimestamp.firstMatch(clean);
-    if (timestampMatch == null) return clean;
+    if (timestampMatch == null) {
+      final fallbackTimestamp = _formatTimestamp(DateTime.now());
+      return _rewriteCompatibilityLog(clean, fallbackTimestamp) ?? clean;
+    }
 
     var timestamp = timestampMatch.group(1)!;
     var body = timestampMatch.group(2)!;
@@ -60,8 +64,50 @@ class GatewayService {
     }
 
     final parsed = DateTime.tryParse(timestamp);
-    if (parsed == null) return clean;
-    return '${_formatTimestamp(parsed)} $body';
+    final formattedTimestamp = parsed == null
+        ? _formatTimestamp(DateTime.now())
+        : _formatTimestamp(parsed);
+    return _rewriteCompatibilityLog(body, formattedTimestamp) ??
+        '$formattedTimestamp $body';
+  }
+
+  static String? _rewriteCompatibilityLog(String body, String timestamp) {
+    final trimmedBody = body.trim();
+    if (trimmedBody.isEmpty) {
+      return null;
+    }
+
+    if (trimmedBody.contains(
+      '[agents/model-providers] [xai-auth] bootstrap config fallback: no config-backed key found',
+    )) {
+      return null;
+    }
+
+    if (trimmedBody.contains(
+      '[hooks/boot-md] boot-md skipped for agent startup run',
+    )) {
+      return null;
+    }
+
+    if (trimmedBody.contains(
+      '[gateway] security warning: dangerous config flags enabled: gateway.controlUi.allowInsecureAuth=true',
+    )) {
+      return '$timestamp [INFO] Local Control UI compatibility mode is enabled for localhost access.';
+    }
+
+    if (trimmedBody.contains(
+      '[bonjour] watchdog detected non-announced service; attempting re-advertise',
+    )) {
+      return '$timestamp [INFO] Bonjour service advertisement is retrying on Android.';
+    }
+
+    if (trimmedBody.contains(
+      '[model-pricing] pricing bootstrap failed: TimeoutError: The operation was aborted due to timeout',
+    )) {
+      return '$timestamp [WARN] Model pricing bootstrap timed out; the gateway can continue running.';
+    }
+
+    return null;
   }
 
   static String _ts(String msg) => '${_formatTimestamp(DateTime.now())} $msg';
@@ -78,6 +124,12 @@ class GatewayService {
     _updateState(_state.copyWith(logs: const []));
   }
 
+  Future<String?> _readConfiguredDashboardUrl() async {
+    return GatewayAuthConfigService.readDashboardUrl(
+      baseUri: Uri.parse(AppConstants.gatewayUrl),
+    );
+  }
+
   /// Check if the gateway is already running (e.g. after app restart)
   /// and sync the UI state accordingly.  If not running but auto-start
   /// is enabled, start it automatically.
@@ -85,6 +137,12 @@ class GatewayService {
     final prefs = PreferencesService();
     await prefs.init();
     final savedUrl = prefs.dashboardUrl;
+    final configuredDashboardUrl = await _readConfiguredDashboardUrl();
+    final initialDashboardUrl = configuredDashboardUrl ?? savedUrl;
+
+    if (configuredDashboardUrl != null && configuredDashboardUrl != savedUrl) {
+      await _persistDashboardUrl(configuredDashboardUrl);
+    }
 
     // Always ensure directories and resolv.conf exist on app open.
     // Android may clear the files directory during an app update (#40).
@@ -119,7 +177,7 @@ class GatewayService {
       _startingAt = DateTime.now();
       _updateState(_state.copyWith(
         status: GatewayStatus.starting,
-        dashboardUrl: savedUrl,
+        dashboardUrl: initialDashboardUrl,
         logs: [
           ..._state.logs,
           _ts('[INFO] Gateway process detected, reconnecting...')
@@ -128,7 +186,7 @@ class GatewayService {
 
       _subscribeLogs();
       _startHealthCheck();
-      if (!DashboardUrlResolver.hasToken(savedUrl)) {
+      if (!DashboardUrlResolver.hasToken(initialDashboardUrl)) {
         unawaited(_maybeRefreshDashboardUrl(force: true));
       }
     } else if (prefs.autoStartGateway) {
@@ -148,6 +206,7 @@ class GatewayService {
     try {
       final prefs = PreferencesService();
       await prefs.init();
+      final configuredDashboardUrl = await _readConfiguredDashboardUrl();
       final persistedDashboardUrl = DashboardUrlResolver.normalizeDashboardUrl(
         prefs.dashboardUrl,
         baseUri: Uri.parse(AppConstants.gatewayUrl),
@@ -156,7 +215,13 @@ class GatewayService {
         _state.dashboardUrl,
         baseUri: Uri.parse(AppConstants.gatewayUrl),
       );
-      final dashboardUrl = currentDashboardUrl ?? persistedDashboardUrl;
+      final dashboardUrl = configuredDashboardUrl ??
+          currentDashboardUrl ??
+          persistedDashboardUrl;
+      if (configuredDashboardUrl != null &&
+          configuredDashboardUrl != persistedDashboardUrl) {
+        await _persistDashboardUrl(configuredDashboardUrl);
+      }
       final isRunning = await NativeBridge.isGatewayRunning();
 
       if (_state.status == GatewayStatus.stopping && isRunning) {
@@ -169,10 +234,16 @@ class GatewayService {
         _ensureHealthCheck();
 
         final healthy = await checkHealth();
+        final shouldKeepRunning =
+            !healthy && _state.status == GatewayStatus.running;
         _updateState(_state.copyWith(
-          status: healthy ? GatewayStatus.running : GatewayStatus.starting,
+          status: healthy || shouldKeepRunning
+              ? GatewayStatus.running
+              : GatewayStatus.starting,
           clearError: true,
-          startedAt: healthy ? (_state.startedAt ?? DateTime.now()) : null,
+          startedAt: healthy || shouldKeepRunning
+              ? (_state.startedAt ?? DateTime.now())
+              : null,
           dashboardUrl: dashboardUrl,
         ));
 
@@ -208,6 +279,9 @@ class GatewayService {
     _logSubscription?.cancel();
     _logSubscription = NativeBridge.gatewayLogStream.listen((log) {
       final normalizedLog = _normalizeLogLine(log);
+      if (normalizedLog == null || normalizedLog.isEmpty) {
+        return;
+      }
       final logs = [..._state.logs, normalizedLog];
       if (logs.length > 500) {
         logs.removeRange(0, logs.length - 500);
@@ -298,6 +372,11 @@ class GatewayService {
   }
 
   Future<String?> _resolveDashboardUrlFromGateway() async {
+    final configuredDashboardUrl = await _readConfiguredDashboardUrl();
+    if (configuredDashboardUrl != null) {
+      return configuredDashboardUrl;
+    }
+
     final prefs = PreferencesService();
     await prefs.init();
 
@@ -468,12 +547,13 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     final prefs = PreferencesService();
     await prefs.init();
     final savedUrl = prefs.dashboardUrl;
+    final configuredDashboardUrl = await _readConfiguredDashboardUrl();
 
     _updateState(_state.copyWith(
       status: GatewayStatus.starting,
       clearError: true,
       logs: [..._state.logs, _ts('[INFO] Starting gateway...')],
-      dashboardUrl: savedUrl,
+      dashboardUrl: configuredDashboardUrl ?? savedUrl,
     ));
 
     try {
@@ -505,6 +585,11 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       await ProviderConfigService.ensureGatewayDefaults();
       await MessagePlatformConfigService.migrateFeishuConfigIfNeeded();
       await _writeNodeAllowConfig();
+      final refreshedDashboardUrl = await _readConfiguredDashboardUrl();
+      if (refreshedDashboardUrl != null) {
+        await _persistDashboardUrl(refreshedDashboardUrl);
+        _updateState(_state.copyWith(dashboardUrl: refreshedDashboardUrl));
+      }
       _startingAt = DateTime.now();
       _subscribeLogs();
       await NativeBridge.startGateway();

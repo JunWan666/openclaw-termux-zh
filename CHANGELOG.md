@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## v1.9.7 - 版本安装保护、快照版本校验与网关鉴权稳定性修复
+
+### 关键改动
+
+- **安装所选版本增加保护**：首页“安装所选版本”新增二次确认弹窗；如果当前已安装的版本与所选版本一致，会直接提示“已是当前版本”并禁用重复安装入口，避免手滑误触后重复下载。
+- **快照导出/导入携带版本信息**：快照导出文件名现在会自动拼接 App 版本与 OpenClaw 版本；导入时会先分析快照与当前环境的版本差异，如果缺少版本信息或版本不一致，会先弹出提醒再决定是否继续恢复。
+- **网关 token 优先从配置文件读取**：新增 `GatewayAuthConfigService`，优先从 `openclaw.json` 与 `.env` 解析 `gateway.auth.token`，首页控制台地址与 Node 连接都会优先使用配置中的 token，不再过度依赖日志抓取或历史缓存 URL。
+- **兼容日志降噪与状态同步优化**：过滤掉 `xai-auth bootstrap config fallback`、`boot-md skipped` 等低价值噪声日志，并将本地兼容模式、Bonjour 重试、模型定价超时等常见 Android 场景重写为更易理解的提示；网关状态同步也更保守，降低 Web UI 返回首页后误显示“已停止”的概率。
+- **RootFS 时区与 cpolar DNS 兜底**：Ubuntu RootFS 启动/修复时会默认写入 `Asia/Shanghai` 时区；cpolar 初始化前会额外确保 `config/resolv.conf` 与 RootFS 内 `etc/resolv.conf` 都存在，减少因 DNS 文件缺失导致的启动失败。
+- **版本元数据同步到正式版 1.9.7**：应用内版本号、CLI 版本号、发布说明与发布目录统一更新到 `v1.9.7`，Android 构建号递增到 `40`。
+
 ## v1.9.6 - cpolar、消息平台初始化修复与网关状态同步
 
 ### 关键改动

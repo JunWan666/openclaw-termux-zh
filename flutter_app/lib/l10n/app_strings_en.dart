@@ -586,6 +586,28 @@ const Map<String, String> appStringsEn = {
   'settingsSnapshotFileNameLabel': 'File name',
   'settingsSnapshotFileNameHelper': 'The snapshot will be saved to: {path}',
   'settingsSnapshotFileEmpty': 'The selected snapshot file is empty.',
+  'commonUnknown': 'Unknown',
+  'gatewayInstallVersionConfirmTitle': 'Install selected version?',
+  'gatewayInstallVersionConfirmBody':
+      'Current version: {current}\nSelected version: {selected}\n\nThis will temporarily stop the gateway and reinstall OpenClaw. Continue?',
+  'gatewaySelectedVersionAlreadyInstalled':
+      'Selected version {version} is already installed.',
+  'gatewaySelectedVersionCurrent': 'Already Installed',
+  'settingsSnapshotVersionWarningTitle': 'Snapshot version check',
+  'settingsSnapshotVersionWarningIntro':
+      'The snapshot version information does not fully match the current environment.',
+  'settingsSnapshotVersionWarningMissing':
+      'Some version metadata is missing, so compatibility cannot be fully verified.',
+  'settingsSnapshotVersionWarningAppMismatch':
+      'The snapshot app version differs from the current app version.',
+  'settingsSnapshotVersionWarningOpenClawMismatch':
+      'The snapshot OpenClaw version differs from the currently installed version.',
+  'settingsSnapshotVersionSnapshotApp': 'Snapshot app version: {version}',
+  'settingsSnapshotVersionCurrentApp': 'Current app version: {version}',
+  'settingsSnapshotVersionSnapshotOpenClaw':
+      'Snapshot OpenClaw version: {version}',
+  'settingsSnapshotVersionCurrentOpenClaw':
+      'Current OpenClaw version: {version}',
   'statusInstalled': 'Installed',
   'statusNotInstalled': 'Not installed',
 };

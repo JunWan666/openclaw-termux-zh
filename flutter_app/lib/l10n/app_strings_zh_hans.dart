@@ -545,4 +545,29 @@ const Map<String, String> appStringsZhHans = {
       '\u5b89\u88c5\u5668\u5df2\u9000\u51fa\uff0c\u63d2\u4ef6\u72b6\u6001\u5df2\u91cd\u65b0\u5237\u65b0\u3002',
   'messagePlatformDetailWeixinTerminalFailed':
       '\u542f\u52a8\u5fae\u4fe1\u5b89\u88c5\u5668\u5931\u8d25\uff1a{error}',
+  'commonUnknown': '\u672a\u77e5',
+  'gatewayInstallVersionConfirmTitle':
+      '\u5b89\u88c5\u6240\u9009\u7248\u672c\uff1f',
+  'gatewayInstallVersionConfirmBody':
+      '\u5f53\u524d\u7248\u672c\uff1a{current}\n\u6240\u9009\u7248\u672c\uff1a{selected}\n\n\u8fd9\u4f1a\u4e34\u65f6\u505c\u6389\u7f51\u5173\uff0c\u5e76\u91cd\u65b0\u4e0b\u8f7d/\u5b89\u88c5 OpenClaw\u3002\u786e\u8ba4\u7ee7\u7eed\u5417\uff1f',
+  'gatewaySelectedVersionAlreadyInstalled':
+      '\u6240\u9009\u7248\u672c {version} \u5df2\u5b89\u88c5\uff0c\u65e0\u9700\u91cd\u590d\u4e0b\u8f7d\u3002',
+  'gatewaySelectedVersionCurrent': '\u5df2\u662f\u5f53\u524d\u7248\u672c',
+  'settingsSnapshotVersionWarningTitle': '\u5feb\u7167\u7248\u672c\u6821\u9a8c',
+  'settingsSnapshotVersionWarningIntro':
+      '\u8be5\u5feb\u7167\u7684\u7248\u672c\u4fe1\u606f\u4e0e\u5f53\u524d\u73af\u5883\u4e0d\u5b8c\u5168\u4e00\u81f4\u3002',
+  'settingsSnapshotVersionWarningMissing':
+      '\u5feb\u7167\u7f3a\u5c11\u90e8\u5206\u7248\u672c\u4fe1\u606f\uff0c\u65e0\u6cd5\u5b8c\u6574\u6821\u9a8c\u517c\u5bb9\u6027\u3002',
+  'settingsSnapshotVersionWarningAppMismatch':
+      '\u5feb\u7167\u5bf9\u5e94\u7684 App \u7248\u672c\u4e0e\u5f53\u524d App \u7248\u672c\u4e0d\u4e00\u81f4\u3002',
+  'settingsSnapshotVersionWarningOpenClawMismatch':
+      '\u5feb\u7167\u5bf9\u5e94\u7684 OpenClaw \u7248\u672c\u4e0e\u5f53\u524d\u5df2\u5b89\u88c5\u7248\u672c\u4e0d\u4e00\u81f4\u3002',
+  'settingsSnapshotVersionSnapshotApp':
+      '\u5feb\u7167 App \u7248\u672c\uff1a{version}',
+  'settingsSnapshotVersionCurrentApp':
+      '\u5f53\u524d App \u7248\u672c\uff1a{version}',
+  'settingsSnapshotVersionSnapshotOpenClaw':
+      '\u5feb\u7167 OpenClaw \u7248\u672c\uff1a{version}',
+  'settingsSnapshotVersionCurrentOpenClaw':
+      '\u5f53\u524d OpenClaw \u7248\u672c\uff1a{version}',
 };

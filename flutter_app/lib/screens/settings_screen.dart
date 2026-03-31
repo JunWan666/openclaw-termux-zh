@@ -9,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/locale_provider.dart';
 import '../providers/node_provider.dart';
 import '../services/native_bridge.dart';
+import '../services/openclaw_version_service.dart';
 import '../services/preferences_service.dart';
 import '../services/snapshot_service.dart';
 import '../services/update_flow_service.dart';
@@ -27,6 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _showOrgSection = false;
 
   final _prefs = PreferencesService();
+  final _openClawVersionService = OpenClawVersionService();
   bool _autoStart = false;
   bool _nodeEnabled = false;
   bool _batteryOptimized = true;
@@ -435,7 +437,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  String _defaultSnapshotFileName() {
+  String _defaultSnapshotFileName({
+    required String appVersion,
+    String? openClawVersion,
+  }) {
     final now = DateTime.now();
     final year = now.year.toString().padLeft(4, '0');
     final month = now.month.toString().padLeft(2, '0');
@@ -443,23 +448,122 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final hour = now.hour.toString().padLeft(2, '0');
     final minute = now.minute.toString().padLeft(2, '0');
     final second = now.second.toString().padLeft(2, '0');
-    return 'openclaw-snapshot-$year-$month-$day-$hour$minute$second.json';
+    final appPart = _sanitizeSnapshotFilePart(appVersion);
+    final openClawPart = _sanitizeSnapshotFilePart(openClawVersion);
+    return 'openclaw-snapshot-app-$appPart-openclaw-$openClawPart-$year-$month-$day-$hour$minute$second.json';
+  }
+
+  String _sanitizeSnapshotFilePart(String? value) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return 'unknown';
+    }
+
+    final sanitized = normalized
+        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '-')
+        .replaceAll(RegExp(r'-{2,}'), '-');
+    return sanitized.isEmpty ? 'unknown' : sanitized;
+  }
+
+  Future<bool> _confirmSnapshotImportIfNeeded(
+    SnapshotCompatibility compatibility,
+  ) async {
+    if (!compatibility.requiresConfirmation) {
+      return true;
+    }
+
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('settingsSnapshotVersionWarningTitle')),
+        content: SingleChildScrollView(
+          child: Text(_buildSnapshotImportWarningMessage(l10n, compatibility)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.t('commonContinue')),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
+  String _buildSnapshotImportWarningMessage(
+    AppLocalizations l10n,
+    SnapshotCompatibility compatibility,
+  ) {
+    final unknown = l10n.t('commonUnknown');
+    final lines = <String>[
+      l10n.t('settingsSnapshotVersionWarningIntro'),
+    ];
+
+    if (compatibility.hasMissingVersionInfo) {
+      lines.add(l10n.t('settingsSnapshotVersionWarningMissing'));
+    }
+    if (compatibility.hasAppVersionMismatch) {
+      lines.add(l10n.t('settingsSnapshotVersionWarningAppMismatch'));
+    }
+    if (compatibility.hasOpenClawVersionMismatch) {
+      lines.add(l10n.t('settingsSnapshotVersionWarningOpenClawMismatch'));
+    }
+
+    lines.add('');
+    lines.add(
+      l10n.t('settingsSnapshotVersionSnapshotApp', {
+        'version': compatibility.snapshotAppVersion ?? unknown,
+      }),
+    );
+    lines.add(
+      l10n.t('settingsSnapshotVersionCurrentApp', {
+        'version': compatibility.currentAppVersion ?? unknown,
+      }),
+    );
+    lines.add(
+      l10n.t('settingsSnapshotVersionSnapshotOpenClaw', {
+        'version': compatibility.snapshotOpenClawVersion ?? unknown,
+      }),
+    );
+    lines.add(
+      l10n.t('settingsSnapshotVersionCurrentOpenClaw', {
+        'version': compatibility.currentOpenClawVersion ?? unknown,
+      }),
+    );
+
+    return lines.join('\n');
   }
 
   Future<void> _exportSnapshot() async {
     try {
-      final snapshot =
-          await SnapshotService.buildSnapshot(AppConstants.version);
+      final installedOpenClawVersion =
+          await _openClawVersionService.readInstalledVersion();
+      final snapshot = await SnapshotService.buildSnapshot(
+        appVersion: AppConstants.version,
+        openClawVersion: installedOpenClawVersion,
+      );
       final content = const JsonEncoder.withIndent('  ').convert(snapshot);
       final saved = await NativeBridge.saveSnapshotFile(
-        suggestedName: _defaultSnapshotFileName(),
+        suggestedName: _defaultSnapshotFileName(
+          appVersion: AppConstants.version,
+          openClawVersion: installedOpenClawVersion,
+        ),
         content: content,
       );
       if (saved == null) {
         return;
       }
-      final savedName =
-          (saved['name'] as String?) ?? _defaultSnapshotFileName();
+      final savedName = (saved['name'] as String?) ??
+          _defaultSnapshotFileName(
+            appVersion: AppConstants.version,
+            openClawVersion: installedOpenClawVersion,
+          );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -482,12 +586,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _importSnapshot() async {
     final l10n = context.l10n;
     try {
-      final pickedName = await SnapshotService.pickAndRestoreSnapshot(
+      final picked = await SnapshotService.pickSnapshotForRestore(
         emptyFileMessage: l10n.t('settingsSnapshotFileEmpty'),
       );
-      if (pickedName == null) {
+      if (picked == null) {
         return;
       }
+
+      final currentOpenClawVersion =
+          await _openClawVersionService.readInstalledVersion();
+      final compatibility = SnapshotService.analyzeCompatibility(
+        picked.snapshot,
+        currentAppVersion: AppConstants.version,
+        currentOpenClawVersion: currentOpenClawVersion,
+      );
+      final shouldContinue =
+          await _confirmSnapshotImportIfNeeded(compatibility);
+      if (!shouldContinue) {
+        return;
+      }
+
+      await SnapshotService.restoreSnapshot(picked.snapshot);
 
       // Refresh UI
       await _loadSettings();
@@ -497,7 +616,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         SnackBar(
           content: Text(
             l10n.t('settingsSnapshotRestored', {
-              'file': pickedName,
+              'file': picked.fileName,
             }),
           ),
         ),

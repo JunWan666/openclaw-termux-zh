@@ -231,13 +231,30 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   Future<void> _importSnapshotAndContinue() async {
     final l10n = context.l10n;
     try {
-      final pickedName = await SnapshotService.pickAndRestoreSnapshot(
+      final picked = await SnapshotService.pickSnapshotForRestore(
         emptyFileMessage: l10n.t('settingsSnapshotFileEmpty'),
-        restoreNodeEnabled: false,
       );
-      if (pickedName == null || !mounted) {
+      if (picked == null || !mounted) {
         return;
       }
+
+      final currentOpenClawVersion =
+          await _versionService.readInstalledVersion();
+      final compatibility = SnapshotService.analyzeCompatibility(
+        picked.snapshot,
+        currentAppVersion: AppConstants.version,
+        currentOpenClawVersion: currentOpenClawVersion,
+      );
+      final shouldContinue =
+          await _confirmSnapshotImportIfNeeded(compatibility);
+      if (!shouldContinue) {
+        return;
+      }
+
+      await SnapshotService.restoreSnapshot(
+        picked.snapshot,
+        restoreNodeEnabled: false,
+      );
 
       final gatewayConfigured =
           await ProviderConfigService.hasRequiredGatewayConfig();
@@ -246,7 +263,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.t('settingsSnapshotRestored', {'file': pickedName}),
+            l10n.t('settingsSnapshotRestored', {'file': picked.fileName}),
           ),
         ),
       );
@@ -265,6 +282,81 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ),
       );
     }
+  }
+
+  Future<bool> _confirmSnapshotImportIfNeeded(
+    SnapshotCompatibility compatibility,
+  ) async {
+    if (!compatibility.requiresConfirmation || !mounted) {
+      return true;
+    }
+
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('settingsSnapshotVersionWarningTitle')),
+        content: SingleChildScrollView(
+          child: Text(_buildSnapshotImportWarningMessage(l10n, compatibility)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.t('commonContinue')),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
+  String _buildSnapshotImportWarningMessage(
+    AppLocalizations l10n,
+    SnapshotCompatibility compatibility,
+  ) {
+    final unknown = l10n.t('commonUnknown');
+    final lines = <String>[
+      l10n.t('settingsSnapshotVersionWarningIntro'),
+    ];
+
+    if (compatibility.hasMissingVersionInfo) {
+      lines.add(l10n.t('settingsSnapshotVersionWarningMissing'));
+    }
+    if (compatibility.hasAppVersionMismatch) {
+      lines.add(l10n.t('settingsSnapshotVersionWarningAppMismatch'));
+    }
+    if (compatibility.hasOpenClawVersionMismatch) {
+      lines.add(l10n.t('settingsSnapshotVersionWarningOpenClawMismatch'));
+    }
+
+    lines.add('');
+    lines.add(
+      l10n.t('settingsSnapshotVersionSnapshotApp', {
+        'version': compatibility.snapshotAppVersion ?? unknown,
+      }),
+    );
+    lines.add(
+      l10n.t('settingsSnapshotVersionCurrentApp', {
+        'version': compatibility.currentAppVersion ?? unknown,
+      }),
+    );
+    lines.add(
+      l10n.t('settingsSnapshotVersionSnapshotOpenClaw', {
+        'version': compatibility.snapshotOpenClawVersion ?? unknown,
+      }),
+    );
+    lines.add(
+      l10n.t('settingsSnapshotVersionCurrentOpenClaw', {
+        'version': compatibility.currentOpenClawVersion ?? unknown,
+      }),
+    );
+
+    return lines.join('\n');
   }
 
   @override

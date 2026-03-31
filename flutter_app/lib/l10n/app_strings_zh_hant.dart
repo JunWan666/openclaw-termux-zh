@@ -504,4 +504,29 @@ const Map<String, String> appStringsZhHant = {
       'Installer exited. The plugin status has been refreshed.',
   'messagePlatformDetailWeixinTerminalFailed':
       'Failed to start the Weixin installer: {error}',
+  'commonUnknown': '\u672a\u77e5',
+  'gatewayInstallVersionConfirmTitle':
+      '\u5b89\u88dd\u6240\u9078\u7248\u672c\uff1f',
+  'gatewayInstallVersionConfirmBody':
+      '\u76ee\u524d\u7248\u672c\uff1a{current}\n\u6240\u9078\u7248\u672c\uff1a{selected}\n\n\u9019\u6703\u66ab\u6642\u505c\u6389\u7db2\u95dc\uff0c\u4e26\u91cd\u65b0\u4e0b\u8f09/\u5b89\u88dd OpenClaw\u3002\u78ba\u8a8d\u7e7c\u7e8c\u55ce\uff1f',
+  'gatewaySelectedVersionAlreadyInstalled':
+      '\u6240\u9078\u7248\u672c {version} \u5df2\u5b89\u88dd\uff0c\u7121\u9700\u91cd\u8907\u4e0b\u8f09\u3002',
+  'gatewaySelectedVersionCurrent': '\u5df2\u662f\u76ee\u524d\u7248\u672c',
+  'settingsSnapshotVersionWarningTitle': '\u5feb\u7167\u7248\u672c\u6aa2\u67e5',
+  'settingsSnapshotVersionWarningIntro':
+      '\u6b64\u5feb\u7167\u7684\u7248\u672c\u8cc7\u8a0a\u8207\u76ee\u524d\u74b0\u5883\u4e26\u975e\u5b8c\u5168\u4e00\u81f4\u3002',
+  'settingsSnapshotVersionWarningMissing':
+      '\u5feb\u7167\u7f3a\u5c11\u90e8\u5206\u7248\u672c\u8cc7\u8a0a\uff0c\u7121\u6cd5\u5b8c\u6574\u6aa2\u67e5\u76f8\u5bb9\u6027\u3002',
+  'settingsSnapshotVersionWarningAppMismatch':
+      '\u5feb\u7167\u7684 App \u7248\u672c\u8207\u76ee\u524d App \u7248\u672c\u4e0d\u4e00\u81f4\u3002',
+  'settingsSnapshotVersionWarningOpenClawMismatch':
+      '\u5feb\u7167\u7684 OpenClaw \u7248\u672c\u8207\u76ee\u524d\u5df2\u5b89\u88dd\u7248\u672c\u4e0d\u4e00\u81f4\u3002',
+  'settingsSnapshotVersionSnapshotApp':
+      '\u5feb\u7167 App \u7248\u672c\uff1a{version}',
+  'settingsSnapshotVersionCurrentApp':
+      '\u76ee\u524d App \u7248\u672c\uff1a{version}',
+  'settingsSnapshotVersionSnapshotOpenClaw':
+      '\u5feb\u7167 OpenClaw \u7248\u672c\uff1a{version}',
+  'settingsSnapshotVersionCurrentOpenClaw':
+      '\u76ee\u524d OpenClaw \u7248\u672c\uff1a{version}',
 };

@@ -4,6 +4,7 @@ import '../constants.dart';
 import '../models/node_frame.dart';
 import '../models/node_state.dart';
 import 'dashboard_url_resolver.dart';
+import 'gateway_auth_config_service.dart';
 import 'native_bridge.dart';
 import 'node_identity_service.dart';
 import 'node_ws_service.dart';
@@ -137,7 +138,8 @@ class NodeService {
 
   /// Resolve the gateway auth token from available sources:
   /// 1. Manually entered token (for remote gateways)
-  /// 2. Dashboard URL fragment (for local gateway)
+  /// 2. openclaw.json / .env persisted config (for local gateway)
+  /// 3. Dashboard URL fragment fallback
   Future<String?> _readGatewayToken() async {
     final prefs = PreferencesService();
     await prefs.init();
@@ -149,7 +151,15 @@ class NodeService {
       return manualToken;
     }
 
-    // 2. Extract from local dashboard URL
+    // 2. Prefer the persisted gateway auth token from config/.env.
+    final configuredToken =
+        await GatewayAuthConfigService.readGatewayAuthToken();
+    if (configuredToken != null && configuredToken.isNotEmpty) {
+      _log('[NODE] Gateway token loaded from openclaw.json');
+      return configuredToken;
+    }
+
+    // 3. Extract from local dashboard URL
     final dashboardUrl = prefs.dashboardUrl;
     if (dashboardUrl != null) {
       final token = DashboardUrlResolver.extractToken(dashboardUrl);

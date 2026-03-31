@@ -132,6 +132,28 @@ class _GatewayControlsState extends State<GatewayControls> {
   Future<void> _installSelectedRelease(GatewayProvider provider) async {
     final selectedRelease = _selectedRelease ?? _latestRelease;
     if (_updating || _loadingReleaseOptions || selectedRelease == null) return;
+    final l10n = context.l10n;
+
+    if (OpenClawVersionService.isSameVersion(
+      installedVersion: _installedVersion,
+      targetVersion: selectedRelease.version,
+    )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t('gatewaySelectedVersionAlreadyInstalled', {
+              'version': selectedRelease.version,
+            }),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await _confirmInstallSelectedRelease(selectedRelease);
+    if (!confirmed || !mounted) {
+      return;
+    }
 
     final shouldRestart = provider.state.isRunning ||
         provider.state.status == GatewayStatus.starting;
@@ -189,6 +211,40 @@ class _GatewayControlsState extends State<GatewayControls> {
         setState(() => _updating = false);
       }
     }
+  }
+
+  Future<bool> _confirmInstallSelectedRelease(
+    OpenClawReleaseInfo selectedRelease,
+  ) async {
+    final l10n = context.l10n;
+    final currentVersion = _installedVersion?.trim().isNotEmpty == true
+        ? _installedVersion!.trim()
+        : l10n.t('dashboardOpenclawVersionUnknown');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('gatewayInstallVersionConfirmTitle')),
+        content: Text(
+          l10n.t('gatewayInstallVersionConfirmBody', {
+            'current': currentVersion,
+            'selected': selectedRelease.version,
+          }),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.t('commonContinue')),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
   }
 
   void _startInstallProgress() {
@@ -473,6 +529,10 @@ class _GatewayControlsState extends State<GatewayControls> {
         : _installedVersion ?? l10n.t('dashboardOpenclawVersionUnknown');
     final latestRelease = _latestRelease;
     final selectedRelease = _selectedRelease ?? latestRelease;
+    final isSelectedVersionInstalled = OpenClawVersionService.isSameVersion(
+      installedVersion: _installedVersion,
+      targetVersion: selectedRelease?.version,
+    );
     final installedVersionStatus = _buildInstalledVersionStatus(
       theme,
       l10n,
@@ -605,6 +665,18 @@ class _GatewayControlsState extends State<GatewayControls> {
                 ),
               ),
             ],
+            if (isSelectedVersionInstalled) ...[
+              const SizedBox(height: 6),
+              Text(
+                l10n.t('gatewaySelectedVersionAlreadyInstalled', {
+                  'version': selectedRelease.version,
+                }),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.statusGreen,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: 10),
           Wrap(
@@ -732,14 +804,29 @@ class _GatewayControlsState extends State<GatewayControls> {
       );
     }
 
+    final isSelectedVersionInstalled = OpenClawVersionService.isSameVersion(
+      installedVersion: _installedVersion,
+      targetVersion: selectedRelease?.version,
+    );
+
     return FilledButton.icon(
       style: _buildCompactFilledButtonStyle(theme),
       onPressed: provider.state.status == GatewayStatus.stopping ||
-              selectedRelease == null
+              selectedRelease == null ||
+              isSelectedVersionInstalled
           ? null
           : () => _installSelectedRelease(provider),
-      icon: const Icon(Icons.system_update_alt, size: 16),
-      label: Text(l10n.t('gatewayInstallSelectedVersion')),
+      icon: Icon(
+        isSelectedVersionInstalled
+            ? Icons.check_circle_outline
+            : Icons.system_update_alt,
+        size: 16,
+      ),
+      label: Text(
+        isSelectedVersionInstalled
+            ? l10n.t('gatewaySelectedVersionCurrent')
+            : l10n.t('gatewayInstallSelectedVersion'),
+      ),
     );
   }
 

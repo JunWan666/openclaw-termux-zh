@@ -49,6 +49,7 @@ class BootstrapManager(
         setupLibtalloc()
         // Create fake /proc and /sys files for proot bind mounts
         setupFakeSysdata()
+        ensureDefaultTimezone()
     }
 
     private fun setupNativeRuntimeBinaries() {
@@ -585,6 +586,37 @@ class BootstrapManager(
         //    (dpkg error 100 = "Could not exec dpkg" = permission issue).
         //    Recursively ensure all files in bin/sbin/lib dirs are executable.
         fixBinPermissions()
+        ensureDefaultTimezone()
+    }
+
+    private fun ensureDefaultTimezone() {
+        val rootfs = File(rootfsDir)
+        if (!rootfs.exists()) {
+            return
+        }
+
+        val timezone = "Asia/Shanghai"
+        val timezoneFile = File("$rootfsDir/etc/timezone")
+        timezoneFile.parentFile?.mkdirs()
+        timezoneFile.writeText("$timezone\n")
+
+        val zoneinfo = File("$rootfsDir/usr/share/zoneinfo/$timezone")
+        if (!zoneinfo.exists()) {
+            return
+        }
+
+        val localtime = File("$rootfsDir/etc/localtime")
+        try {
+            localtime.delete()
+        } catch (_: Exception) {}
+
+        try {
+            Os.symlink("/usr/share/zoneinfo/$timezone", localtime.absolutePath)
+        } catch (_: Exception) {
+            try {
+                zoneinfo.copyTo(localtime, overwrite = true)
+            } catch (_: Exception) {}
+        }
     }
 
     /**
@@ -1032,12 +1064,7 @@ _os.networkInterfaces = function() {
     const ifaces = _origNetIf.call(_os);
     if (ifaces && Object.keys(ifaces).length > 0) return ifaces;
   } catch(e) {}
-  return {
-    lo: [{
-      address: '127.0.0.1', netmask: '255.0.0.0', family: 'IPv4',
-      mac: '00:00:00:00:00:00', internal: true, cidr: '127.0.0.1/8'
-    }]
-  };
+  return {};
 };
 
 // ====================================================================

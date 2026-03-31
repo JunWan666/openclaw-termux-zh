@@ -14,11 +14,11 @@ class DashboardUrlResolver {
   static String? extractToken(String text) {
     final tokenMatch = _tokenRegex.firstMatch(text);
     if (tokenMatch != null) {
-      return _sanitizeToken(tokenMatch.group(1));
+      return sanitizeTokenValue(tokenMatch.group(1));
     }
 
     final jsonMatch = _jsonTokenRegex.firstMatch(text);
-    return _sanitizeToken(jsonMatch?.group(1));
+    return sanitizeTokenValue(jsonMatch?.group(1));
   }
 
   static bool hasToken(String? url) {
@@ -87,7 +87,7 @@ class DashboardUrlResolver {
     return value.replaceFirst(RegExp(r'[\s),.;]+$'), '');
   }
 
-  static String? _sanitizeToken(String? token) {
+  static String? sanitizeTokenValue(String? token) {
     if (token == null) {
       return null;
     }

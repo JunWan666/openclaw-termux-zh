@@ -399,6 +399,22 @@ fi
     try {
       await NativeBridge.writeResolv();
     } catch (_) {}
+    try {
+      final filesDir = await NativeBridge.getFilesDir();
+      const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
+
+      final resolvFile = File('$filesDir/config/resolv.conf');
+      if (!resolvFile.existsSync() || resolvFile.lengthSync() == 0) {
+        resolvFile.parent.createSync(recursive: true);
+        resolvFile.writeAsStringSync(resolvContent);
+      }
+
+      final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+      if (!rootfsResolv.existsSync() || rootfsResolv.lengthSync() == 0) {
+        rootfsResolv.parent.createSync(recursive: true);
+        rootfsResolv.writeAsStringSync(resolvContent);
+      }
+    } catch (_) {}
   }
 
   static Future<void> _ensureUsableConfig(int port) async {
