@@ -468,10 +468,18 @@ class _CustomProviderDetailScreenState
 
     final baseUrl = _baseUrlController.text.trim();
     final modelId = _modelIdController.text.trim();
+    final detectedResult =
+        _hasFreshConnectionTest && _lastConnectionTestResult?.success == true
+            ? _lastConnectionTestResult
+            : null;
+    final saveCompatibility =
+        detectedResult?.autoDetected == true
+            ? detectedResult!.compatibility
+            : _compatibility;
     setState(() => _saving = true);
     try {
       final preset = await ProviderConfigService.saveCustomProviderPreset(
-        compatibility: _compatibility,
+        compatibility: saveCompatibility,
         apiKey: _apiKeyController.text.trim(),
         baseUrl: baseUrl,
         modelId: modelId,
@@ -493,6 +501,9 @@ class _CustomProviderDetailScreenState
           ),
         ),
       );
+      if (_compatibility != saveCompatibility) {
+        setState(() => _compatibility = saveCompatibility);
+      }
       await _loadPresets(preferredProviderId: preset.providerId);
     } catch (e) {
       if (!mounted) {

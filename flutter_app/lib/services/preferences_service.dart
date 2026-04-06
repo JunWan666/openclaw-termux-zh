@@ -52,6 +52,7 @@ class PreferencesService {
     }
     return normalized;
   }
+
   set dashboardUrl(String? value) {
     final normalized = DashboardUrlResolver.normalizeDashboardUrl(value);
     if (normalized != null) {

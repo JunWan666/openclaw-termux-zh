@@ -23,6 +23,7 @@ class ProcessManager(
     private val configDir get() = "$filesDir/config"
     private val libDir get() = "$filesDir/lib"
     private val nativeRuntimeDir get() = "$filesDir/native"
+    var installLogEmitter: ((String) -> Unit)? = null
 
     companion object {
         // Match proot-distro v4.37.0 defaults
@@ -217,7 +218,7 @@ class ProcessManager(
                 }
                 baseFlags + listOf(
                     "--bind=/storage:/storage",
-                    "--bind=/storage/emulated/0:/sdcard"
+                    "--bind=/storage/emulated/0:/sdcard",
                 )
             } else {
                 baseFlags
@@ -311,7 +312,10 @@ class ProcessManager(
     // Execute a command in proot (install mode) and return output.
     // Used during bootstrap for apt, npm, chmod, etc.
     // ================================================================
-    fun runInProotSync(command: String, timeoutSeconds: Long = 900): String {
+    fun runInProotSync(
+        command: String,
+        timeoutSeconds: Long = 900,
+    ): String {
         val cmd = buildInstallCommand(command)
         val env = prootEnv()
 
@@ -337,6 +341,7 @@ class ProcessManager(
             if (l.contains("proot warning") || l.contains("can't sanitize")) {
                 continue
             }
+            emitInstallLog(l)
             output.appendLine(l)
             // Collect error-relevant lines (skip apt download noise)
             if (!l.startsWith("Get:") && !l.startsWith("Fetched ") &&
@@ -367,6 +372,18 @@ class ProcessManager(
         }
 
         return output.toString()
+    }
+
+    private fun emitInstallLog(line: String) {
+        val cleaned = line
+            .replace(Regex("\\u001B\\[[0-9;]*[A-Za-z]"), "")
+            .replace("\r", "")
+            .replace("\u0008", "")
+            .trim()
+        if (cleaned.isEmpty()) {
+            return
+        }
+        installLogEmitter?.invoke(cleaned)
     }
 
     // ================================================================

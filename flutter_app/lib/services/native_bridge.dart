@@ -4,6 +4,8 @@ import '../constants.dart';
 class NativeBridge {
   static const _channel = MethodChannel(AppConstants.channelName);
   static const _eventChannel = EventChannel(AppConstants.eventChannelName);
+  static const _setupLogEventChannel =
+      EventChannel(AppConstants.setupLogEventChannelName);
 
   static Future<String> getProotPath() async {
     return await _channel.invokeMethod('getProotPath');
@@ -72,6 +74,16 @@ class NativeBridge {
 
   static Future<bool> writeResolv() async {
     return await _channel.invokeMethod('writeResolv');
+  }
+
+  static Future<bool> copyBundledAssetToFile({
+    required String assetPath,
+    required String destinationPath,
+  }) async {
+    return await _channel.invokeMethod('copyBundledAssetToFile', {
+      'assetPath': assetPath,
+      'destinationPath': destinationPath,
+    });
   }
 
   static Future<int> extractDebPackages() async {
@@ -165,6 +177,12 @@ class NativeBridge {
 
   static Stream<String> get gatewayLogStream {
     return _eventChannel
+        .receiveBroadcastStream()
+        .map((event) => event.toString());
+  }
+
+  static Stream<String> get setupLogStream {
+    return _setupLogEventChannel
         .receiveBroadcastStream()
         .map((event) => event.toString());
   }

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
@@ -7,15 +9,21 @@ import 'package:http/http.dart' as http;
 import '../constants.dart';
 import 'native_bridge.dart';
 
+typedef OpenClawInstallProgressCallback = void Function(
+  OpenClawInstallProgress progress,
+);
+
 class OpenClawReleaseInfo {
   final String version;
   final int? unpackedSizeBytes;
   final String? nodeRequirement;
+  final String? tarballUrl;
 
   const OpenClawReleaseInfo({
     required this.version,
     this.unpackedSizeBytes,
     this.nodeRequirement,
+    this.tarballUrl,
   });
 
   factory OpenClawReleaseInfo.fromJson(Map<String, dynamic> json) {
@@ -28,6 +36,7 @@ class OpenClawReleaseInfo {
           dist is Map<String, dynamic> ? dist['unpackedSize'] as int? : null,
       nodeRequirement:
           engines is Map<String, dynamic> ? engines['node'] as String? : null,
+      tarballUrl: dist is Map<String, dynamic> ? dist['tarball'] as String? : null,
     );
   }
 
@@ -50,6 +59,146 @@ class OpenClawVersionService {
   static const _nodeWrapper = '/root/.openclaw/node-wrapper.js';
   static const _npmCli = '/usr/local/lib/node_modules/npm/bin/npm-cli.js';
   final Dio _dio = Dio();
+  OpenClawInstallProgress _lastProgress = const OpenClawInstallProgress(
+    progress: 0.0,
+    message: '',
+  );
+
+  double _clampProgress(double progress) => progress.clamp(0.0, 1.0).toDouble();
+
+  void _emitProgress(
+    OpenClawInstallProgressCallback? onProgress, {
+    required double progress,
+    required String message,
+    String? detail,
+    bool preserveDetail = false,
+  }) {
+    final nextDetail = preserveDetail ? _lastProgress.detail : detail;
+    _lastProgress = OpenClawInstallProgress(
+      progress: _clampProgress(progress),
+      message: message,
+      detail: nextDetail,
+    );
+    onProgress?.call(
+      _lastProgress,
+    );
+  }
+
+  Future<T> _runEstimatedProgress<T>({
+    required OpenClawInstallProgressCallback? onProgress,
+    required double startProgress,
+    required double targetProgress,
+    required String message,
+    required Future<T> Function() task,
+    required Duration estimatedDuration,
+    String? detail,
+    Duration tick = const Duration(milliseconds: 800),
+  }) async {
+    _emitProgress(
+      onProgress,
+      progress: startProgress,
+      message: message,
+      detail: detail,
+    );
+
+    final future = task();
+    var isDone = false;
+    future.whenComplete(() => isDone = true);
+    final stopwatch = Stopwatch()..start();
+    final durationMs = estimatedDuration.inMilliseconds <= 0
+        ? 1.0
+        : estimatedDuration.inMilliseconds.toDouble();
+    var lastProgress = -1.0;
+
+    while (!isDone) {
+      await Future.delayed(tick);
+      if (isDone) break;
+
+      final elapsedFactor = stopwatch.elapsedMilliseconds / durationMs;
+      final easedRatio =
+          (1 - math.exp(-2.2 * elapsedFactor)).clamp(0.0, 1.0).toDouble();
+      final currentProgress =
+          startProgress + ((targetProgress - startProgress) * easedRatio);
+
+      if ((currentProgress - lastProgress).abs() < 0.003) {
+        continue;
+      }
+      lastProgress = currentProgress;
+      _emitProgress(
+        onProgress,
+        progress: currentProgress,
+        message: message,
+        preserveDetail: true,
+      );
+    }
+
+    return await future;
+  }
+
+  Future<void> _downloadWithProgress({
+    required String url,
+    required String destinationPath,
+    required OpenClawInstallProgressCallback? onProgress,
+    required double startProgress,
+    required double endProgress,
+    required String idleMessage,
+    required String Function(
+      String currentMb,
+      String totalMb,
+      String details,
+    )
+        detailBuilder,
+  }) async {
+    _emitProgress(
+      onProgress,
+      progress: startProgress,
+      message: idleMessage,
+    );
+
+    final tracker = _TransferProgressTracker();
+    await _dio.download(
+      url,
+      destinationPath,
+      onReceiveProgress: (received, total) {
+        if (total <= 0) {
+          return;
+        }
+        final ratio = received / total;
+        final progress = startProgress + ((endProgress - startProgress) * ratio);
+        final currentMb = (received / 1024 / 1024).toStringAsFixed(1);
+        final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
+        final details = tracker.describe(received, total);
+        _emitProgress(
+          onProgress,
+          progress: progress,
+          message: idleMessage,
+          detail: detailBuilder(currentMb, totalMb, details),
+        );
+      },
+    );
+  }
+
+  Future<StreamSubscription<String>?> _startLiveDetailStream(
+    OpenClawInstallProgressCallback? onProgress, {
+    bool enabled = true,
+  }) async {
+    if (!enabled) {
+      return null;
+    }
+
+    return NativeBridge.setupLogStream.listen((line) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || _lastProgress.message.isEmpty) {
+        return;
+      }
+      _emitProgress(
+        onProgress,
+        progress: _lastProgress.progress,
+        message: _lastProgress.message,
+        detail: trimmed,
+      );
+    });
+  }
 
   Future<String?> readInstalledVersion() async {
     try {
@@ -209,48 +358,167 @@ class OpenClawVersionService {
     return releases;
   }
 
-  Future<void> updateToLatest({OpenClawReleaseInfo? latestRelease}) async {
+  Future<void> updateToLatest({
+    OpenClawReleaseInfo? latestRelease,
+    OpenClawInstallProgressCallback? onProgress,
+    bool captureLiveLogs = true,
+  }) async {
     final release = latestRelease ?? await fetchLatestRelease();
-    await installVersion(release.version, releaseInfo: release);
+    await installVersion(
+      release.version,
+      releaseInfo: release,
+      onProgress: onProgress,
+      captureLiveLogs: captureLiveLogs,
+    );
   }
 
   Future<void> installVersion(
     String version, {
     OpenClawReleaseInfo? releaseInfo,
+    OpenClawInstallProgressCallback? onProgress,
+    bool captureLiveLogs = true,
   }) async {
-    try {
-      await NativeBridge.setupDirs();
-    } catch (_) {}
-    try {
-      await NativeBridge.writeResolv();
-    } catch (_) {}
-
-    final normalizedVersion = version.trim();
-    if (normalizedVersion.isEmpty) {
-      throw Exception('Version cannot be empty');
-    }
-
-    final release = releaseInfo?.version == normalizedVersion
-        ? releaseInfo!
-        : await fetchRelease(normalizedVersion);
-    await ensureNodeRequirement(release.nodeRequirement);
-    await NativeBridge.runInProot(
-      'node $_nodeWrapper $_npmCli install -g openclaw@$normalizedVersion',
-      timeout: 1800,
+    _lastProgress = const OpenClawInstallProgress(progress: 0.0, message: '');
+    final logSubscription = await _startLiveDetailStream(
+      onProgress,
+      enabled: captureLiveLogs,
     );
-    await NativeBridge.createBinWrappers('openclaw');
+
+    try {
+      try {
+        await NativeBridge.setupDirs();
+      } catch (_) {}
+      try {
+        await NativeBridge.writeResolv();
+      } catch (_) {}
+
+      final normalizedVersion = version.trim();
+      if (normalizedVersion.isEmpty) {
+        throw Exception('Version cannot be empty');
+      }
+
+      _emitProgress(
+        onProgress,
+        progress: 0.02,
+        message: 'Preparing OpenClaw package...',
+      );
+
+      final release = releaseInfo?.version == normalizedVersion
+          ? releaseInfo!
+          : await fetchRelease(normalizedVersion);
+      await ensureNodeRequirement(
+        release.nodeRequirement,
+        onProgress: onProgress,
+        progressStart: 0.08,
+        progressEnd: 0.28,
+      );
+
+      final packageFile =
+          File('${await NativeBridge.getFilesDir()}/rootfs/ubuntu/tmp/openclaw-$normalizedVersion.tgz');
+      packageFile.parent.createSync(recursive: true);
+      if (packageFile.existsSync() && packageFile.lengthSync() <= 0) {
+        try {
+          packageFile.deleteSync();
+        } catch (_) {}
+      }
+
+      final tarballUrl = release.tarballUrl?.trim();
+      if (tarballUrl != null && tarballUrl.isNotEmpty) {
+        if (!packageFile.existsSync() || packageFile.lengthSync() <= 0) {
+          await _downloadWithProgress(
+            url: tarballUrl,
+            destinationPath: packageFile.path,
+            onProgress: onProgress,
+            startProgress: 0.30,
+            endProgress: 0.52,
+            idleMessage: 'Downloading OpenClaw package...',
+            detailBuilder: (currentMb, totalMb, details) =>
+                '$currentMb MB / $totalMb MB | $details',
+          );
+        } else {
+          _emitProgress(
+            onProgress,
+            progress: 0.52,
+            message: 'Using cached OpenClaw package...',
+            detail: 'Using local OpenClaw package cache.',
+          );
+        }
+      }
+
+      final installCommand = tarballUrl != null && tarballUrl.isNotEmpty
+          ? 'node $_nodeWrapper $_npmCli install -g /tmp/${packageFile.uri.pathSegments.last}'
+          : 'node $_nodeWrapper $_npmCli install -g openclaw@$normalizedVersion';
+      await _runEstimatedProgress(
+        onProgress: onProgress,
+        startProgress: 0.54,
+        targetProgress: 0.88,
+        message: 'Installing OpenClaw dependencies...',
+        detail: 'Running npm install for OpenClaw...',
+        estimatedDuration: const Duration(minutes: 3),
+        task: () => NativeBridge.runInProot(
+          installCommand,
+          timeout: 1800,
+        ),
+      );
+
+      _emitProgress(
+        onProgress,
+        progress: 0.92,
+        message: 'Creating bin wrappers...',
+      );
+      await NativeBridge.createBinWrappers('openclaw');
+
+      _emitProgress(
+        onProgress,
+        progress: 0.96,
+        message: 'Verifying OpenClaw...',
+      );
+      await NativeBridge.runInProot('openclaw --version', timeout: 30);
+      try {
+        if (packageFile.existsSync()) {
+          packageFile.deleteSync();
+        }
+      } catch (_) {}
+      _emitProgress(
+        onProgress,
+        progress: 1.0,
+        message: 'OpenClaw installed',
+      );
+    } finally {
+      await logSubscription?.cancel();
+    }
   }
 
-  Future<void> ensureNodeRequirement(String? requirement) async {
+  Future<void> ensureNodeRequirement(
+    String? requirement, {
+    OpenClawInstallProgressCallback? onProgress,
+    double progressStart = 0.0,
+    double progressEnd = 1.0,
+  }) async {
+    _emitProgress(
+      onProgress,
+      progress: progressStart,
+      message: 'Checking Node.js requirement...',
+    );
     final installedRuntime = await readInstalledNodeRuntime();
     if (_nodeSatisfiesRequirement(installedRuntime.version, requirement)) {
+      _emitProgress(
+        onProgress,
+        progress: progressEnd,
+        message: 'Node.js requirement satisfied',
+      );
       return;
     }
 
     final minimumVersion = _minimumNodeVersion(requirement);
     final targetVersion = _selectNodeVersionForRequirement(
         minimumVersion ?? AppConstants.nodeVersion);
-    await _installNodeRuntime(targetVersion);
+    await _installNodeRuntime(
+      targetVersion,
+      onProgress: onProgress,
+      progressStart: progressStart,
+      progressEnd: progressEnd,
+    );
 
     final refreshedRuntime = await readInstalledNodeRuntime();
     if (!_nodeSatisfiesRequirement(refreshedRuntime.version, requirement)) {
@@ -261,24 +529,108 @@ class OpenClawVersionService {
     }
   }
 
-  Future<void> _installNodeRuntime(String version) async {
+  Future<void> _installNodeRuntime(
+    String version, {
+    OpenClawInstallProgressCallback? onProgress,
+    double progressStart = 0.0,
+    double progressEnd = 1.0,
+  }) async {
     final arch = await NativeBridge.getArch();
     final filesDir = await NativeBridge.getFilesDir();
     final tarPath = '$filesDir/tmp/nodejs-$version.tar.xz';
     final tarUrl = AppConstants.getNodeTarballUrlForVersion(arch, version);
+    final assetPath = AppConstants.bundledBootstrapAssetPathForUrl(tarUrl);
 
     final tarFile = File(tarPath);
     if (tarFile.existsSync()) {
+      if (tarFile.lengthSync() <= 0) {
+        try {
+          tarFile.deleteSync();
+        } catch (_) {}
+      }
+    }
+
+    var usedLocalArchive = tarFile.existsSync() && tarFile.lengthSync() > 0;
+    if (!usedLocalArchive) {
       try {
-        tarFile.deleteSync();
+        _emitProgress(
+          onProgress,
+          progress: progressStart,
+          message: 'Using bundled Node.js $version package...',
+          detail: 'Using packaged Node.js archive.',
+        );
+        await NativeBridge.copyBundledAssetToFile(
+          assetPath: assetPath,
+          destinationPath: tarPath,
+        );
+        usedLocalArchive = true;
       } catch (_) {}
     }
 
-    await _dio.download(tarUrl, tarPath);
-    await NativeBridge.extractNodeTarball(tarPath);
+    if (!usedLocalArchive) {
+      await _downloadWithProgress(
+        url: tarUrl,
+        destinationPath: tarPath,
+        onProgress: onProgress,
+        startProgress: progressStart,
+        endProgress: progressStart + ((progressEnd - progressStart) * 0.65),
+        idleMessage: 'Downloading Node.js $version...',
+        detailBuilder: (currentMb, totalMb, details) =>
+            '$currentMb MB / $totalMb MB | $details',
+      );
+    }
+
+    try {
+      await _runEstimatedProgress(
+        onProgress: onProgress,
+        startProgress: progressStart + ((progressEnd - progressStart) * 0.70),
+        targetProgress: progressStart + ((progressEnd - progressStart) * 0.90),
+        message: 'Extracting Node.js...',
+        detail: 'Preparing Node.js files...',
+        estimatedDuration: const Duration(seconds: 20),
+        task: () => NativeBridge.extractNodeTarball(tarPath),
+      );
+    } catch (error) {
+      if (!usedLocalArchive) {
+        rethrow;
+      }
+      try {
+        tarFile.deleteSync();
+      } catch (_) {}
+      await _downloadWithProgress(
+        url: tarUrl,
+        destinationPath: tarPath,
+        onProgress: onProgress,
+        startProgress: progressStart,
+        endProgress: progressStart + ((progressEnd - progressStart) * 0.65),
+        idleMessage: 'Bundled Node.js $version failed, downloading online...',
+        detailBuilder: (currentMb, totalMb, details) =>
+            '$currentMb MB / $totalMb MB | $details',
+      );
+      await _runEstimatedProgress(
+        onProgress: onProgress,
+        startProgress: progressStart + ((progressEnd - progressStart) * 0.70),
+        targetProgress: progressStart + ((progressEnd - progressStart) * 0.90),
+        message: 'Extracting Node.js...',
+        detail: 'Preparing Node.js files...',
+        estimatedDuration: const Duration(seconds: 20),
+        task: () => NativeBridge.extractNodeTarball(tarPath),
+      );
+    }
+
+    _emitProgress(
+      onProgress,
+      progress: progressStart + ((progressEnd - progressStart) * 0.95),
+      message: 'Verifying Node.js...',
+    );
     await NativeBridge.runInProot(
       'node --version && node $_nodeWrapper $_npmCli --version',
       timeout: 30,
+    );
+    _emitProgress(
+      onProgress,
+      progress: progressEnd,
+      message: 'Node.js installed',
     );
   }
 
@@ -382,4 +734,43 @@ class InstalledNodeRuntime {
     this.path,
     this.version,
   });
+}
+
+class OpenClawInstallProgress {
+  final double progress;
+  final String message;
+  final String? detail;
+
+  const OpenClawInstallProgress({
+    required this.progress,
+    required this.message,
+    this.detail,
+  });
+}
+
+class _TransferProgressTracker {
+  final Stopwatch _stopwatch = Stopwatch()..start();
+
+  String describe(int received, int total) {
+    final elapsedSeconds =
+        (_stopwatch.elapsedMilliseconds / 1000).clamp(0.001, double.infinity);
+    final bytesPerSecond = received / elapsedSeconds;
+    final remainingBytes = math.max(0, total - received);
+    final etaSeconds = bytesPerSecond <= 0 ? 0 : (remainingBytes / bytesPerSecond).round();
+    return '${_formatSpeed(bytesPerSecond)} | ETA ${_formatEta(etaSeconds)}';
+  }
+
+  String _formatSpeed(double bytesPerSecond) {
+    if (bytesPerSecond >= 1024 * 1024) {
+      return '${(bytesPerSecond / 1024 / 1024).toStringAsFixed(1)} MB/s';
+    }
+    return '${(bytesPerSecond / 1024).toStringAsFixed(0)} KB/s';
+  }
+
+  String _formatEta(int seconds) {
+    final safeSeconds = math.max(0, seconds);
+    final minutes = safeSeconds ~/ 60;
+    final remainingSeconds = safeSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
 }

@@ -5,10 +5,12 @@ import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.os.Build
 import android.system.Os
+import io.flutter.FlutterInjector
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.FileNotFoundException
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 import java.util.zip.ZipFile
@@ -486,6 +488,10 @@ class BootstrapManager(
         aptConfDir.mkdirs()
         File(aptConfDir, "01-openclaw-proot").writeText(
             "APT::Sandbox::User \"root\";\n" +
+            "Acquire::Languages \"none\";\n" +
+            "Acquire::Retries \"3\";\n" +
+            "Acquire::http::Timeout \"20\";\n" +
+            "Acquire::https::Timeout \"20\";\n" +
             // Disable PTY allocation when APT forks dpkg. APT's child process
             // calls SetupSlavePtyMagic() before execvp(dpkg); in proot on
             // Android 10+ (W^X policy), the PTY/chdir setup in the child can
@@ -750,7 +756,7 @@ class BootstrapManager(
 
     /**
      * Extract a Node.js binary tarball (.tar.xz) into the rootfs.
-     * The tarball contains node-v22.x.x-linux-arm64/ with bin/, lib/, etc.
+     * The tarball contains node-v24.x.x-linux-arm64/ with bin/, lib/, etc.
      * We extract its contents into /usr/local/ so node and npm are on PATH.
      * This bypasses the NodeSource repo (curl/gpg fail in proot).
      */
@@ -769,7 +775,7 @@ class BootstrapManager(
                                 entryCount++
                                 val name = entry.name
 
-                                // Strip the top-level directory (node-v22.x.x-linux-arm64/)
+                                // Strip the top-level directory (node-v24.x.x-linux-arm64/)
                                 val slashIdx = name.indexOf('/')
                                 if (slashIdx < 0 || slashIdx == name.length - 1) {
                                     entry = tis.nextEntry
@@ -1402,6 +1408,27 @@ require('/root/.openclaw/proot-compat.js');
         val file = File("$rootfsDir/$path")
         file.parentFile?.mkdirs()
         file.writeText(content)
+    }
+
+    fun copyBundledAssetToFile(assetPath: String, destinationPath: String) {
+        val assetKey = FlutterInjector.instance()
+            .flutterLoader()
+            .getLookupKeyForAsset(assetPath)
+        val destinationFile = File(destinationPath)
+        destinationFile.parentFile?.mkdirs()
+
+        try {
+            context.assets.open(assetKey).use { input ->
+                FileOutputStream(destinationFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+        } catch (e: FileNotFoundException) {
+            throw RuntimeException("Bundled asset not found: $assetPath")
+        }
+
+        destinationFile.setReadable(true, false)
+        destinationFile.setWritable(true, false)
     }
 
     /**

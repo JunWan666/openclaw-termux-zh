@@ -212,7 +212,7 @@ const Map<String, String> appStringsZhHant = {
   'packageCpolarOperationFailed': 'cpolar 操作失敗：{error}',
   'setupWizardTitle': '開始配置 OpenClaw',
   'setupWizardIntroIdle': '這會將 Ubuntu、Node.js 和 OpenClaw 下載到一個自包含環境中。',
-  'setupWizardIntroRunning': '正在配置環境，可能需要幾分鐘。',
+  'setupWizardIntroRunning': '正在配置環境，請盡量保持應用程式停留在前景。',
   'setupWizardConfigureApiKeys': '配置 API Key',
   'setupWizardRetry': '重新安裝',
   'setupWizardBegin': '開始安裝',
@@ -245,7 +245,7 @@ const Map<String, String> appStringsZhHant = {
   'setupWizardStatusExtractingNode': '正在解壓 Node.js...',
   'setupWizardStatusVerifyingNode': '正在驗證 Node.js...',
   'setupWizardStatusNodeInstalled': 'Node.js 已安裝',
-  'setupWizardStatusInstallingOpenClaw': '正在安裝 OpenClaw（這可能需要幾分鐘）...',
+  'setupWizardStatusInstallingOpenClaw': '正在安裝 OpenClaw...',
   'setupWizardStatusCreatingBinWrappers': '正在建立命令包裝器...',
   'setupWizardStatusVerifyingOpenClaw': '正在驗證 OpenClaw...',
   'setupWizardStatusOpenClawInstalled': 'OpenClaw 已安裝',
@@ -477,7 +477,8 @@ const Map<String, String> appStringsZhHant = {
   'messagePlatformDetailQqbotSavedBodyStopped':
       'QQ Bot access has been saved. Start or restart the gateway before using the new channel.',
   'messagePlatformDetailGatewayRestartAction': 'Restart Gateway Now',
-  'messagePlatformDetailGatewayRestarting': 'Restarting gateway...',
+  'messagePlatformDetailGatewayRestarting':
+      '\u6b63\u5728\u91cd\u555f\u7db2\u95dc...',
   'messagePlatformDetailGatewayRestarted':
       'Gateway restarted. QQ Bot access should now be active.',
   'messagePlatformDetailGatewayRestartFailed':

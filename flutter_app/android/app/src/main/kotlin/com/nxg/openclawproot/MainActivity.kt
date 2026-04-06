@@ -37,9 +37,11 @@ import java.io.File
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.junwan666.openclawzh/native"
     private val EVENT_CHANNEL = "com.junwan666.openclawzh/gateway_logs"
+    private val SETUP_LOG_EVENT_CHANNEL = "com.junwan666.openclawzh/setup_logs"
 
     private lateinit var bootstrapManager: BootstrapManager
     private lateinit var processManager: ProcessManager
+    private var setupLogSink: EventChannel.EventSink? = null
     private var screenCaptureResult: MethodChannel.Result? = null
     private var screenCaptureDurationMs: Long = 5000L
     private var snapshotPickResult: MethodChannel.Result? = null
@@ -58,6 +60,11 @@ class MainActivity : FlutterActivity() {
 
         bootstrapManager = BootstrapManager(applicationContext, filesDir, nativeLibDir)
         processManager = ProcessManager(filesDir, nativeLibDir)
+        processManager.installLogEmitter = { line ->
+            runOnUiThread {
+                setupLogSink?.success(line)
+            }
+        }
 
         // Ensure directories and resolv.conf exist on every app start.
         // Android may clear filesDir during APK update (#40).
@@ -333,6 +340,28 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.error("RESOLV_ERROR", e.message, null) }
                         }
                     }.start()
+                }
+                "copyBundledAssetToFile" -> {
+                    val assetPath = call.argument<String>("assetPath")
+                    val destinationPath = call.argument<String>("destinationPath")
+                    if (!assetPath.isNullOrBlank() && !destinationPath.isNullOrBlank()) {
+                        Thread {
+                            try {
+                                bootstrapManager.copyBundledAssetToFile(assetPath, destinationPath)
+                                runOnUiThread { result.success(true) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("ASSET_COPY_ERROR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    } else {
+                        result.error(
+                            "INVALID_ARGS",
+                            "assetPath and destinationPath required",
+                            null
+                        )
+                    }
                 }
                 "extractDebPackages" -> {
                     Thread {
@@ -669,6 +698,21 @@ class MainActivity : FlutterActivity() {
                 }
             }
         )
+
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            SETUP_LOG_EVENT_CHANNEL
+        ).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    setupLogSink = events
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    setupLogSink = null
+                }
+            }
+        )
     }
 
     private fun requestNotificationPermission() {
@@ -939,4 +983,3 @@ class MainActivity : FlutterActivity() {
         const val SNAPSHOT_SAVE_REQUEST = 1006
     }
 }
-

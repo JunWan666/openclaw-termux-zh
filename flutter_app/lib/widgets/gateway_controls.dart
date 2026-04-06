@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +10,7 @@ import '../providers/gateway_provider.dart';
 import '../screens/logs_screen.dart';
 import '../screens/web_dashboard_screen.dart';
 import '../services/dashboard_url_resolver.dart';
+import '../services/install_status_message_formatter.dart';
 import '../services/openclaw_version_service.dart';
 
 class GatewayControls extends StatefulWidget {
@@ -38,9 +37,9 @@ class _GatewayControlsState extends State<GatewayControls> {
   bool _loadingInstalledVersion = true;
   bool _loadingReleaseOptions = false;
   bool _updating = false;
-  Timer? _installProgressTimer;
   double? _installProgress;
-  double _installProgressCeiling = 0.0;
+  String _installStatusMessage = '';
+  String? _installStatusDetail;
 
   @override
   void initState() {
@@ -50,10 +49,7 @@ class _GatewayControlsState extends State<GatewayControls> {
   }
 
   @override
-  void dispose() {
-    _installProgressTimer?.cancel();
-    super.dispose();
-  }
+  void dispose() => super.dispose();
 
   Future<void> _refreshInstalledVersion({bool showLoading = true}) async {
     if (showLoading && mounted) {
@@ -161,18 +157,32 @@ class _GatewayControlsState extends State<GatewayControls> {
     _startInstallProgress();
     setState(() => _updating = true);
     try {
-      _setInstallProgress(0.08, ceiling: 0.18);
+      _setInstallProgress(
+        0.08,
+        message: 'Preparing installation...',
+        detail: '',
+      );
       if (provider.state.status != GatewayStatus.stopped) {
-        _setInstallProgress(0.18, ceiling: 0.28);
+        _setInstallProgress(0.18, message: 'Stopping gateway...', detail: '');
         await provider.stop();
       }
 
-      _setInstallProgress(0.30, ceiling: 0.94);
       await _versionService.installVersion(
         selectedRelease.version,
         releaseInfo: selectedRelease,
+        onProgress: (progress) {
+          _setInstallProgress(
+            0.30 + (progress.progress * 0.62),
+            message: progress.message,
+            detail: progress.detail,
+          );
+        },
       );
-      _setInstallProgress(0.95, ceiling: 0.99);
+      _setInstallProgress(
+        0.95,
+        message: 'Refreshing installed version...',
+        detail: '',
+      );
       await _refreshInstalledVersion(showLoading: false);
       await _loadReleaseOptions();
 
@@ -188,13 +198,13 @@ class _GatewayControlsState extends State<GatewayControls> {
       );
 
       if (shouldRestart && mounted) {
-        _setInstallProgress(0.98, ceiling: 0.995);
+        _setInstallProgress(0.98, message: 'Restarting gateway...', detail: '');
         await provider.start();
       }
       await _completeInstallProgress();
     } catch (e) {
       if (shouldRestart && mounted) {
-        _setInstallProgress(0.97, ceiling: 0.99);
+        _setInstallProgress(0.97, message: 'Restarting gateway...', detail: '');
         await provider.start();
       }
       if (!mounted) return;
@@ -248,38 +258,29 @@ class _GatewayControlsState extends State<GatewayControls> {
   }
 
   void _startInstallProgress() {
-    _installProgressTimer?.cancel();
-    _installProgress = 0.03;
-    _installProgressCeiling = 0.16;
-    _installProgressTimer = Timer.periodic(
-      const Duration(milliseconds: 700),
-      (_) {
-        if (!mounted || !_updating || _installProgress == null) {
-          return;
-        }
-        final current = _installProgress!;
-        final ceiling = _installProgressCeiling;
-        if (current >= ceiling) {
-          return;
-        }
-        final next =
-            (current + ((ceiling - current) * 0.18)).clamp(0.0, ceiling);
-        setState(() => _installProgress = next);
-      },
-    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _installProgress = 0.03;
+      _installStatusMessage = 'Preparing installation...';
+      _installStatusDetail = null;
+    });
   }
 
-  void _setInstallProgress(double value, {double? ceiling}) {
+  void _setInstallProgress(double value, {String? message, String? detail}) {
     if (!mounted) {
       return;
     }
     setState(() {
       final current = _installProgress ?? 0.0;
       _installProgress = value > current ? value : current;
-      if (ceiling != null) {
-        _installProgressCeiling = ceiling > _installProgressCeiling
-            ? ceiling
-            : _installProgressCeiling;
+      if (message != null && message.trim().isNotEmpty) {
+        _installStatusMessage = message.trim();
+      }
+      if (detail != null) {
+        final trimmed = detail.trim();
+        _installStatusDetail = trimmed.isEmpty ? null : trimmed;
       }
     });
   }
@@ -293,11 +294,12 @@ class _GatewayControlsState extends State<GatewayControls> {
   }
 
   void _stopInstallProgress({bool reset = false}) {
-    _installProgressTimer?.cancel();
-    _installProgressTimer = null;
-    _installProgressCeiling = 0.0;
     if (reset && mounted) {
-      setState(() => _installProgress = null);
+      setState(() {
+        _installProgress = null;
+        _installStatusMessage = '';
+        _installStatusDetail = null;
+      });
     }
   }
 
@@ -307,6 +309,17 @@ class _GatewayControlsState extends State<GatewayControls> {
       return '0%';
     }
     return '${(progress * 100).clamp(0, 100).round()}%';
+  }
+
+  String _localizedInstallStatus(AppLocalizations l10n) {
+    return InstallStatusMessageFormatter.localize(l10n, _installStatusMessage);
+  }
+
+  String? _localizedInstallDetail(AppLocalizations l10n) {
+    return InstallStatusMessageFormatter.localizeDetail(
+      l10n,
+      _installStatusDetail,
+    );
   }
 
   @override
@@ -704,6 +717,29 @@ class _GatewayControlsState extends State<GatewayControls> {
                 ),
               ],
             ),
+            if (_localizedInstallStatus(l10n).isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _localizedInstallStatus(l10n),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if ((_localizedInstallDetail(l10n) ?? '').isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _localizedInstallDetail(l10n)!,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontFamily: 'DejaVuSansMono',
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ],
           ],
         ],
       ),

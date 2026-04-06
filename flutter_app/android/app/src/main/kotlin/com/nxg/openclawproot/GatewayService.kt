@@ -613,4 +613,3 @@ class GatewayService : Service() {
         } catch (_: Exception) {}
     }
 }
-

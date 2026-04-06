@@ -372,7 +372,7 @@ const Map<String, String> appStringsEn = {
   'setupWizardIntroIdle':
       'This will download Ubuntu, Node.js, and OpenClaw into a self-contained environment.',
   'setupWizardIntroRunning':
-      'Setting up the environment. This may take several minutes.',
+      'Setting up the environment. Keep the app in the foreground.',
   'setupWizardConfigureApiKeys': 'Configure API Keys',
   'setupWizardRetry': 'Retry Setup',
   'setupWizardBegin': 'Begin Setup',
@@ -412,7 +412,7 @@ const Map<String, String> appStringsEn = {
   'setupWizardStatusVerifyingNode': 'Verifying Node.js...',
   'setupWizardStatusNodeInstalled': 'Node.js installed',
   'setupWizardStatusInstallingOpenClaw':
-      'Installing OpenClaw (this may take a few minutes)...',
+      'Installing OpenClaw...',
   'setupWizardStatusCreatingBinWrappers': 'Creating bin wrappers...',
   'setupWizardStatusVerifyingOpenClaw': 'Verifying OpenClaw...',
   'setupWizardStatusOpenClawInstalled': 'OpenClaw installed',

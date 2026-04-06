@@ -60,6 +60,15 @@ class ProviderConfigService {
     return gateway;
   }
 
+  static Map<String, dynamic> _ensureGatewayReloadSection(
+    Map<String, dynamic> config,
+  ) {
+    final gateway = _ensureGatewaySection(config);
+    final reload = _asStringKeyedMap(gateway['reload']);
+    gateway['reload'] = reload;
+    return reload;
+  }
+
   static Map<String, dynamic> _ensureModelsSection(
       Map<String, dynamic> config) {
     final models = _asStringKeyedMap(config['models']);
@@ -524,6 +533,11 @@ class ProviderConfigService {
 
     final before = jsonEncode(config);
     _ensureLocalGatewayMode(config);
+    final reload = _ensureGatewayReloadSection(config);
+    final mode = reload['mode'];
+    if (mode is! String || mode.trim().isEmpty) {
+      reload['mode'] = 'hybrid';
+    }
     if (before == jsonEncode(config)) {
       return;
     }

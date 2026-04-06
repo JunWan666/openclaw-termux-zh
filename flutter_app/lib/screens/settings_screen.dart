@@ -244,6 +244,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const Divider(),
+                _sectionHeader(theme, l10n.t('settingsMaintenance')),
+                ListTile(
+                  title: Text(l10n.t('settingsExportSnapshot')),
+                  subtitle: Text(l10n.t('settingsExportSnapshotSubtitle')),
+                  leading: const Icon(Icons.upload_file),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _exportSnapshot,
+                ),
+                ListTile(
+                  title: Text(l10n.t('settingsImportSnapshot')),
+                  subtitle: Text(l10n.t('settingsImportSnapshotSubtitle')),
+                  leading: const Icon(Icons.download),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _importSnapshot,
+                ),
+                ListTile(
+                  title: Text(l10n.t('settingsRerunSetup')),
+                  subtitle: Text(l10n.t('settingsRerunSetupSubtitle')),
+                  leading: const Icon(Icons.build),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const SetupWizardScreen(),
+                    ),
+                  ),
+                ),
+                const Divider(),
                 _sectionHeader(theme, l10n.t('settingsSystemInfo')),
                 ListTile(
                   title: Text(l10n.t('settingsArchitecture')),
@@ -303,33 +330,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ? l10n.t('statusInstalled')
                       : l10n.t('statusNotInstalled')),
                   leading: const Icon(Icons.hub),
-                ),
-                const Divider(),
-                _sectionHeader(theme, l10n.t('settingsMaintenance')),
-                ListTile(
-                  title: Text(l10n.t('settingsExportSnapshot')),
-                  subtitle: Text(l10n.t('settingsExportSnapshotSubtitle')),
-                  leading: const Icon(Icons.upload_file),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _exportSnapshot,
-                ),
-                ListTile(
-                  title: Text(l10n.t('settingsImportSnapshot')),
-                  subtitle: Text(l10n.t('settingsImportSnapshotSubtitle')),
-                  leading: const Icon(Icons.download),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _importSnapshot,
-                ),
-                ListTile(
-                  title: Text(l10n.t('settingsRerunSetup')),
-                  subtitle: Text(l10n.t('settingsRerunSetupSubtitle')),
-                  leading: const Icon(Icons.build),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (_) => const SetupWizardScreen(),
-                    ),
-                  ),
                 ),
                 const Divider(),
                 _sectionHeader(theme, l10n.t('settingsAbout')),

@@ -234,19 +234,14 @@ class GatewayService {
         _ensureHealthCheck();
 
         final healthy = await checkHealth();
-        final shouldKeepRunning =
-            !healthy && _state.status == GatewayStatus.running;
         _updateState(_state.copyWith(
-          status: healthy || shouldKeepRunning
-              ? GatewayStatus.running
-              : GatewayStatus.starting,
+          status: healthy ? GatewayStatus.running : GatewayStatus.starting,
           clearError: true,
-          startedAt: healthy || shouldKeepRunning
-              ? (_state.startedAt ?? DateTime.now())
-              : null,
+          startedAt: healthy ? (_state.startedAt ?? DateTime.now()) : null,
           dashboardUrl: dashboardUrl,
         ));
 
+        await _refreshDashboardUrlFromConfig(notify: false);
         if (!DashboardUrlResolver.hasToken(dashboardUrl)) {
           unawaited(_maybeRefreshDashboardUrl(force: true));
         }
@@ -276,7 +271,9 @@ class GatewayService {
   }
 
   void _subscribeLogs() {
-    _logSubscription?.cancel();
+    if (_logSubscription != null) {
+      return;
+    }
     _logSubscription = NativeBridge.gatewayLogStream.listen((log) {
       final normalizedLog = _normalizeLogLine(log);
       if (normalizedLog == null || normalizedLog.isEmpty) {
@@ -368,6 +365,46 @@ class GatewayService {
       _updateState(_state.copyWith(dashboardUrl: resolvedUrl));
     } finally {
       _dashboardUrlProbeInFlight = false;
+    }
+  }
+
+  Future<String?> _refreshDashboardUrlFromConfig({bool notify = false}) async {
+    final configuredDashboardUrl = await _readConfiguredDashboardUrl();
+    if (configuredDashboardUrl == null || configuredDashboardUrl.isEmpty) {
+      return null;
+    }
+
+    final normalizedCurrent = DashboardUrlResolver.normalizeDashboardUrl(
+      _state.dashboardUrl,
+      baseUri: Uri.parse(AppConstants.gatewayUrl),
+    );
+    if (configuredDashboardUrl != normalizedCurrent) {
+      await _persistDashboardUrl(
+        configuredDashboardUrl,
+        notify: notify,
+      );
+      _updateState(_state.copyWith(dashboardUrl: configuredDashboardUrl));
+    }
+    return configuredDashboardUrl;
+  }
+
+  Future<void> _bootstrapDashboardUrlFromConfig({
+    Duration timeout = const Duration(seconds: 20),
+    Duration interval = const Duration(seconds: 1),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_state.status == GatewayStatus.stopped ||
+          _state.status == GatewayStatus.stopping) {
+        return;
+      }
+
+      final url = await _refreshDashboardUrlFromConfig(notify: false);
+      if (DashboardUrlResolver.hasToken(url)) {
+        return;
+      }
+
+      await Future<void>.delayed(interval);
     }
   }
 
@@ -541,7 +578,9 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
   Future<void> start() async {
     // Prevent concurrent start() calls from racing
-    if (_startInProgress || _state.status == GatewayStatus.stopping) return;
+    if (_startInProgress || _state.status == GatewayStatus.stopping) {
+      return;
+    }
     _startInProgress = true;
 
     final prefs = PreferencesService();
@@ -594,6 +633,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       _subscribeLogs();
       await NativeBridge.startGateway();
       _startHealthCheck();
+      unawaited(_bootstrapDashboardUrlFromConfig());
     } catch (e) {
       _updateState(_state.copyWith(
         status: GatewayStatus.error,
@@ -657,9 +697,8 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
   void _startHealthCheck() {
     _cancelAllTimers();
-    // Delay the first health check by 30s - Node.js inside proot needs time to start.
-    // Use a Timer (not Future.delayed) so it can be cancelled on stop().
-    _initialDelayTimer = Timer(const Duration(seconds: 30), () {
+    // Start probing quickly so the homepage status and Web UI URL update sooner.
+    _initialDelayTimer = Timer(const Duration(seconds: 3), () {
       _initialDelayTimer = null;
       if (_state.status == GatewayStatus.stopped ||
           _state.status == GatewayStatus.stopping) {
@@ -667,7 +706,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       }
       _checkHealth();
       _healthTimer = Timer.periodic(
-        const Duration(milliseconds: AppConstants.healthCheckIntervalMs),
+        const Duration(seconds: 3),
         (_) => _checkHealth(),
       );
     });
@@ -682,11 +721,12 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       if (response.statusCode < 500 && _state.status != GatewayStatus.running) {
         _updateState(_state.copyWith(
           status: GatewayStatus.running,
-          startedAt: DateTime.now(),
+          startedAt: _state.startedAt ?? DateTime.now(),
           logs: [..._state.logs, _ts('[INFO] Gateway is healthy')],
         ));
       }
 
+      await _refreshDashboardUrlFromConfig(notify: false);
       if (response.statusCode < 500 &&
           !DashboardUrlResolver.hasToken(_state.dashboardUrl)) {
         unawaited(_maybeRefreshDashboardUrl());
@@ -698,11 +738,10 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       // Still starting or temporarily unreachable
       final isRunning = await NativeBridge.isGatewayRunning();
       if (!isRunning && _state.status != GatewayStatus.stopped) {
-        // Grace period: if we're still within 120s of startup, don't declare dead.
-        // proot + Node.js can take a long time on first boot.
+        // Grace period: give the service time to boot before declaring failure.
         if (_startingAt != null &&
             _state.status == GatewayStatus.starting &&
-            DateTime.now().difference(_startingAt!).inSeconds < 120) {
+            DateTime.now().difference(_startingAt!).inSeconds < 45) {
           _updateState(_state.copyWith(
             logs: [
               ..._state.logs,
@@ -732,10 +771,10 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
   }
 
   Future<void> applyConfigChanges({String source = 'configuration'}) async {
-    final shouldRestart = _state.status == GatewayStatus.running ||
+    final isGatewayActive = _state.status == GatewayStatus.running ||
         _state.status == GatewayStatus.starting;
 
-    if (!shouldRestart) {
+    if (!isGatewayActive) {
       _updateState(_state.copyWith(logs: [
         ..._state.logs,
         _ts('[INFO] $source updated. Changes will apply the next time the gateway starts.'),
@@ -745,16 +784,18 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
     _updateState(_state.copyWith(logs: [
       ..._state.logs,
-      _ts('[INFO] $source updated, restarting gateway to apply changes...'),
+      _ts('[INFO] $source updated. OpenClaw will hot-reload the new configuration.'),
     ]));
 
     try {
-      await stop();
-      await start();
+      await ProviderConfigService.ensureGatewayDefaults();
+      await _refreshDashboardUrlFromConfig(notify: false);
+      unawaited(_maybeRefreshDashboardUrl(force: true));
+      await syncStateFromSystem();
     } catch (e) {
       _updateState(_state.copyWith(logs: [
         ..._state.logs,
-        _ts('[ERROR] Failed to re-apply $source automatically: $e'),
+        _ts('[ERROR] Failed to refresh $source automatically: $e'),
       ]));
     }
   }

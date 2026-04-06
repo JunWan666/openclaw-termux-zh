@@ -8,6 +8,7 @@ class ProgressStep extends StatelessWidget {
   final bool isComplete;
   final bool hasError;
   final double? progress;
+  final String? detail;
 
   const ProgressStep({
     super.key,
@@ -17,6 +18,7 @@ class ProgressStep extends StatelessWidget {
     this.isComplete = false,
     this.hasError = false,
     this.progress,
+    this.detail,
   });
 
   @override
@@ -109,6 +111,22 @@ class ProgressStep extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
+                if (isActive &&
+                    detail != null &&
+                    detail!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    detail!,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontFamily: 'DejaVuSansMono',
+                      fontSize: 11,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

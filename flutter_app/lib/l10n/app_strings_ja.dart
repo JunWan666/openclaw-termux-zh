@@ -222,7 +222,7 @@ const Map<String, String> appStringsJa = {
   'packageCpolarOperationFailed': 'cpolar の操作に失敗しました: {error}',
   'setupWizardTitle': 'OpenClaw セットアップ',
   'setupWizardIntroIdle': 'Ubuntu、Node.js、OpenClaw を自己完結型の環境にダウンロードします。',
-  'setupWizardIntroRunning': '環境をセットアップしています。数分かかる場合があります。',
+  'setupWizardIntroRunning': '環境をセットアップしています。アプリはできるだけ前面に保ってください。',
   'setupWizardConfigureApiKeys': 'API キーを設定',
   'setupWizardRetry': '再試行',
   'setupWizardBegin': 'セットアップ開始',
@@ -255,7 +255,7 @@ const Map<String, String> appStringsJa = {
   'setupWizardStatusExtractingNode': 'Node.js を展開中...',
   'setupWizardStatusVerifyingNode': 'Node.js を検証中...',
   'setupWizardStatusNodeInstalled': 'Node.js をインストールしました',
-  'setupWizardStatusInstallingOpenClaw': 'OpenClaw をインストール中（数分かかる場合があります）...',
+  'setupWizardStatusInstallingOpenClaw': 'OpenClaw をインストール中...',
   'setupWizardStatusCreatingBinWrappers': 'bin ラッパーを作成中...',
   'setupWizardStatusVerifyingOpenClaw': 'OpenClaw を検証中...',
   'setupWizardStatusOpenClawInstalled': 'OpenClaw をインストールしました',
@@ -484,7 +484,8 @@ const Map<String, String> appStringsJa = {
   'messagePlatformDetailQqbotSavedBodyStopped':
       'QQ Bot access has been saved. Start or restart the gateway before using the new channel.',
   'messagePlatformDetailGatewayRestartAction': 'Restart Gateway Now',
-  'messagePlatformDetailGatewayRestarting': 'Restarting gateway...',
+  'messagePlatformDetailGatewayRestarting':
+      '\u30b2\u30fc\u30c8\u30a6\u30a7\u30a4\u3092\u518d\u8d77\u52d5\u4e2d...',
   'messagePlatformDetailGatewayRestarted':
       'Gateway restarted. QQ Bot access should now be active.',
   'messagePlatformDetailGatewayRestartFailed':

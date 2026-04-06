@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../constants.dart';
 import '../services/dashboard_url_resolver.dart';
+import '../services/gateway_auth_config_service.dart';
 import '../services/preferences_service.dart';
 
 class WebDashboardScreen extends StatefulWidget {
@@ -58,11 +59,21 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       await prefs.init();
       url = prefs.dashboardUrl;
     }
-    final resolvedUrl = DashboardUrlResolver.normalizeDashboardUrl(
-          url,
-          baseUri: Uri.parse(AppConstants.gatewayUrl),
-        ) ??
-        AppConstants.gatewayUrl;
+    var resolvedUrl = DashboardUrlResolver.normalizeDashboardUrl(
+      url,
+      baseUri: Uri.parse(AppConstants.gatewayUrl),
+    );
+
+    if (!DashboardUrlResolver.hasToken(resolvedUrl)) {
+      final configuredUrl = await GatewayAuthConfigService.readDashboardUrl(
+        baseUri: Uri.parse(AppConstants.gatewayUrl),
+      );
+      if (configuredUrl != null && configuredUrl.isNotEmpty) {
+        resolvedUrl = configuredUrl;
+      }
+    }
+
+    resolvedUrl ??= AppConstants.gatewayUrl;
     _controller.loadRequest(Uri.parse(resolvedUrl));
   }
 

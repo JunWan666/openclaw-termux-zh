@@ -7,6 +7,7 @@ import '../models/setup_state.dart';
 import '../models/optional_package.dart';
 import '../providers/setup_provider.dart';
 import '../services/cpolar_package_service.dart';
+import '../services/install_status_message_formatter.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/package_service.dart';
 import '../services/preferences_service.dart';
@@ -571,6 +572,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             label: state.step == step
                 ? _localizedSetupMessage(l10n, state.message)
                 : label,
+            detail: state.step == step
+                ? _localizedSetupDetail(l10n, state.detail)
+                : null,
             isActive: state.step == step,
             isComplete: state.stepNumber > step.index + 1 || state.isComplete,
             hasError: state.hasError && state.step == step,
@@ -795,78 +799,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   String _localizedSetupMessage(AppLocalizations l10n, String? message) {
-    if (message == null || message.isEmpty) {
-      return '';
-    }
+    return InstallStatusMessageFormatter.localize(l10n, message);
+  }
 
-    final downloadProgress =
-        RegExp(r'^Downloading: ([0-9.]+) MB / ([0-9.]+) MB$')
-            .firstMatch(message);
-    if (downloadProgress != null) {
-      return l10n.t('setupWizardStatusDownloadingProgress', {
-        'current': downloadProgress.group(1),
-        'total': downloadProgress.group(2),
-      });
-    }
-
-    final nodeDownloadProgress =
-        RegExp(r'^Downloading Node\.js: ([0-9.]+) MB / ([0-9.]+) MB$')
-            .firstMatch(message);
-    if (nodeDownloadProgress != null) {
-      return l10n.t('setupWizardStatusDownloadingNodeProgress', {
-        'current': nodeDownloadProgress.group(1),
-        'total': nodeDownloadProgress.group(2),
-      });
-    }
-
-    final nodeVersionMatch =
-        RegExp(r'^Downloading Node\.js (.+)\.\.\.$').firstMatch(message);
-    if (nodeVersionMatch != null) {
-      return l10n.t('setupWizardStatusDownloadingNode', {
-        'version': nodeVersionMatch.group(1),
-      });
-    }
-
-    switch (message) {
-      case 'Setup complete':
-        return l10n.t('setupWizardStatusSetupComplete');
-      case 'Setup required':
-        return l10n.t('setupWizardStatusSetupRequired');
-      case 'Setting up directories...':
-        return l10n.t('setupWizardStatusSettingUpDirs');
-      case 'Downloading Ubuntu rootfs...':
-        return l10n.t('setupWizardStatusDownloadingUbuntuRootfs');
-      case 'Extracting rootfs (this takes a while)...':
-        return l10n.t('setupWizardStatusExtractingRootfs');
-      case 'Rootfs extracted':
-        return l10n.t('setupWizardStatusRootfsExtracted');
-      case 'Fixing rootfs permissions...':
-        return l10n.t('setupWizardStatusFixingPermissions');
-      case 'Updating package lists...':
-        return l10n.t('setupWizardStatusUpdatingPackageLists');
-      case 'Installing base packages...':
-        return l10n.t('setupWizardStatusInstallingBasePackages');
-      case 'Extracting Node.js...':
-        return l10n.t('setupWizardStatusExtractingNode');
-      case 'Verifying Node.js...':
-        return l10n.t('setupWizardStatusVerifyingNode');
-      case 'Node.js installed':
-        return l10n.t('setupWizardStatusNodeInstalled');
-      case 'Installing OpenClaw (this may take a few minutes)...':
-        return l10n.t('setupWizardStatusInstallingOpenClaw');
-      case 'Creating bin wrappers...':
-        return l10n.t('setupWizardStatusCreatingBinWrappers');
-      case 'Verifying OpenClaw...':
-        return l10n.t('setupWizardStatusVerifyingOpenClaw');
-      case 'OpenClaw installed':
-        return l10n.t('setupWizardStatusOpenClawInstalled');
-      case 'Bionic Bypass configured':
-        return l10n.t('setupWizardStatusBypassConfigured');
-      case 'Setup complete! Ready to start the gateway.':
-        return l10n.t('setupWizardStatusReady');
-      default:
-        return message;
-    }
+  String? _localizedSetupDetail(AppLocalizations l10n, String? detail) {
+    return InstallStatusMessageFormatter.localizeDetail(l10n, detail);
   }
 
   Future<void> _goToOnboarding() async {
