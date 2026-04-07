@@ -234,10 +234,17 @@ class GatewayService {
         _ensureHealthCheck();
 
         final healthy = await checkHealth();
+        final preserveRunningState = !healthy &&
+            (_state.status == GatewayStatus.running ||
+                _state.startedAt != null);
         _updateState(_state.copyWith(
-          status: healthy ? GatewayStatus.running : GatewayStatus.starting,
+          status: healthy || preserveRunningState
+              ? GatewayStatus.running
+              : GatewayStatus.starting,
           clearError: true,
-          startedAt: healthy ? (_state.startedAt ?? DateTime.now()) : null,
+          startedAt: healthy || preserveRunningState
+              ? (_state.startedAt ?? DateTime.now())
+              : null,
           dashboardUrl: dashboardUrl,
         ));
 
@@ -714,9 +721,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
   Future<void> _checkHealth() async {
     try {
-      final response = await http
-          .head(Uri.parse(AppConstants.gatewayUrl))
-          .timeout(const Duration(seconds: 3));
+      final response = await _probeGatewayHealth();
 
       if (response.statusCode < 500 && _state.status != GatewayStatus.running) {
         _updateState(_state.copyWith(
@@ -759,11 +764,21 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     }
   }
 
+  Future<http.Response> _probeGatewayHealth() async {
+    final uri = Uri.parse(AppConstants.gatewayUrl);
+
+    try {
+      return await http.head(uri).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      response.bodyBytes;
+      return response;
+    }
+  }
+
   Future<bool> checkHealth() async {
     try {
-      final response = await http
-          .head(Uri.parse(AppConstants.gatewayUrl))
-          .timeout(const Duration(seconds: 3));
+      final response = await _probeGatewayHealth();
       return response.statusCode < 500;
     } catch (_) {
       return false;

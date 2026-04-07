@@ -231,31 +231,47 @@ class GatewayService : Service() {
                     bootstrapManager.setupDirectories()
                     emitLog("[INFO] Directories ready")
                 } catch (e: Exception) {
-                    emitLog("[WARN] setupDirectories failed: ${e.message}")
+                    emitLog(
+                        "[WARN] setupDirectories failed: ${e.message} (" +
+                            HostFilesystem.describePathState("$filesDir/config") +
+                            ")"
+                    )
                 }
                 try {
                     bootstrapManager.writeResolvConf()
                 } catch (e: Exception) {
-                    emitLog("[WARN] writeResolvConf failed: ${e.message}")
+                    emitLog(
+                        "[WARN] writeResolvConf failed: ${e.message} (" +
+                            HostFilesystem.describePathState("$filesDir/config") +
+                            ")"
+                    )
                 }
 
                 // Last-resort: verify resolv.conf exists, create inline if not
                 val resolvContent = "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
                 try {
-                    val resolvFile = File(filesDir, "config/resolv.conf")
+                    val resolvFile = HostFilesystem.ensureFileTargetReady(
+                        "$filesDir/config/resolv.conf",
+                        "gateway fallback resolv.conf"
+                    )
                     if (!resolvFile.exists() || resolvFile.length() == 0L) {
-                        resolvFile.parentFile?.mkdirs()
                         resolvFile.writeText(resolvContent)
                         emitLog("[INFO] resolv.conf created (inline fallback)")
                     }
                 } catch (e: Exception) {
-                    emitLog("[WARN] inline resolv.conf fallback failed: ${e.message}")
+                    emitLog(
+                        "[WARN] inline resolv.conf fallback failed: ${e.message} (" +
+                            HostFilesystem.describePathState("$filesDir/config") +
+                            ")"
+                    )
                 }
                 // Also write into rootfs /etc/ so DNS works even if bind-mount fails
                 try {
-                    val rootfsResolv = File(filesDir, "rootfs/ubuntu/etc/resolv.conf")
+                    val rootfsResolv = HostFilesystem.ensureFileTargetReady(
+                        "$filesDir/rootfs/ubuntu/etc/resolv.conf",
+                        "gateway rootfs resolv.conf"
+                    )
                     if (!rootfsResolv.exists() || rootfsResolv.length() == 0L) {
-                        rootfsResolv.parentFile?.mkdirs()
                         rootfsResolv.writeText(resolvContent)
                     }
                 } catch (_: Exception) {}
@@ -447,6 +463,9 @@ class GatewayService : Service() {
     private fun startWatchdog() {
         watchdogThread?.interrupt()
         watchdogThread = Thread {
+            var observedResponsivePort = false
+            var consecutivePortMisses = 0
+            var portWarningActive = false
             try {
                 // Wait 45s before first check 鈥?give the process time to start
                 Thread.sleep(45_000)
@@ -458,9 +477,25 @@ class GatewayService : Service() {
                         emitLog("[WARN] Watchdog: gateway process not alive")
                         break
                     }
-                    // Also check if port is still responding after initial startup
-                    if (proc != null && !isPortInUse()) {
-                        emitLog("[WARN] Watchdog: port 18789 not responding")
+                    // Only warn after the port has responded at least once.
+                    // OpenClaw 4.5 startup can legitimately take longer than
+                    // the initial watchdog delay on Android/proot.
+                    if (proc != null) {
+                        val portResponding = isPortInUse()
+                        if (portResponding) {
+                            if (portWarningActive) {
+                                emitLog("[INFO] Watchdog: port 18789 responding again")
+                            }
+                            observedResponsivePort = true
+                            consecutivePortMisses = 0
+                            portWarningActive = false
+                        } else if (observedResponsivePort) {
+                            consecutivePortMisses++
+                            if (consecutivePortMisses >= 2 && !portWarningActive) {
+                                emitLog("[WARN] Watchdog: port 18789 not responding")
+                                portWarningActive = true
+                            }
+                        }
                     }
                     Thread.sleep(15_000) // Check every 15s
                 }

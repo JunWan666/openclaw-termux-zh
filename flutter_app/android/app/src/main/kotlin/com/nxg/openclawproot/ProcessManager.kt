@@ -83,27 +83,37 @@ class ProcessManager(
      * This is the single chokepoint 鈥?every proot operation flows through
      * commonProotFlags(), so resolv.conf is guaranteed for all callers.
      */
-    private fun ensureResolvConf() {
+    private fun ensureResolvConf(): File? {
         val content = "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
+        var hostResolvFile: File? = null
 
         // Primary: host-side file used by --bind mount
         try {
-            val resolvFile = File(configDir, "resolv.conf")
+            val resolvFile = HostFilesystem.ensureFileTargetReady(
+                "$configDir/resolv.conf",
+                "host resolv.conf"
+            )
             if (!resolvFile.exists() || resolvFile.length() == 0L) {
-                resolvFile.parentFile?.mkdirs()
                 resolvFile.writeText(content)
             }
-        } catch (_: Exception) {}
+            hostResolvFile = resolvFile
+        } catch (_: Exception) {
+            hostResolvFile = null
+        }
 
         // Fallback: write directly into rootfs /etc/resolv.conf
         // so DNS works even if the bind-mount fails
         try {
-            val rootfsResolv = File(rootfsDir, "etc/resolv.conf")
+            val rootfsResolv = HostFilesystem.ensureFileTargetReady(
+                "$rootfsDir/etc/resolv.conf",
+                "rootfs resolv.conf"
+            )
             if (!rootfsResolv.exists() || rootfsResolv.length() == 0L) {
-                rootfsResolv.parentFile?.mkdirs()
                 rootfsResolv.writeText(content)
             }
         } catch (_: Exception) {}
+
+        return hostResolvFile?.takeIf { it.exists() && it.isFile }
     }
 
     /**
@@ -150,13 +160,13 @@ class ProcessManager(
 
     private fun commonProotFlags(): List<String> {
         // Guarantee resolv.conf exists before building the bind-mount list
-        ensureResolvConf()
+        val resolvFile = ensureResolvConf()
 
         val prootPath = getProotPath()
         val procFakes = "$configDir/proc_fakes"
         val sysFakes = "$configDir/sys_fakes"
 
-        return listOf(
+        val flags = mutableListOf(
             prootPath,
             "--link2symlink",
             "-L",
@@ -184,15 +194,17 @@ class ProcessManager(
             "--bind=$rootfsDir/tmp:/dev/shm",
             // SELinux override 鈥?empty dir disables SELinux checks
             "--bind=$sysFakes/empty:/sys/fs/selinux",
-            // App-specific binds
-            "--bind=$configDir/resolv.conf:/etc/resolv.conf",
             "--bind=$homeDir:/root/home",
-        ).let { flags ->
+        )
+        if (resolvFile != null) {
+            flags.add("--bind=${resolvFile.absolutePath}:/etc/resolv.conf")
+        }
+        return flags.let { flagsWithResolv ->
             // Bind-mount shared storage into proot (Termux proot-distro style).
             // Bind the whole /storage tree so symlinks and sub-mounts resolve.
             // Then create /sdcard symlink inside rootfs pointing to the right path.
             val stdioFlags = buildStandardFdBinds()
-            val baseFlags = flags + stdioFlags
+            val baseFlags = flagsWithResolv + stdioFlags
 
             val hasAccess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Environment.isExternalStorageManager()

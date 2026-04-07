@@ -17,12 +17,17 @@ const Map<String, String> appStringsEn = {
   'commonRetry': 'Retry',
   'commonDone': 'Done',
   'commonConfigure': 'Configure',
+  'commonManage': 'Manage',
   'commonScreenshot': 'Screenshot',
   'commonSaveFailed': 'Failed to capture screenshot',
   'commonScreenshotSaved': 'Screenshot saved: {fileName}',
   'commonNoUrlFound': 'No URL found in selection',
   'commonOpenLink': 'Open Link',
   'commonLinkCopied': 'Link copied',
+  'commonUnavailable': 'Unavailable',
+  'commonVersion': 'Version',
+  'commonStatus': 'Status',
+  'commonNotConfigured': 'Not configured',
   'dashboardQuickActions': 'Quick actions',
   'dashboardTerminalTitle': 'Terminal',
   'dashboardTerminalSubtitle': 'Open Ubuntu shell with OpenClaw',
@@ -253,7 +258,7 @@ const Map<String, String> appStringsEn = {
   'providerDescriptionXai': 'Grok models from xAI',
   'dashboardPackagesTitle': 'Packages',
   'dashboardPackagesSubtitle':
-      'Install optional tools (Go, Homebrew, SSH, cpolar)',
+      'Install optional tools (Go, Homebrew, SSH, ADB, cpolar)',
   'dashboardSshTitle': 'SSH Access',
   'dashboardSshSubtitle': 'Remote terminal access via SSH',
   'dashboardLogsTitle': 'Logs',
@@ -348,6 +353,7 @@ const Map<String, String> appStringsEn = {
   'packageGoDescription': 'Go programming language compiler and tools',
   'packageBrewDescription': 'The missing package manager for Linux',
   'packageSshDescription': 'SSH client and server for secure remote access',
+  'packageAdbDescription': 'Android Debug Bridge command line tools',
   'packageCpolarDescription':
       'Tunnel local services to the public internet with cpolar',
   'packageCpolarGuideTitle': 'Quick Start',
@@ -368,6 +374,9 @@ const Map<String, String> appStringsEn = {
   'packageCpolarDashboardStarting':
       'cpolar is starting. The local Web UI may take a moment to respond.',
   'packageCpolarOperationFailed': 'cpolar action failed: {error}',
+  'packageCpolarAuthtokenLabel': 'Authtoken',
+  'packageCpolarLocalAccessTitle': 'Local Access URLs',
+  'packageCpolarRecentLogsTitle': 'Recent Logs',
   'setupWizardTitle': 'Setup OpenClaw',
   'setupWizardIntroIdle':
       'This will download Ubuntu, Node.js, and OpenClaw into a self-contained environment.',
@@ -411,8 +420,7 @@ const Map<String, String> appStringsEn = {
   'setupWizardStatusExtractingNode': 'Extracting Node.js...',
   'setupWizardStatusVerifyingNode': 'Verifying Node.js...',
   'setupWizardStatusNodeInstalled': 'Node.js installed',
-  'setupWizardStatusInstallingOpenClaw':
-      'Installing OpenClaw...',
+  'setupWizardStatusInstallingOpenClaw': 'Installing OpenClaw...',
   'setupWizardStatusCreatingBinWrappers': 'Creating bin wrappers...',
   'setupWizardStatusVerifyingOpenClaw': 'Verifying OpenClaw...',
   'setupWizardStatusOpenClawInstalled': 'OpenClaw installed',
@@ -422,9 +430,52 @@ const Map<String, String> appStringsEn = {
   'onboardingStarting': 'Starting onboarding...',
   'onboardingGoToDashboard': 'Go to Dashboard',
   'onboardingStartFailed': 'Failed to start onboarding: {error}',
+  'onboardingOptionsTitle': 'Choose onboarding steps',
+  'onboardingOptionsBody':
+      'This list mirrors the real `openclaw onboard` flow. Required steps stay locked on, and unchecked optional steps will be skipped with the matching `--skip-*` flags.',
+  'onboardingOptionModel': 'Model and API provider',
+  'onboardingOptionWorkspace': 'Workspace and paths',
+  'onboardingOptionGateway': 'Gateway binding and auth',
+  'onboardingOptionSearch': 'Web search (DuckDuckGo and others)',
+  'onboardingOptionChannels': 'Messaging channels',
+  'onboardingOptionDaemon': 'Daemon installation',
+  'onboardingOptionHealth': 'Health checks',
+  'onboardingOptionUi': 'Web UI',
+  'onboardingOptionSkills': 'Skills',
+  'onboardingStepRequired': 'Required step',
+  'onboardingStepOptional': 'Optional, unchecked means skip',
   'configureTitle': 'OpenClaw Configure',
   'configureStarting': 'Starting configure...',
   'configureStartFailed': 'Failed to start configure: {error}',
+  'configureOptionsTitle': 'Choose sections to configure',
+  'configureOptionsBody':
+      'This list mirrors the official `openclaw configure --section ...` flow. Keep everything checked for the full configure wizard, or uncheck sections you want to skip this time.',
+  'configureSectionModel': 'Model and provider',
+  'configureSectionWorkspace': 'Workspace',
+  'configureSectionWeb': 'Web and search',
+  'configureSectionChannels': 'Messaging channels',
+  'configureSectionGateway': 'Gateway',
+  'configureSectionDaemon': 'Daemon',
+  'configureSectionHealth': 'Health checks',
+  'configureSectionPlugins': 'Plugins',
+  'configureSectionSkills': 'Skills',
+  'onboardingTerminalHeading': '=== OpenClaw Onboarding ===',
+  'onboardingTerminalIntro': 'Configure your API keys and gateway binding.',
+  'onboardingTerminalLoopbackTip':
+      'TIP: Select Loopback (127.0.0.1) when asked for binding.',
+  'onboardingTerminalAndroidOptimization':
+      'Android optimization: optional search, channels, daemon, health, UI, and skills only run if you kept them selected before launch.',
+  'onboardingTerminalAdvancedHint':
+      'Use Messaging Platforms, Terminal, or the config editor later if you need the full advanced flow.',
+  'onboardingTerminalDone': 'Onboarding finished. You can close this screen.',
+  'configureTerminalHeading': '=== OpenClaw Configure ===',
+  'configureTerminalIntro':
+      'Manage only the OpenClaw sections you kept selected before launch. Keeping all sections selected is equivalent to the full configure wizard.',
+  'configureTerminalAndroidOptimization':
+      'Android optimization: narrow the interactive flow to the sections you need so configuration stays responsive.',
+  'configureTerminalAdvancedHint':
+      'Use Messaging Platforms, Terminal, or the config editor for channels, plugins, and other advanced edits.',
+  'configureTerminalDone': 'Configuration finished. You can close this screen.',
   'configEditorTitle': 'Edit Config File',
   'configEditorSubtitle':
       'Edit /root/.openclaw/openclaw.json. The content is validated before saving.',
@@ -503,6 +554,9 @@ const Map<String, String> appStringsEn = {
   'settingsPersistentGatewayLogs': 'Persist gateway logs',
   'settingsPersistentGatewayLogsSubtitle':
       'Write logs to /root/openclaw.log, rotate at 5 MB, keep 3 files total',
+  'settingsBonjourDiscovery': 'Local discovery (Bonjour / mDNS)',
+  'settingsBonjourDiscoverySubtitle':
+      'Advertise the gateway on your LAN for auto-discovery. Off by default on Android to reduce extra broadcasts and retry logs.',
   'settingsBatteryOptimization': 'Battery Optimization',
   'settingsBatteryOptimized': 'Optimized (may kill background sessions)',
   'settingsBatteryUnrestricted': 'Unrestricted (recommended)',
@@ -537,6 +591,7 @@ const Map<String, String> appStringsEn = {
   'settingsGo': 'Go (Golang)',
   'settingsHomebrew': 'Homebrew',
   'settingsOpenSsh': 'OpenSSH',
+  'settingsAdb': 'ADB',
   'settingsCpolar': 'cpolar',
   'settingsMaintenance': 'Maintenance',
   'settingsExportSnapshot': 'Export Snapshot',
@@ -578,6 +633,7 @@ const Map<String, String> appStringsEn = {
   'settingsUpdateCheckFailed': 'Could not check for updates',
   'settingsSnapshotSaved': 'Snapshot exported: {path}',
   'settingsExportFailed': 'Export failed: {error}',
+  'settingsBonjourUpdateFailed': 'Failed to update local discovery: {error}',
   'settingsSnapshotMissing': 'No snapshot found at {path}',
   'settingsSnapshotRestored':
       'Snapshot {file} restored successfully. Restart the gateway to apply.',

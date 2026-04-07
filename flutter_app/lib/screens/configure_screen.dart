@@ -7,6 +7,7 @@ import 'package:flutter_pty/flutter_pty.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
 import '../services/native_bridge.dart';
+import '../services/provider_config_service.dart';
 import '../services/screenshot_service.dart';
 import '../services/terminal_service.dart';
 import '../widgets/terminal_toolbar.dart';
@@ -14,7 +15,9 @@ import '../widgets/terminal_toolbar.dart';
 /// Runs `openclaw configure` in a terminal so the user can manage
 /// gateway settings. Accessible from the dashboard.
 class ConfigureScreen extends StatefulWidget {
-  const ConfigureScreen({super.key});
+  const ConfigureScreen({
+    super.key,
+  });
 
   @override
   State<ConfigureScreen> createState() => _ConfigureScreenState();
@@ -45,6 +48,16 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
     'sans-serif',
   ];
 
+  String _shellQuote(String value) {
+    return "'${value.replaceAll("'", r"'\''")}'";
+  }
+
+  String _buildPrintLinesCommand(Iterable<String> lines) {
+    return lines
+        .map((line) => "printf '%s\\n' ${_shellQuote(line)}")
+        .join('; ');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +73,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
     _pty?.kill();
     _pty = null;
     try {
+      final l10n = context.l10n;
       // Ensure dirs + resolv.conf exist before proot starts (#40).
       try {
         await NativeBridge.setupDirs();
@@ -88,6 +102,23 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
         columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
       );
+      final bonjourEnabled = await ProviderConfigService.readBonjourEnabled();
+      const configureCommand = 'openclaw configure';
+      final commandParts = <String>[
+        if (!bonjourEnabled) 'export OPENCLAW_DISABLE_BONJOUR=1',
+        _buildPrintLinesCommand([
+          l10n.t('configureTerminalHeading'),
+          l10n.t('configureTerminalIntro'),
+          l10n.t('configureTerminalAndroidOptimization'),
+          l10n.t('configureTerminalAdvancedHint'),
+          '',
+        ]),
+        configureCommand,
+        _buildPrintLinesCommand([
+          '',
+          l10n.t('configureTerminalDone'),
+        ]),
+      ];
 
       final configureArgs = List<String>.from(args);
       configureArgs.removeLast(); // remove '-l'
@@ -95,11 +126,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
       configureArgs.addAll([
         '/bin/bash',
         '-lc',
-        'echo "=== OpenClaw Configure ===" && '
-            'echo "Manage your gateway settings." && '
-            'echo "" && '
-            'openclaw configure; '
-            'echo "" && echo "Configuration complete! You can close this screen."',
+        commandParts.join('; '),
       ]);
 
       _pty = Pty.start(

@@ -34,15 +34,15 @@ class BootstrapManager(
 
     fun setupDirectories() {
         listOf(
-            rootfsDir,
-            tmpDir,
-            homeDir,
-            configDir,
-            "$homeDir/.openclaw",
-            libDir,
-            nativeRuntimeDir,
-        ).forEach {
-            File(it).mkdirs()
+            rootfsDir to "Ubuntu rootfs directory",
+            tmpDir to "temporary directory",
+            homeDir to "home directory",
+            configDir to "config directory",
+            "$homeDir/.openclaw" to "OpenClaw home directory",
+            libDir to "library directory",
+            nativeRuntimeDir to "native runtime directory",
+        ).forEach { (path, label) ->
+            HostFilesystem.ensureDirectoryReady(path, label)
         }
         setupNativeRuntimeBinaries()
         // Termux's proot links against libtalloc.so.2 but Android extracts it
@@ -1376,23 +1376,19 @@ require('/root/.openclaw/proot-compat.js');
 
     fun writeResolvConf() {
         val content = getSystemDnsServers()
-        // Try context.filesDir first (Android-guaranteed), fall back to
-        // string-based configDir. Always call mkdirs() unconditionally. (#40)
-        try {
-            val dir = File(context.filesDir, "config")
-            dir.mkdirs()
-            File(dir, "resolv.conf").writeText(content)
-        } catch (_: Exception) {
-            // Fallback: use the string-based path
-            File(configDir).mkdirs()
-            File(configDir, "resolv.conf").writeText(content)
-        }
+        val resolvFile = HostFilesystem.ensureFileTargetReady(
+            "$configDir/resolv.conf",
+            "host resolv.conf"
+        )
+        resolvFile.writeText(content)
 
         // Also write directly into rootfs /etc/resolv.conf so DNS works
         // even if the bind-mount fails or hasn't been set up yet (#40).
         try {
-            val rootfsResolv = File(rootfsDir, "etc/resolv.conf")
-            rootfsResolv.parentFile?.mkdirs()
+            val rootfsResolv = HostFilesystem.ensureFileTargetReady(
+                "$rootfsDir/etc/resolv.conf",
+                "rootfs resolv.conf"
+            )
             rootfsResolv.writeText(content)
         } catch (_: Exception) {}
     }
@@ -1437,10 +1433,15 @@ require('/root/.openclaw/proot-compat.js');
      * around this by providing static fake data. We replicate that approach.
      */
     fun setupFakeSysdata() {
-        val procDir = File("$configDir/proc_fakes")
-        val sysDir = File("$configDir/sys_fakes")
-        procDir.mkdirs()
-        sysDir.mkdirs()
+        HostFilesystem.ensureDirectoryReady(configDir, "config directory")
+        val procDir = HostFilesystem.ensureDirectoryReady(
+            "$configDir/proc_fakes",
+            "fake /proc directory"
+        )
+        val sysDir = HostFilesystem.ensureDirectoryReady(
+            "$configDir/sys_fakes",
+            "fake /sys directory"
+        )
 
         // /proc/loadavg
         File(procDir, "loadavg").writeText("0.12 0.07 0.02 2/165 765\n")

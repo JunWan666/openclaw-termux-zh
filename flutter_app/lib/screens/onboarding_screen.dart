@@ -12,6 +12,7 @@ import '../services/screenshot_service.dart';
 import '../services/dashboard_url_resolver.dart';
 import '../services/terminal_service.dart';
 import '../services/preferences_service.dart';
+import '../services/provider_config_service.dart';
 import '../widgets/terminal_toolbar.dart';
 import 'dashboard_screen.dart';
 
@@ -23,7 +24,10 @@ class OnboardingScreen extends StatefulWidget {
   /// Used after first-time setup. If false, just pops back.
   final bool isFirstRun;
 
-  const OnboardingScreen({super.key, this.isFirstRun = false});
+  const OnboardingScreen({
+    super.key,
+    this.isFirstRun = false,
+  });
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -62,6 +66,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'sans-serif',
   ];
 
+  String _shellQuote(String value) {
+    return "'${value.replaceAll("'", r"'\''")}'";
+  }
+
+  String _buildPrintLinesCommand(Iterable<String> lines) {
+    return lines
+        .map((line) => "printf '%s\\n' ${_shellQuote(line)}")
+        .join('; ');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +95,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _pty?.kill();
     _pty = null;
     try {
+      final l10n = context.l10n;
       // Ensure dirs + resolv.conf exist before proot starts (#40).
       try {
         await NativeBridge.setupDirs();
@@ -109,6 +124,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
       );
+      final bonjourEnabled = await ProviderConfigService.readBonjourEnabled();
+      const onboardingCommand = 'openclaw onboard';
+      final commandParts = <String>[
+        if (!bonjourEnabled) 'export OPENCLAW_DISABLE_BONJOUR=1',
+        _buildPrintLinesCommand([
+          l10n.t('onboardingTerminalHeading'),
+          l10n.t('onboardingTerminalIntro'),
+          l10n.t('onboardingTerminalLoopbackTip'),
+          l10n.t('onboardingTerminalAndroidOptimization'),
+          l10n.t('onboardingTerminalAdvancedHint'),
+          '',
+        ]),
+        onboardingCommand,
+        _buildPrintLinesCommand([
+          '',
+          l10n.t('onboardingTerminalDone'),
+        ]),
+      ];
 
       // Replace the login shell with a command that runs onboarding.
       // buildProotArgs ends with [..., '/bin/bash', '-l']
@@ -120,12 +153,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       onboardingArgs.addAll([
         '/bin/bash',
         '-lc',
-        'echo "=== OpenClaw Onboarding ===" && '
-            'echo "Configure your API keys and binding settings." && '
-            'echo "TIP: Select Loopback (127.0.0.1) when asked for binding!" && '
-            'echo "" && '
-            'openclaw onboard; '
-            'echo "" && echo "Onboarding complete! You can close this screen."',
+        commandParts.join('; '),
       ]);
 
       _pty = Pty.start(

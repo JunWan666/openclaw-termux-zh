@@ -119,14 +119,18 @@ class SshForegroundService : Service() {
                 // Use system DNS servers when available (#60).
                 val resolvContent = getSystemDnsContent()
                 try {
-                    val resolvFile = File(filesDir, "config/resolv.conf")
-                    resolvFile.parentFile?.mkdirs()
+                    val resolvFile = HostFilesystem.ensureFileTargetReady(
+                        "$filesDir/config/resolv.conf",
+                        "ssh fallback resolv.conf"
+                    )
                     resolvFile.writeText(resolvContent)
                 } catch (_: Exception) {}
                 // Also write into rootfs /etc/ so DNS works even if bind-mount fails
                 try {
-                    val rootfsResolv = File(filesDir, "rootfs/ubuntu/etc/resolv.conf")
-                    rootfsResolv.parentFile?.mkdirs()
+                    val rootfsResolv = HostFilesystem.ensureFileTargetReady(
+                        "$filesDir/rootfs/ubuntu/etc/resolv.conf",
+                        "ssh rootfs resolv.conf"
+                    )
                     rootfsResolv.writeText(resolvContent)
                 } catch (_: Exception) {}
 

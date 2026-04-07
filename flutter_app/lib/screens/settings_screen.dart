@@ -6,11 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../app.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
+import '../providers/gateway_provider.dart';
 import '../providers/locale_provider.dart';
 import '../providers/node_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/preferences_service.dart';
+import '../services/provider_config_service.dart';
 import '../services/snapshot_service.dart';
 import '../services/update_flow_service.dart';
 import '../services/update_service.dart';
@@ -30,6 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _prefs = PreferencesService();
   final _openClawVersionService = OpenClawVersionService();
   bool _autoStart = false;
+  bool _bonjourEnabled = false;
   bool _nodeEnabled = false;
   bool _batteryOptimized = true;
   String _arch = '';
@@ -39,10 +42,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _goInstalled = false;
   bool _brewInstalled = false;
   bool _sshInstalled = false;
+  bool _adbInstalled = false;
   bool _cpolarInstalled = false;
   bool _storageGranted = false;
   bool _persistentGatewayLogs = false;
   bool _checkingUpdate = false;
+  bool _updatingBonjour = false;
 
   @override
   void initState() {
@@ -53,6 +58,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     await _prefs.init();
     _autoStart = _prefs.autoStartGateway;
+    _bonjourEnabled = await ProviderConfigService.readBonjourEnabled();
+    _prefs.bonjourEnabled = _bonjourEnabled;
     _nodeEnabled = _prefs.nodeEnabled;
 
     try {
@@ -71,6 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final brewInstalled =
           File('$rootfs/home/linuxbrew/.linuxbrew/bin/brew').existsSync();
       final sshInstalled = File('$rootfs/usr/bin/ssh').existsSync();
+      final adbInstalled = File('$rootfs/usr/bin/adb').existsSync();
       final cpolarInstalled = File('$rootfs/usr/local/bin/cpolar').existsSync();
 
       setState(() {
@@ -83,6 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _goInstalled = goInstalled;
         _brewInstalled = brewInstalled;
         _sshInstalled = sshInstalled;
+        _adbInstalled = adbInstalled;
         _cpolarInstalled = cpolarInstalled;
         _loading = false;
       });
@@ -90,6 +99,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _setBonjourEnabled(bool value) async {
+    final previous = _bonjourEnabled;
+    setState(() {
+      _bonjourEnabled = value;
+      _updatingBonjour = true;
+    });
+
+    try {
+      _prefs.bonjourEnabled = value;
+      await ProviderConfigService.setBonjourEnabled(value);
+      if (!mounted) return;
+      await context.read<GatewayProvider>().applyConfigChanges(
+            source: 'Bonjour discovery setting',
+          );
+    } catch (e) {
+      _prefs.bonjourEnabled = previous;
+      if (!mounted) return;
+      setState(() => _bonjourEnabled = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.t('settingsBonjourUpdateFailed', {'error': '$e'}),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingBonjour = false);
+      }
     }
   }
 
@@ -124,6 +165,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     await NativeBridge.setGatewayLogPersistenceEnabled(value);
                     setState(() => _persistentGatewayLogs = value);
                   },
+                ),
+                SwitchListTile(
+                  title: Text(l10n.t('settingsBonjourDiscovery')),
+                  subtitle: Text(l10n.t('settingsBonjourDiscoverySubtitle')),
+                  value: _bonjourEnabled,
+                  onChanged: _updatingBonjour
+                      ? null
+                      : (value) => _setBonjourEnabled(value),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -323,6 +372,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ? l10n.t('statusInstalled')
                       : l10n.t('statusNotInstalled')),
                   leading: const Icon(Icons.vpn_key),
+                ),
+                ListTile(
+                  title: Text(l10n.t('settingsAdb')),
+                  subtitle: Text(_adbInstalled
+                      ? l10n.t('statusInstalled')
+                      : l10n.t('statusNotInstalled')),
+                  leading: const Icon(Icons.developer_mode),
                 ),
                 ListTile(
                   title: Text(l10n.t('settingsCpolar')),

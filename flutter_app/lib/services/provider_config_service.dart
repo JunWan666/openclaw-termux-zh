@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../models/ai_provider.dart';
 import '../models/custom_provider_preset.dart';
 import 'native_bridge.dart';
+import 'preferences_service.dart';
 
 /// Reads and writes AI provider configuration in openclaw.json.
 class ProviderConfigService {
@@ -58,6 +59,23 @@ class ProviderConfigService {
     final gateway = _asStringKeyedMap(config['gateway']);
     config['gateway'] = gateway;
     return gateway;
+  }
+
+  static Map<String, dynamic> _ensureDiscoverySection(
+    Map<String, dynamic> config,
+  ) {
+    final discovery = _asStringKeyedMap(config['discovery']);
+    config['discovery'] = discovery;
+    return discovery;
+  }
+
+  static Map<String, dynamic> _ensureMdnsSection(
+    Map<String, dynamic> config,
+  ) {
+    final discovery = _ensureDiscoverySection(config);
+    final mdns = _asStringKeyedMap(discovery['mdns']);
+    discovery['mdns'] = mdns;
+    return mdns;
   }
 
   static Map<String, dynamic> _ensureGatewayReloadSection(
@@ -182,6 +200,30 @@ class ProviderConfigService {
     if (mode is! String || mode.trim().isEmpty) {
       gateway['mode'] = _localGatewayMode;
     }
+  }
+
+  static void _setBonjourMode(
+    Map<String, dynamic> config, {
+    required bool enabled,
+  }) {
+    final mdns = _ensureMdnsSection(config);
+    mdns['mode'] = enabled ? 'minimal' : 'off';
+  }
+
+  static bool? _bonjourEnabledFromConfig(Map<String, dynamic> config) {
+    final discovery = config['discovery'];
+    if (discovery is! Map) {
+      return null;
+    }
+    final mdns = discovery['mdns'];
+    if (mdns is! Map) {
+      return null;
+    }
+    final mode = mdns['mode'];
+    if (mode is! String || mode.trim().isEmpty) {
+      return null;
+    }
+    return mode.trim().toLowerCase() != 'off';
   }
 
   static bool _hasSavedModelOrProviderConfig(Map<String, dynamic> config) {
@@ -527,21 +569,50 @@ class ProviderConfigService {
 
   static Future<void> ensureGatewayDefaults() async {
     final config = await _readConfigMap();
-    if (!_hasSavedModelOrProviderConfig(config)) {
-      return;
-    }
-
     final before = jsonEncode(config);
-    _ensureLocalGatewayMode(config);
-    final reload = _ensureGatewayReloadSection(config);
-    final mode = reload['mode'];
-    if (mode is! String || mode.trim().isEmpty) {
-      reload['mode'] = 'hybrid';
+
+    final prefs = PreferencesService();
+    await prefs.init();
+    _setBonjourMode(config, enabled: prefs.bonjourEnabled);
+
+    if (_hasSavedModelOrProviderConfig(config)) {
+      _ensureLocalGatewayMode(config);
+      final reload = _ensureGatewayReloadSection(config);
+      final mode = reload['mode'];
+      if (mode is! String || mode.trim().isEmpty) {
+        reload['mode'] = 'hybrid';
+      }
     }
     if (before == jsonEncode(config)) {
       return;
     }
 
+    await _writeConfigMap(config);
+  }
+
+  static Future<bool> readBonjourEnabled() async {
+    try {
+      final config = await _readConfigMap();
+      final configValue = _bonjourEnabledFromConfig(config);
+      if (configValue != null) {
+        return configValue;
+      }
+    } catch (_) {
+      // Fall back to preferences below.
+    }
+
+    final prefs = PreferencesService();
+    await prefs.init();
+    return prefs.bonjourEnabled;
+  }
+
+  static Future<void> setBonjourEnabled(bool enabled) async {
+    final config = await _readConfigMap();
+    final before = jsonEncode(config);
+    _setBonjourMode(config, enabled: enabled);
+    if (before == jsonEncode(config)) {
+      return;
+    }
     await _writeConfigMap(config);
   }
 

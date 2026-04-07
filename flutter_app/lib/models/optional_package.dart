@@ -101,6 +101,26 @@ class OptionalPackage {
     completionSentinel: 'SSH_INSTALL_COMPLETE',
   );
 
+  static const adbPackage = OptionalPackage(
+    id: 'adb',
+    name: 'ADB',
+    description: 'Android Debug Bridge command line tools',
+    icon: Icons.developer_mode,
+    color: Colors.green,
+    installCommand: 'set -e; '
+        'echo ">>> Installing ADB..."; '
+        'apt-get update -qq && apt-get install -y adb; '
+        'adb version; '
+        'echo ">>> ADB_INSTALL_COMPLETE"',
+    uninstallCommand: 'set -e; '
+        'echo ">>> Removing ADB..."; '
+        'apt-get remove -y adb && apt-get autoremove -y; '
+        'echo ">>> ADB_UNINSTALL_COMPLETE"',
+    checkPath: 'usr/bin/adb',
+    estimatedSize: '~12 MB',
+    completionSentinel: 'ADB_INSTALL_COMPLETE',
+  );
+
   static const cpolarPackage = OptionalPackage(
     id: 'cpolar',
     name: 'cpolar',
@@ -251,7 +271,13 @@ echo ">>> CPOLAR_UNINSTALL_COMPLETE"
   );
 
   /// All available optional packages.
-  static const all = [goPackage, brewPackage, sshPackage, cpolarPackage];
+  static const all = [
+    goPackage,
+    brewPackage,
+    sshPackage,
+    adbPackage,
+    cpolarPackage,
+  ];
 
   /// Sentinel for uninstall completion (derived from install sentinel).
   String get uninstallSentinel =>

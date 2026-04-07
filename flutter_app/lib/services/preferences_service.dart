@@ -10,6 +10,7 @@ class PreferencesService {
       'pending_setup_completion_choice';
   static const _keyDashboardUrl = 'dashboard_url';
   static const _keyLocaleCode = 'locale_code';
+  static const _keyBonjourEnabled = 'bonjour_enabled';
   static const _keyNodeEnabled = 'node_enabled';
   static const _keyNodeDeviceToken = 'node_device_token';
   static const _keyNodeGatewayHost = 'node_gateway_host';
@@ -70,6 +71,9 @@ class PreferencesService {
       _prefs.remove(_keyLocaleCode);
     }
   }
+
+  bool get bonjourEnabled => _prefs.getBool(_keyBonjourEnabled) ?? false;
+  set bonjourEnabled(bool value) => _prefs.setBool(_keyBonjourEnabled, value);
 
   bool get nodeEnabled => _prefs.getBool(_keyNodeEnabled) ?? false;
   set nodeEnabled(bool value) => _prefs.setBool(_keyNodeEnabled, value);

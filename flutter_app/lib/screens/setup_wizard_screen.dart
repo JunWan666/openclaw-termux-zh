@@ -1,22 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../app.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/setup_state.dart';
-import '../models/optional_package.dart';
 import '../providers/setup_provider.dart';
-import '../services/cpolar_package_service.dart';
 import '../services/install_status_message_formatter.dart';
 import '../services/openclaw_version_service.dart';
-import '../services/package_service.dart';
 import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
 import '../services/snapshot_service.dart';
 import '../widgets/progress_step.dart';
 import 'dashboard_screen.dart';
 import 'onboarding_screen.dart';
-import 'package_install_screen.dart';
 
 class SetupWizardScreen extends StatefulWidget {
   final bool resumeCompletionChoice;
@@ -36,7 +31,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   bool _started = false;
   bool _resolvingExistingSetupState = false;
   bool _didRestoreCompletedSetupState = false;
-  Map<String, bool> _pkgStatuses = {};
   List<OpenClawReleaseInfo> _availableReleases = const [];
   OpenClawReleaseInfo? _latestRelease;
   OpenClawReleaseInfo? _selectedRelease;
@@ -94,73 +88,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       if (mounted) {
         setState(() => _loadingReleaseOptions = false);
       }
-    }
-  }
-
-  Future<void> _refreshPkgStatuses() async {
-    final statuses = await PackageService.checkAllStatuses();
-    if (mounted) setState(() => _pkgStatuses = statuses);
-  }
-
-  Future<void> _installPackage(OptionalPackage package) async {
-    if (package.id == 'cpolar') {
-      await _installCpolarPackage();
-      return;
-    }
-
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => PackageInstallScreen(package: package),
-      ),
-    );
-    if (result == true) _refreshPkgStatuses();
-  }
-
-  Future<void> _installCpolarPackage() async {
-    final l10n = context.l10n;
-    NavigatorState? dialogNavigator;
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        dialogNavigator = Navigator.of(ctx);
-        return AlertDialog(
-          content: Row(
-            children: [
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text('${l10n.t('packagesInstall')} cpolar...'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    try {
-      await CpolarPackageService.installOrUpdateLatest();
-      if (dialogNavigator != null) {
-        dialogNavigator!.pop();
-      }
-      await _refreshPkgStatuses();
-    } catch (e) {
-      if (dialogNavigator != null) {
-        dialogNavigator!.pop();
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.t('packageCpolarOperationFailed', {'error': e.toString()}),
-          ),
-        ),
-      );
     }
   }
 
@@ -363,7 +290,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final l10n = context.l10n;
 
     return Scaffold(
@@ -373,11 +299,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             final state = provider.state;
             final isResolvingCompletionChoice =
                 _resolvingExistingSetupState && !state.isComplete;
-
-            // Load package statuses once setup completes
-            if (state.isComplete && _pkgStatuses.isEmpty) {
-              _refreshPkgStatuses();
-            }
 
             return Padding(
               padding: const EdgeInsets.all(24),
@@ -408,7 +329,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   ),
                   const SizedBox(height: 24),
                   Expanded(
-                    child: _buildSteps(state, theme, isDark, l10n),
+                    child: _buildSteps(state, l10n),
                   ),
                   if (isResolvingCompletionChoice)
                     const Padding(
@@ -540,8 +461,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
   Widget _buildSteps(
     SetupState state,
-    ThemeData theme,
-    bool isDark,
     AppLocalizations l10n,
   ) {
     final steps = [
@@ -586,78 +505,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             label: l10n.t('setupWizardComplete'),
             isComplete: true,
           ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              l10n.t('setupWizardOptionalPackages'),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          for (final pkg in OptionalPackage.all)
-            _buildPackageTile(theme, l10n, pkg, isDark),
         ],
       ],
-    );
-  }
-
-  Widget _buildPackageTile(
-    ThemeData theme,
-    AppLocalizations l10n,
-    OptionalPackage package,
-    bool isDark,
-  ) {
-    final installed = _pkgStatuses[package.id] ?? false;
-    final iconBg = isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF3F4F6);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: iconBg,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(package.icon,
-              color: theme.colorScheme.onSurfaceVariant, size: 22),
-        ),
-        title: Row(
-          children: [
-            Text(package.name,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            if (installed) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: AppColors.statusGreen.withAlpha(25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(l10n.t('commonInstalled'),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.statusGreen,
-                      fontWeight: FontWeight.w600,
-                    )),
-              ),
-            ],
-          ],
-        ),
-        subtitle: Text(
-            '${_packageDescription(l10n, package)} (${package.estimatedSize})'),
-        trailing: installed
-            ? const Icon(Icons.check_circle, color: AppColors.statusGreen)
-            : OutlinedButton(
-                onPressed: () => _installPackage(package),
-                child: Text(l10n.t('packagesInstall')),
-              ),
-      ),
     );
   }
 
@@ -781,21 +630,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       }
     }
     return null;
-  }
-
-  String _packageDescription(AppLocalizations l10n, OptionalPackage package) {
-    switch (package.id) {
-      case 'go':
-        return l10n.t('packageGoDescription');
-      case 'brew':
-        return l10n.t('packageBrewDescription');
-      case 'ssh':
-        return l10n.t('packageSshDescription');
-      case 'cpolar':
-        return l10n.t('packageCpolarDescription');
-      default:
-        return package.description;
-    }
   }
 
   String _localizedSetupMessage(AppLocalizations l10n, String? message) {
