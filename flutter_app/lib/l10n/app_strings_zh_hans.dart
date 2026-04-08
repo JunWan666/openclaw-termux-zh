@@ -148,8 +148,8 @@ const Map<String, String> appStringsZhHans = {
   'dashboardSshSubtitle': '通过 SSH 远程访问终端',
   'dashboardLogsTitle': '日志',
   'dashboardLogsSubtitle': '查看网关日志和最新的对话日志',
-  'dashboardSnapshotTitle': '快照',
-  'dashboardSnapshotSubtitle': '备份或恢复你的配置',
+  'dashboardSnapshotTitle': '备份',
+  'dashboardSnapshotSubtitle': '导出或恢复配置与工作目录',
   'dashboardNodeTitle': '节点',
   'dashboardNodeConnected': '已连接到网关',
   'dashboardNodeDisabled': '为 AI 提供设备能力',
@@ -449,10 +449,24 @@ const Map<String, String> appStringsZhHans = {
   'settingsAdb': 'ADB',
   'settingsCpolar': 'cpolar',
   'settingsMaintenance': '维护',
-  'settingsExportSnapshot': '导出快照',
-  'settingsExportSnapshotSubtitle': '将配置备份到你选择的位置',
-  'settingsImportSnapshot': '导入快照',
-  'settingsImportSnapshotSubtitle': '从备份恢复配置',
+  'settingsExportSnapshot': '导出备份',
+  'settingsExportSnapshotSubtitle': '导出配置文件或工作目录备份',
+  'settingsImportSnapshot': '导入备份',
+  'settingsImportSnapshotSubtitle': '自动识别配置 JSON、旧快照或工作目录 ZIP',
+  'settingsBackupExportTypeTitle': '选择导出内容',
+  'settingsBackupExportWorkspace': '工作目录备份',
+  'settingsBackupExportWorkspaceSubtitle': '打包 root/.openclaw 中的配置、记忆与会话数据',
+  'settingsBackupExportConfig': '配置文件',
+  'settingsBackupExportConfigSubtitle': '仅导出 openclaw.json',
+  'settingsBackupImportConfigWarningTitle': '覆盖当前配置文件？',
+  'settingsBackupImportConfigWarningBody':
+      '这会直接覆盖当前的 openclaw.json。应用语言、节点配对、自启动等应用偏好不会一起恢复，导入前会先停止网关。',
+  'settingsBackupImportWorkspaceWarningTitle': '恢复工作目录备份？',
+  'settingsBackupImportWorkspaceWarningBody':
+      '这会覆盖 root/.openclaw 下与配置、记忆、技能、扩展和会话相关的数据，并在导入前先停止网关。为了避免版本耦合问题，不会恢复运行时补丁和整个 rootfs。',
+  'settingsBackupUnsupportedFile':
+      '无法识别这个文件。请选择配置 JSON、旧快照 JSON，或带标识的工作目录备份 ZIP。',
+  'settingsBackupInvalidWorkspaceArchive': '所选压缩包不是有效的工作目录备份，或内部内容不符合安全校验。',
   'settingsRerunSetup': '重新运行安装',
   'settingsRerunSetupSubtitle': '重新安装或修复环境',
   'settingsAbout': '关于',
@@ -481,16 +495,16 @@ const Map<String, String> appStringsZhHans = {
   'settingsUpdateProgressPercent': '已下载 {percent}%',
   'settingsLatestVersion': '已是最新版本',
   'settingsUpdateCheckFailed': '检查更新失败',
-  'settingsSnapshotSaved': '快照已导出：{path}',
+  'settingsSnapshotSaved': '备份已导出：{path}',
   'settingsExportFailed': '导出失败：{error}',
   'settingsBonjourUpdateFailed': '更新局域网发现设置失败：{error}',
   'settingsSnapshotMissing': '在 {path} 未找到快照',
-  'settingsSnapshotRestored': '快照 {file} 已恢复。请重启网关以生效。',
+  'settingsSnapshotRestored': '备份 {file} 已恢复。请重启网关以生效。',
   'settingsImportFailed': '导入失败：{error}',
   'settingsSnapshotFileNameTitle': '导出快照',
   'settingsSnapshotFileNameLabel': '文件名',
   'settingsSnapshotFileNameHelper': '快照将保存到：{path}',
-  'settingsSnapshotFileEmpty': '所选快照文件为空。',
+  'settingsSnapshotFileEmpty': '所选备份文件为空。',
   'statusInstalled': '已安装',
   'statusNotInstalled': '未安装',
   'dashboardMessagePlatformsTitle': '\u63a5\u5165\u6d88\u606f\u5e73\u53f0',
@@ -606,21 +620,17 @@ const Map<String, String> appStringsZhHans = {
   'gatewaySelectedVersionAlreadyInstalled':
       '\u6240\u9009\u7248\u672c {version} \u5df2\u5b89\u88c5\uff0c\u65e0\u9700\u91cd\u590d\u4e0b\u8f7d\u3002',
   'gatewaySelectedVersionCurrent': '\u5df2\u662f\u5f53\u524d\u7248\u672c',
-  'settingsSnapshotVersionWarningTitle': '\u5feb\u7167\u7248\u672c\u6821\u9a8c',
-  'settingsSnapshotVersionWarningIntro':
-      '\u8be5\u5feb\u7167\u7684\u7248\u672c\u4fe1\u606f\u4e0e\u5f53\u524d\u73af\u5883\u4e0d\u5b8c\u5168\u4e00\u81f4\u3002',
+  'settingsSnapshotVersionWarningTitle': '备份版本校验',
+  'settingsSnapshotVersionWarningIntro': '该备份的版本信息与当前环境不完全一致。',
   'settingsSnapshotVersionWarningMissing':
       '\u5feb\u7167\u7f3a\u5c11\u90e8\u5206\u7248\u672c\u4fe1\u606f\uff0c\u65e0\u6cd5\u5b8c\u6574\u6821\u9a8c\u517c\u5bb9\u6027\u3002',
   'settingsSnapshotVersionWarningAppMismatch':
       '\u5feb\u7167\u5bf9\u5e94\u7684 App \u7248\u672c\u4e0e\u5f53\u524d App \u7248\u672c\u4e0d\u4e00\u81f4\u3002',
   'settingsSnapshotVersionWarningOpenClawMismatch':
       '\u5feb\u7167\u5bf9\u5e94\u7684 OpenClaw \u7248\u672c\u4e0e\u5f53\u524d\u5df2\u5b89\u88c5\u7248\u672c\u4e0d\u4e00\u81f4\u3002',
-  'settingsSnapshotVersionSnapshotApp':
-      '\u5feb\u7167 App \u7248\u672c\uff1a{version}',
-  'settingsSnapshotVersionCurrentApp':
-      '\u5f53\u524d App \u7248\u672c\uff1a{version}',
-  'settingsSnapshotVersionSnapshotOpenClaw':
-      '\u5feb\u7167 OpenClaw \u7248\u672c\uff1a{version}',
+  'settingsSnapshotVersionSnapshotApp': '备份 App 版本：{version}',
+  'settingsSnapshotVersionCurrentApp': '当前 App 版本：{version}',
+  'settingsSnapshotVersionSnapshotOpenClaw': '备份 OpenClaw 版本：{version}',
   'settingsSnapshotVersionCurrentOpenClaw':
       '\u5f53\u524d OpenClaw \u7248\u672c\uff1a{version}',
 };

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/gateway_provider.dart';
 import '../providers/locale_provider.dart';
 import '../providers/node_provider.dart';
+import '../services/backup_service.dart';
 import '../services/native_bridge.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/preferences_service.dart';
@@ -18,6 +18,8 @@ import '../services/update_flow_service.dart';
 import '../services/update_service.dart';
 import 'node_screen.dart';
 import 'setup_wizard_screen.dart';
+
+enum _BackupExportKind { config, workspace }
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -299,14 +301,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: Text(l10n.t('settingsExportSnapshotSubtitle')),
                   leading: const Icon(Icons.upload_file),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: _exportSnapshot,
+                  onTap: _exportBackup,
                 ),
                 ListTile(
                   title: Text(l10n.t('settingsImportSnapshot')),
                   subtitle: Text(l10n.t('settingsImportSnapshotSubtitle')),
                   leading: const Icon(Icons.download),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: _importSnapshot,
+                  onTap: _importBackup,
                 ),
                 ListTile(
                   title: Text(l10n.t('settingsRerunSetup')),
@@ -493,10 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  String _defaultSnapshotFileName({
-    required String appVersion,
-    String? openClawVersion,
-  }) {
+  String _backupTimestampSuffix() {
     final now = DateTime.now();
     final year = now.year.toString().padLeft(4, '0');
     final month = now.month.toString().padLeft(2, '0');
@@ -504,12 +503,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final hour = now.hour.toString().padLeft(2, '0');
     final minute = now.minute.toString().padLeft(2, '0');
     final second = now.second.toString().padLeft(2, '0');
-    final appPart = _sanitizeSnapshotFilePart(appVersion);
-    final openClawPart = _sanitizeSnapshotFilePart(openClawVersion);
-    return 'openclaw-snapshot-app-$appPart-openclaw-$openClawPart-$year-$month-$day-$hour$minute$second.json';
+    return '$year-$month-$day-$hour$minute$second';
   }
 
-  String _sanitizeSnapshotFilePart(String? value) {
+  String _defaultConfigBackupFileName({
+    required String appVersion,
+    String? openClawVersion,
+  }) {
+    final appPart = _sanitizeBackupFilePart(appVersion);
+    final openClawPart = _sanitizeBackupFilePart(openClawVersion);
+    return 'openclaw-config-app-$appPart-openclaw-$openClawPart-${_backupTimestampSuffix()}.json';
+  }
+
+  String _defaultWorkspaceBackupFileName({
+    required String appVersion,
+    String? openClawVersion,
+  }) {
+    final appPart = _sanitizeBackupFilePart(appVersion);
+    final openClawPart = _sanitizeBackupFilePart(openClawVersion);
+    return 'openclaw-workspace-app-$appPart-openclaw-$openClawPart-${_backupTimestampSuffix()}.zip';
+  }
+
+  String _sanitizeBackupFilePart(String? value) {
     final normalized = value?.trim();
     if (normalized == null || normalized.isEmpty) {
       return 'unknown';
@@ -519,6 +534,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
         .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '-')
         .replaceAll(RegExp(r'-{2,}'), '-');
     return sanitized.isEmpty ? 'unknown' : sanitized;
+  }
+
+  Future<_BackupExportKind?> _pickExportKind() async {
+    final l10n = context.l10n;
+    return showDialog<_BackupExportKind>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('settingsBackupExportTypeTitle')),
+        contentPadding: const EdgeInsets.only(top: 12, bottom: 8),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.folder_zip_outlined),
+              title: Text(l10n.t('settingsBackupExportWorkspace')),
+              subtitle: Text(l10n.t('settingsBackupExportWorkspaceSubtitle')),
+              onTap: () => Navigator.of(dialogContext).pop(
+                _BackupExportKind.workspace,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: Text(l10n.t('settingsBackupExportConfig')),
+              subtitle: Text(l10n.t('settingsBackupExportConfigSubtitle')),
+              onTap: () => Navigator.of(dialogContext).pop(
+                _BackupExportKind.config,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.t('commonCancel')),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool> _confirmSnapshotImportIfNeeded(
@@ -535,6 +588,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: Text(l10n.t('settingsSnapshotVersionWarningTitle')),
         content: SingleChildScrollView(
           child: Text(_buildSnapshotImportWarningMessage(l10n, compatibility)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.t('commonContinue')),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
+  Future<bool> _confirmConfigImport() async {
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('settingsBackupImportConfigWarningTitle')),
+        content: Text(l10n.t('settingsBackupImportConfigWarningBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.t('commonContinue')),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
+  Future<bool> _confirmWorkspaceImportIfNeeded(
+    SnapshotCompatibility? compatibility,
+  ) async {
+    final l10n = context.l10n;
+    final lines = <String>[
+      l10n.t('settingsBackupImportWorkspaceWarningBody'),
+    ];
+
+    if (compatibility != null && compatibility.requiresConfirmation) {
+      lines
+        ..add('')
+        ..add(_buildSnapshotImportWarningMessage(l10n, compatibility));
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('settingsBackupImportWorkspaceWarningTitle')),
+        content: SingleChildScrollView(
+          child: Text(lines.join('\n')),
         ),
         actions: [
           TextButton(
@@ -596,30 +709,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return lines.join('\n');
   }
 
-  Future<void> _exportSnapshot() async {
+  Future<void> _exportBackup() async {
+    final exportKind = await _pickExportKind();
+    if (exportKind == null) {
+      return;
+    }
+
     try {
       final installedOpenClawVersion =
           await _openClawVersionService.readInstalledVersion();
-      final snapshot = await SnapshotService.buildSnapshot(
-        appVersion: AppConstants.version,
-        openClawVersion: installedOpenClawVersion,
-      );
-      final content = const JsonEncoder.withIndent('  ').convert(snapshot);
-      final saved = await NativeBridge.saveSnapshotFile(
-        suggestedName: _defaultSnapshotFileName(
-          appVersion: AppConstants.version,
-          openClawVersion: installedOpenClawVersion,
-        ),
-        content: content,
-      );
-      if (saved == null) {
-        return;
-      }
-      final savedName = (saved['name'] as String?) ??
-          _defaultSnapshotFileName(
+      late final String fallbackName;
+      late final Map<String, dynamic>? saved;
+      switch (exportKind) {
+        case _BackupExportKind.config:
+          fallbackName = _defaultConfigBackupFileName(
             appVersion: AppConstants.version,
             openClawVersion: installedOpenClawVersion,
           );
+          saved = await BackupService.exportConfigBackup(
+            suggestedName: fallbackName,
+          );
+          break;
+        case _BackupExportKind.workspace:
+          fallbackName = _defaultWorkspaceBackupFileName(
+            appVersion: AppConstants.version,
+            openClawVersion: installedOpenClawVersion,
+          );
+          saved = await BackupService.exportWorkspaceBackup(
+            suggestedName: fallbackName,
+            appVersion: AppConstants.version,
+            openClawVersion: installedOpenClawVersion,
+          );
+          break;
+      }
+
+      if (saved == null) {
+        return;
+      }
+      final savedName = (saved['name'] as String?) ?? fallbackName;
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -639,11 +766,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _importSnapshot() async {
+  Future<void> _importBackup() async {
     final l10n = context.l10n;
     try {
-      final picked = await SnapshotService.pickSnapshotForRestore(
+      final picked = await BackupService.pickBackupForRestore(
         emptyFileMessage: l10n.t('settingsSnapshotFileEmpty'),
+        unsupportedFileMessage: l10n.t('settingsBackupUnsupportedFile'),
+        invalidWorkspaceBackupMessage:
+            l10n.t('settingsBackupInvalidWorkspaceArchive'),
       );
       if (picked == null) {
         return;
@@ -651,18 +781,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       final currentOpenClawVersion =
           await _openClawVersionService.readInstalledVersion();
-      final compatibility = SnapshotService.analyzeCompatibility(
-        picked.snapshot,
+      final compatibility = picked.compatibility(
         currentAppVersion: AppConstants.version,
         currentOpenClawVersion: currentOpenClawVersion,
       );
-      final shouldContinue =
-          await _confirmSnapshotImportIfNeeded(compatibility);
+      final shouldContinue = switch (picked.kind) {
+        BackupImportKind.config => await _confirmConfigImport(),
+        BackupImportKind.legacySnapshot => compatibility == null
+            ? true
+            : await _confirmSnapshotImportIfNeeded(compatibility),
+        BackupImportKind.workspace =>
+          await _confirmWorkspaceImportIfNeeded(compatibility),
+      };
       if (!shouldContinue) {
         return;
       }
 
-      await SnapshotService.restoreSnapshot(picked.snapshot);
+      if (!mounted) return;
+      final gatewayProvider = context.read<GatewayProvider>();
+      await gatewayProvider.stop();
+      await gatewayProvider.syncState();
+      await picked.restore();
 
       // Refresh UI
       await _loadSettings();

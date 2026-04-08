@@ -4,6 +4,7 @@ import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/setup_state.dart';
 import '../providers/setup_provider.dart';
+import '../services/backup_service.dart';
 import '../services/install_status_message_formatter.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/preferences_service.dart';
@@ -159,8 +160,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   Future<void> _importSnapshotAndContinue() async {
     final l10n = context.l10n;
     try {
-      final picked = await SnapshotService.pickSnapshotForRestore(
+      final picked = await BackupService.pickBackupForRestore(
         emptyFileMessage: l10n.t('settingsSnapshotFileEmpty'),
+        unsupportedFileMessage: l10n.t('settingsBackupUnsupportedFile'),
+        invalidWorkspaceBackupMessage:
+            l10n.t('settingsBackupInvalidWorkspaceArchive'),
       );
       if (picked == null || !mounted) {
         return;
@@ -168,21 +172,23 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
       final currentOpenClawVersion =
           await _versionService.readInstalledVersion();
-      final compatibility = SnapshotService.analyzeCompatibility(
-        picked.snapshot,
+      final compatibility = picked.compatibility(
         currentAppVersion: AppConstants.version,
         currentOpenClawVersion: currentOpenClawVersion,
       );
-      final shouldContinue =
-          await _confirmSnapshotImportIfNeeded(compatibility);
+      final shouldContinue = switch (picked.kind) {
+        BackupImportKind.config => await _confirmConfigImport(),
+        BackupImportKind.legacySnapshot => compatibility == null
+            ? true
+            : await _confirmSnapshotImportIfNeeded(compatibility),
+        BackupImportKind.workspace =>
+          await _confirmWorkspaceImportIfNeeded(compatibility),
+      };
       if (!shouldContinue) {
         return;
       }
 
-      await SnapshotService.restoreSnapshot(
-        picked.snapshot,
-        restoreNodeEnabled: false,
-      );
+      await picked.restore(restoreNodeEnabled: false);
 
       final gatewayConfigured =
           await ProviderConfigService.hasRequiredGatewayConfig();
@@ -212,6 +218,29 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     }
   }
 
+  Future<bool> _confirmConfigImport() async {
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('settingsBackupImportConfigWarningTitle')),
+        content: Text(l10n.t('settingsBackupImportConfigWarningBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.t('commonContinue')),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
   Future<bool> _confirmSnapshotImportIfNeeded(
     SnapshotCompatibility compatibility,
   ) async {
@@ -226,6 +255,43 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         title: Text(l10n.t('settingsSnapshotVersionWarningTitle')),
         content: SingleChildScrollView(
           child: Text(_buildSnapshotImportWarningMessage(l10n, compatibility)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.t('commonContinue')),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
+  Future<bool> _confirmWorkspaceImportIfNeeded(
+    SnapshotCompatibility? compatibility,
+  ) async {
+    final l10n = context.l10n;
+    final lines = <String>[
+      l10n.t('settingsBackupImportWorkspaceWarningBody'),
+    ];
+
+    if (compatibility != null && compatibility.requiresConfirmation) {
+      lines
+        ..add('')
+        ..add(_buildSnapshotImportWarningMessage(l10n, compatibility));
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('settingsBackupImportWorkspaceWarningTitle')),
+        content: SingleChildScrollView(
+          child: Text(lines.join('\n')),
         ),
         actions: [
           TextButton(

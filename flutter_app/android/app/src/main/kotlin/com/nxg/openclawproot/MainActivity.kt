@@ -48,6 +48,11 @@ class MainActivity : FlutterActivity() {
     private var snapshotSaveResult: MethodChannel.Result? = null
     private var pendingSnapshotContent: String? = null
     private var pendingSnapshotName: String? = null
+    private var backupPickResult: MethodChannel.Result? = null
+    private var workspaceBackupSaveResult: MethodChannel.Result? = null
+    private var pendingWorkspaceBackupName: String? = null
+    private var pendingWorkspaceBackupAppVersion: String? = null
+    private var pendingWorkspaceBackupOpenClawVersion: String? = null
     private var pendingApkInstallResult: MethodChannel.Result? = null
     private var pendingApkInstallPath: String? = null
     private var setupDone = false
@@ -470,6 +475,90 @@ class MainActivity : FlutterActivity() {
                             putExtra(Intent.EXTRA_TITLE, suggestedName)
                         }
                         startActivityForResult(intent, SNAPSHOT_SAVE_REQUEST)
+                    }
+                }
+                "pickBackupFile" -> {
+                    backupPickResult = result
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(
+                            Intent.EXTRA_MIME_TYPES,
+                            arrayOf(
+                                "application/json",
+                                "text/json",
+                                "text/plain",
+                                "application/zip",
+                                "application/x-zip-compressed",
+                                "application/octet-stream"
+                            )
+                        )
+                    }
+                    startActivityForResult(intent, BACKUP_PICK_REQUEST)
+                }
+                "exportWorkspaceBackup" -> {
+                    val suggestedName = call.argument<String>("suggestedName")
+                    val appVersion = call.argument<String>("appVersion")
+                    val openClawVersion = call.argument<String>("openClawVersion")
+                    if (suggestedName.isNullOrBlank() || appVersion.isNullOrBlank()) {
+                        result.error(
+                            "INVALID_ARGS",
+                            "suggestedName and appVersion required",
+                            null
+                        )
+                    } else {
+                        workspaceBackupSaveResult = result
+                        pendingWorkspaceBackupName = suggestedName
+                        pendingWorkspaceBackupAppVersion = appVersion
+                        pendingWorkspaceBackupOpenClawVersion = openClawVersion
+                        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/zip"
+                            putExtra(Intent.EXTRA_TITLE, suggestedName)
+                        }
+                        startActivityForResult(intent, WORKSPACE_BACKUP_SAVE_REQUEST)
+                    }
+                }
+                "inspectWorkspaceBackup" -> {
+                    val path = call.argument<String>("path")
+                    if (path != null) {
+                        Thread {
+                            try {
+                                val metadata = bootstrapManager.inspectWorkspaceBackup(path)
+                                runOnUiThread { result.success(metadata) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error(
+                                        "WORKSPACE_BACKUP_INSPECT_ERROR",
+                                        e.message,
+                                        null
+                                    )
+                                }
+                            }
+                        }.start()
+                    } else {
+                        result.error("INVALID_ARGS", "path required", null)
+                    }
+                }
+                "restoreWorkspaceBackup" -> {
+                    val path = call.argument<String>("path")
+                    if (path != null) {
+                        Thread {
+                            try {
+                                bootstrapManager.restoreWorkspaceBackup(path)
+                                runOnUiThread { result.success(true) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error(
+                                        "WORKSPACE_BACKUP_RESTORE_ERROR",
+                                        e.message,
+                                        null
+                                    )
+                                }
+                            }
+                        }.start()
+                    } else {
+                        result.error("INVALID_ARGS", "path required", null)
                     }
                 }
                 "copyToClipboard" -> {
@@ -951,6 +1040,118 @@ class MainActivity : FlutterActivity() {
             }
             return
         }
+
+        if (requestCode == BACKUP_PICK_REQUEST) {
+            val pendingResult = backupPickResult
+            if (pendingResult == null) {
+                return
+            }
+
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                val uri = data.data!!
+                Thread {
+                    try {
+                        val fallbackName =
+                            uri.lastPathSegment?.substringAfterLast('/') ?: "backup"
+                        val name = queryDisplayName(uri, fallbackName)
+                        val cached = copyUriToCache(uri, name)
+                        runOnUiThread {
+                            pendingResult.success(
+                                hashMapOf(
+                                    "name" to name,
+                                    "path" to cached.absolutePath
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            pendingResult.error("BACKUP_PICK_ERROR", e.message, null)
+                        }
+                    } finally {
+                        backupPickResult = null
+                    }
+                }.start()
+            } else {
+                pendingResult.success(null)
+                backupPickResult = null
+            }
+            return
+        }
+
+        if (requestCode == WORKSPACE_BACKUP_SAVE_REQUEST) {
+            val pendingResult = workspaceBackupSaveResult
+            val pendingName = pendingWorkspaceBackupName
+            val pendingAppVersion = pendingWorkspaceBackupAppVersion
+            val pendingOpenClawVersion = pendingWorkspaceBackupOpenClawVersion
+            workspaceBackupSaveResult = null
+            pendingWorkspaceBackupName = null
+            pendingWorkspaceBackupAppVersion = null
+            pendingWorkspaceBackupOpenClawVersion = null
+
+            if (pendingResult == null || pendingName == null || pendingAppVersion == null) {
+                return
+            }
+
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                val uri = data.data!!
+                Thread {
+                    try {
+                        contentResolver.openOutputStream(uri, "w")?.use { output ->
+                            bootstrapManager.exportWorkspaceBackup(
+                                output = output,
+                                appVersion = pendingAppVersion,
+                                openClawVersion = pendingOpenClawVersion
+                            )
+                        } ?: throw IllegalStateException(
+                            "Unable to open destination for writing"
+                        )
+
+                        runOnUiThread {
+                            pendingResult.success(
+                                hashMapOf(
+                                    "name" to queryDisplayName(uri, pendingName),
+                                    "uri" to uri.toString()
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            pendingResult.error(
+                                "WORKSPACE_BACKUP_SAVE_ERROR",
+                                e.message,
+                                null
+                            )
+                        }
+                    }
+                }.start()
+            } else {
+                pendingResult.success(null)
+            }
+            return
+        }
+    }
+
+    private fun copyUriToCache(uri: Uri, fileName: String): File {
+        val sanitizedName = sanitizeDocumentFileName(fileName)
+        val cacheFile = File(
+            cacheDir,
+            "backup-import-${System.currentTimeMillis()}-$sanitizedName"
+        )
+        contentResolver.openInputStream(uri)?.use { input ->
+            cacheFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        } ?: throw IllegalStateException("Unable to open source file")
+        return cacheFile
+    }
+
+    private fun sanitizeDocumentFileName(fileName: String): String {
+        val normalized = fileName.trim().ifEmpty { "backup" }
+        val sanitized = normalized
+            .replace(Regex("[^A-Za-z0-9._-]+"), "-")
+            .trim('-')
+            .ifEmpty { "backup" }
+        return sanitized.take(96)
     }
 
     private fun queryDisplayName(uri: Uri, fallback: String): String {
@@ -981,5 +1182,7 @@ class MainActivity : FlutterActivity() {
         const val SNAPSHOT_PICK_REQUEST = 1004
         const val INSTALL_UNKNOWN_APP_SOURCES_REQUEST = 1005
         const val SNAPSHOT_SAVE_REQUEST = 1006
+        const val BACKUP_PICK_REQUEST = 1007
+        const val WORKSPACE_BACKUP_SAVE_REQUEST = 1008
     }
 }

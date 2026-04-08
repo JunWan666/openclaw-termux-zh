@@ -263,8 +263,8 @@ const Map<String, String> appStringsEn = {
   'dashboardSshSubtitle': 'Remote terminal access via SSH',
   'dashboardLogsTitle': 'Logs',
   'dashboardLogsSubtitle': 'View gateway logs and the latest conversation log',
-  'dashboardSnapshotTitle': 'Snapshot',
-  'dashboardSnapshotSubtitle': 'Backup or restore your config',
+  'dashboardSnapshotTitle': 'Backup',
+  'dashboardSnapshotSubtitle': 'Export or restore config and workspace data',
   'dashboardNodeTitle': 'Node',
   'dashboardNodeConnected': 'Connected to gateway',
   'dashboardNodeDisabled': 'Device capabilities for AI',
@@ -594,10 +594,27 @@ const Map<String, String> appStringsEn = {
   'settingsAdb': 'ADB',
   'settingsCpolar': 'cpolar',
   'settingsMaintenance': 'Maintenance',
-  'settingsExportSnapshot': 'Export Snapshot',
-  'settingsExportSnapshotSubtitle': 'Backup config to a folder you choose',
-  'settingsImportSnapshot': 'Import Snapshot',
-  'settingsImportSnapshotSubtitle': 'Restore config from backup',
+  'settingsExportSnapshot': 'Export Backup',
+  'settingsExportSnapshotSubtitle': 'Export a config file or workspace backup',
+  'settingsImportSnapshot': 'Import Backup',
+  'settingsImportSnapshotSubtitle':
+      'Auto-detect config JSON, legacy snapshot JSON, or workspace ZIP',
+  'settingsBackupExportTypeTitle': 'Choose what to export',
+  'settingsBackupExportWorkspace': 'Workspace backup',
+  'settingsBackupExportWorkspaceSubtitle':
+      'Bundle config, memory, and session data from root/.openclaw',
+  'settingsBackupExportConfig': 'Config file',
+  'settingsBackupExportConfigSubtitle': 'Export only openclaw.json',
+  'settingsBackupImportConfigWarningTitle': 'Overwrite the current config?',
+  'settingsBackupImportConfigWarningBody':
+      'This replaces the current openclaw.json. App language, node pairing, auto-start, and other app preferences are not restored. The gateway will be stopped first.',
+  'settingsBackupImportWorkspaceWarningTitle': 'Restore workspace backup?',
+  'settingsBackupImportWorkspaceWarningBody':
+      'This overwrites config, memory, skills, extensions, and session data under root/.openclaw, and stops the gateway first. Runtime patch files and the full rootfs are intentionally excluded to reduce version-coupled breakage.',
+  'settingsBackupUnsupportedFile':
+      'This file is not recognized. Choose a config JSON, legacy snapshot JSON, or a tagged workspace backup ZIP.',
+  'settingsBackupInvalidWorkspaceArchive':
+      'The selected archive is not a valid workspace backup, or it failed safety validation.',
   'settingsRerunSetup': 'Re-run setup',
   'settingsRerunSetupSubtitle': 'Reinstall or repair the environment',
   'settingsAbout': 'About',
@@ -631,17 +648,17 @@ const Map<String, String> appStringsEn = {
   'settingsUpdateProgressPercent': '{percent}% downloaded',
   'settingsLatestVersion': "You're on the latest version",
   'settingsUpdateCheckFailed': 'Could not check for updates',
-  'settingsSnapshotSaved': 'Snapshot exported: {path}',
+  'settingsSnapshotSaved': 'Backup exported: {path}',
   'settingsExportFailed': 'Export failed: {error}',
   'settingsBonjourUpdateFailed': 'Failed to update local discovery: {error}',
   'settingsSnapshotMissing': 'No snapshot found at {path}',
   'settingsSnapshotRestored':
-      'Snapshot {file} restored successfully. Restart the gateway to apply.',
+      'Backup {file} restored successfully. Restart the gateway to apply.',
   'settingsImportFailed': 'Import failed: {error}',
   'settingsSnapshotFileNameTitle': 'Export Snapshot',
   'settingsSnapshotFileNameLabel': 'File name',
   'settingsSnapshotFileNameHelper': 'The snapshot will be saved to: {path}',
-  'settingsSnapshotFileEmpty': 'The selected snapshot file is empty.',
+  'settingsSnapshotFileEmpty': 'The selected backup file is empty.',
   'commonUnknown': 'Unknown',
   'gatewayInstallVersionConfirmTitle': 'Install selected version?',
   'gatewayInstallVersionConfirmBody':
@@ -649,19 +666,19 @@ const Map<String, String> appStringsEn = {
   'gatewaySelectedVersionAlreadyInstalled':
       'Selected version {version} is already installed.',
   'gatewaySelectedVersionCurrent': 'Already Installed',
-  'settingsSnapshotVersionWarningTitle': 'Snapshot version check',
+  'settingsSnapshotVersionWarningTitle': 'Backup version check',
   'settingsSnapshotVersionWarningIntro':
-      'The snapshot version information does not fully match the current environment.',
+      'The backup version information does not fully match the current environment.',
   'settingsSnapshotVersionWarningMissing':
       'Some version metadata is missing, so compatibility cannot be fully verified.',
   'settingsSnapshotVersionWarningAppMismatch':
       'The snapshot app version differs from the current app version.',
   'settingsSnapshotVersionWarningOpenClawMismatch':
       'The snapshot OpenClaw version differs from the currently installed version.',
-  'settingsSnapshotVersionSnapshotApp': 'Snapshot app version: {version}',
+  'settingsSnapshotVersionSnapshotApp': 'Backup app version: {version}',
   'settingsSnapshotVersionCurrentApp': 'Current app version: {version}',
   'settingsSnapshotVersionSnapshotOpenClaw':
-      'Snapshot OpenClaw version: {version}',
+      'Backup OpenClaw version: {version}',
   'settingsSnapshotVersionCurrentOpenClaw':
       'Current OpenClaw version: {version}',
   'statusInstalled': 'Installed',

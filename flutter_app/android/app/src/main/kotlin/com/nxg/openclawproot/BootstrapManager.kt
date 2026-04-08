@@ -7,13 +7,19 @@ import android.os.Build
 import android.system.Os
 import io.flutter.FlutterInjector
 import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.FileNotFoundException
 import java.io.InputStream
+import java.io.OutputStream
 import java.util.zip.GZIPInputStream
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+import org.json.JSONArray
+import org.json.JSONObject
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
@@ -31,6 +37,19 @@ class BootstrapManager(
     private val configDir get() = "$filesDir/config"
     private val libDir get() = "$filesDir/lib"
     private val nativeRuntimeDir get() = "$filesDir/native"
+    private val workspaceRootDir get() = File("$rootfsDir/root/.openclaw")
+    private val workspaceBackupManifestName = "openclaw-workspace-backup.json"
+    private val workspaceBackupFormat = "openclaw-workspace-backup"
+    private val workspaceBackupRelativePaths = listOf(
+        ".env",
+        "openclaw.json",
+        "data",
+        "memory",
+        "skills",
+        "config",
+        "extensions",
+        "agents",
+    )
 
     fun setupDirectories() {
         listOf(
@@ -1391,6 +1410,260 @@ require('/root/.openclaw/proot-compat.js');
             )
             rootfsResolv.writeText(content)
         } catch (_: Exception) {}
+    }
+
+    fun exportWorkspaceBackup(
+        output: OutputStream,
+        appVersion: String,
+        openClawVersion: String?
+    ) {
+        setupDirectories()
+        val workspaceRoot = workspaceRootDir
+        workspaceRoot.mkdirs()
+
+        ZipOutputStream(BufferedOutputStream(output)).use { zip ->
+            val manifest = JSONObject().apply {
+                put("format", workspaceBackupFormat)
+                put("schemaVersion", 1)
+                put("appVersion", appVersion.trim())
+                if (openClawVersion.isNullOrBlank()) {
+                    put("openClawVersion", JSONObject.NULL)
+                } else {
+                    put("openClawVersion", openClawVersion.trim())
+                }
+                put("createdAt", java.time.Instant.now().toString())
+                put("workspaceRoot", "/root/.openclaw")
+                put(
+                    "entries",
+                    JSONArray().apply {
+                        workspaceBackupRelativePaths.forEach { put(it) }
+                    }
+                )
+            }
+
+            zip.putNextEntry(ZipEntry(workspaceBackupManifestName))
+            zip.write(manifest.toString(2).toByteArray(Charsets.UTF_8))
+            zip.closeEntry()
+
+            workspaceBackupRelativePaths.forEach { relativePath ->
+                val target = File(workspaceRoot, relativePath)
+                if (target.exists()) {
+                    addWorkspaceBackupEntry(zip, target, relativePath)
+                }
+            }
+        }
+    }
+
+    fun inspectWorkspaceBackup(path: String): Map<String, Any>? {
+        val manifest = readWorkspaceBackupManifest(File(path)) ?: return null
+        val entries = ArrayList<String>()
+        val jsonEntries = manifest.optJSONArray("entries")
+        if (jsonEntries != null) {
+            for (index in 0 until jsonEntries.length()) {
+                val value = jsonEntries.optString(index)
+                if (value.isNotBlank()) {
+                    entries.add(value)
+                }
+            }
+        }
+
+        return hashMapOf(
+            "format" to manifest.optString("format", ""),
+            "schemaVersion" to manifest.optInt("schemaVersion", 1),
+            "appVersion" to manifest.optString("appVersion", ""),
+            "openClawVersion" to manifest.optString("openClawVersion", ""),
+            "createdAt" to manifest.optString("createdAt", ""),
+            "entries" to entries
+        )
+    }
+
+    fun restoreWorkspaceBackup(path: String) {
+        val archiveFile = File(path)
+        val manifest = readWorkspaceBackupManifest(archiveFile)
+            ?: throw IllegalArgumentException(
+                "Selected file is not an OpenClaw workspace backup"
+            )
+
+        if (manifest.optString("format") != workspaceBackupFormat) {
+            throw IllegalArgumentException("Unsupported workspace backup format")
+        }
+
+        setupDirectories()
+        val workspaceRoot = workspaceRootDir
+        workspaceRoot.mkdirs()
+        val workspaceCanonicalRoot = workspaceRoot.canonicalPath
+
+        validateWorkspaceBackupArchive(archiveFile)
+        clearWorkspaceBackupTargets()
+
+        ZipFile(archiveFile).use { zip ->
+            val entries = zip.entries()
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                val normalizedName = entry.name.replace('\\', '/')
+                if (normalizedName == workspaceBackupManifestName) {
+                    continue
+                }
+                if (!normalizedName.startsWith("workspace/")) {
+                    throw IllegalArgumentException(
+                        "Unsupported workspace backup entry: $normalizedName"
+                    )
+                }
+
+                val relativePath = normalizedName
+                    .removePrefix("workspace/")
+                    .trim('/')
+                if (relativePath.isEmpty()) {
+                    continue
+                }
+                if (!isAllowedWorkspaceBackupPath(relativePath) ||
+                    relativePath.contains("..") ||
+                    relativePath.startsWith("/")
+                ) {
+                    throw IllegalArgumentException(
+                        "Unsafe workspace backup entry: $normalizedName"
+                    )
+                }
+
+                val outputFile = File(workspaceRoot, relativePath)
+                outputFile.parentFile?.mkdirs()
+                val canonicalOutput = outputFile.canonicalPath
+                if (canonicalOutput != workspaceCanonicalRoot &&
+                    !canonicalOutput.startsWith("$workspaceCanonicalRoot${File.separator}")
+                ) {
+                    throw IllegalArgumentException(
+                        "Workspace backup entry escapes target directory: $normalizedName"
+                    )
+                }
+
+                if (entry.isDirectory || normalizedName.endsWith("/")) {
+                    outputFile.mkdirs()
+                    continue
+                }
+
+                zip.getInputStream(entry).use { input ->
+                    FileOutputStream(outputFile).use { fileOutput ->
+                        input.copyTo(fileOutput)
+                    }
+                }
+                outputFile.setReadable(true, false)
+                outputFile.setWritable(true, false)
+            }
+        }
+
+        setupDirectories()
+        installBionicBypass()
+        writeResolvConf()
+    }
+
+    private fun addWorkspaceBackupEntry(
+        zip: ZipOutputStream,
+        file: File,
+        relativePath: String
+    ) {
+        val normalizedPath = relativePath.replace('\\', '/').trim('/')
+        if (normalizedPath.isEmpty()) {
+            return
+        }
+
+        try {
+            if (java.nio.file.Files.isSymbolicLink(file.toPath())) {
+                return
+            }
+        } catch (_: Exception) {}
+
+        if (file.isDirectory) {
+            zip.putNextEntry(ZipEntry("workspace/$normalizedPath/"))
+            zip.closeEntry()
+            file.listFiles()
+                ?.sortedBy { it.name }
+                ?.forEach { child ->
+                    addWorkspaceBackupEntry(
+                        zip,
+                        child,
+                        "$normalizedPath/${child.name}"
+                    )
+                }
+            return
+        }
+
+        zip.putNextEntry(ZipEntry("workspace/$normalizedPath"))
+        FileInputStream(file).use { input ->
+            input.copyTo(zip)
+        }
+        zip.closeEntry()
+    }
+
+    private fun clearWorkspaceBackupTargets() {
+        val workspaceRoot = workspaceRootDir
+        workspaceBackupRelativePaths.forEach { relativePath ->
+            val target = File(workspaceRoot, relativePath)
+            if (target.exists()) {
+                deleteRecursively(target)
+            }
+        }
+    }
+
+    private fun validateWorkspaceBackupArchive(archiveFile: File) {
+        ZipFile(archiveFile).use { zip ->
+            val entries = zip.entries()
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                val normalizedName = entry.name.replace('\\', '/')
+                if (normalizedName == workspaceBackupManifestName) {
+                    continue
+                }
+                if (!normalizedName.startsWith("workspace/")) {
+                    throw IllegalArgumentException(
+                        "Unsupported workspace backup entry: $normalizedName"
+                    )
+                }
+
+                val relativePath = normalizedName
+                    .removePrefix("workspace/")
+                    .trim('/')
+                if (relativePath.isEmpty()) {
+                    continue
+                }
+                if (!isAllowedWorkspaceBackupPath(relativePath) ||
+                    relativePath.contains("..") ||
+                    relativePath.startsWith("/")
+                ) {
+                    throw IllegalArgumentException(
+                        "Unsafe workspace backup entry: $normalizedName"
+                    )
+                }
+            }
+        }
+    }
+
+    private fun isAllowedWorkspaceBackupPath(relativePath: String): Boolean {
+        return workspaceBackupRelativePaths.any { allowed ->
+            relativePath == allowed || relativePath.startsWith("$allowed/")
+        }
+    }
+
+    private fun readWorkspaceBackupManifest(archiveFile: File): JSONObject? {
+        if (!archiveFile.exists() || !archiveFile.isFile) {
+            return null
+        }
+
+        return try {
+            ZipFile(archiveFile).use { zip ->
+                val entry = zip.getEntry(workspaceBackupManifestName) ?: return null
+                val content = zip.getInputStream(entry)
+                    .bufferedReader(Charsets.UTF_8)
+                    .use { it.readText() }
+                val manifest = JSONObject(content)
+                if (manifest.optString("format") == workspaceBackupFormat) {
+                    manifest
+                } else {
+                    null
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /** Read a file from inside the rootfs (e.g. /root/.openclaw/openclaw.json). */

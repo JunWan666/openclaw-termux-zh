@@ -10,28 +10,28 @@
 
 ## Current Version
 
-- Version: `v1.9.8`
-- Release notes: [release/v1.9.8/Release.zh.md](../release/v1.9.8/Release.zh.md)
+- Version: `v1.9.9`
+- Release notes: [release/v1.9.9/Release.zh.md](../release/v1.9.9/Release.zh.md)
 - Change log: [CHANGELOG.md](../CHANGELOG.md)
 - Releases page: <https://github.com/JunWan666/openclaw-termux-zh/releases>
 
-## What's New In v1.9.8
+## What's New In v1.9.9
 
-- Setup now prefers bundled or cached Ubuntu RootFS and Node.js 24 archives first, and only falls back to online downloads when the local copy is missing or invalid.
-- The setup wizard and homepage version installer now show stage-aware progress, transfer size, live speed, ETA, and rolling detail logs instead of placeholder progress.
-- Ubuntu package installation now probes faster mirrors first, and OpenClaw installation uses cached npm tarballs with clearer download, dependency install, and verification stages.
-- Homepage gateway state binding, dashboard URL refresh, and config hot-reload behavior are more reliable, and the Maintenance section is now shown above System Info in Settings.
-- Release metadata is synced to formal `v1.9.8`, and the Android application ID is restored to `com.junwan666.openclawzh`.
+- Maintenance now supports two export modes: a config-only `openclaw.json` backup, or a workspace backup that covers the core `/root/.openclaw` runtime data used for memory and session recovery.
+- Import now auto-detects config JSON, legacy snapshot JSON, and tagged workspace ZIP archives, so users can choose a file directly without an extra type selector.
+- Workspace restore now stops the gateway first and only restores a validated whitelist of paths, reducing the risk of corrupting the whole rootfs with an unsafe archive.
+- The setup completion screen now reuses the same backup import flow, making first-run recovery much easier.
+- Release metadata is synced to formal `v1.9.9`, and the Android build number is bumped to `44`.
 
 ## Download Artifacts
 
 | File | Target Device | Size | Download |
 |---|---|---:|---|
-| `OpenClaw-v1.9.8-universal.apk` | Best default choice | 100.27 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.8/OpenClaw-v1.9.8-universal.apk) |
-| `OpenClaw-v1.9.8-arm64-v8a.apk` | Most modern Android phones | 83.21 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.8/OpenClaw-v1.9.8-arm64-v8a.apk) |
-| `OpenClaw-v1.9.8-armeabi-v7a.apk` | Older 32-bit ARM devices | 82.84 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.8/OpenClaw-v1.9.8-armeabi-v7a.apk) |
-| `OpenClaw-v1.9.8-x86_64.apk` | Emulator or x86_64 device | 83.41 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.8/OpenClaw-v1.9.8-x86_64.apk) |
-| `OpenClaw-v1.9.8.aab` | Store distribution | 107.08 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.8/OpenClaw-v1.9.8.aab) |
+| `OpenClaw-v1.9.9-universal.apk` | Best default choice | 100.34 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-universal.apk) |
+| `OpenClaw-v1.9.9-arm64-v8a.apk` | Most modern Android phones | 83.24 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-arm64-v8a.apk) |
+| `OpenClaw-v1.9.9-armeabi-v7a.apk` | Older 32-bit ARM devices | 82.88 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-armeabi-v7a.apk) |
+| `OpenClaw-v1.9.9-x86_64.apk` | Emulator or x86_64 device | 83.45 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-x86_64.apk) |
+| `OpenClaw-v1.9.9.aab` | Store distribution | 107.14 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9.aab) |
 
 ## Quick Start
 
@@ -55,7 +55,7 @@ flutter build apk --release
 To generate the release directory with APKs and AAB:
 
 ```bash
-python scripts/build_release.py --version 1.9.8 --build-number 43
+python scripts/build_release.py --version 1.9.9 --build-number 44
 ```
 
 ## Repository Structure

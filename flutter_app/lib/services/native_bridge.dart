@@ -175,6 +175,44 @@ class NativeBridge {
     return Map<String, dynamic>.from(result);
   }
 
+  static Future<Map<String, dynamic>?> pickBackupFile() async {
+    final result = await _channel.invokeMethod('pickBackupFile');
+    if (result == null) return null;
+    return Map<String, dynamic>.from(result);
+  }
+
+  static Future<Map<String, dynamic>?> exportWorkspaceBackup({
+    required String suggestedName,
+    required String appVersion,
+    String? openClawVersion,
+  }) async {
+    final result = await _channel.invokeMethod('exportWorkspaceBackup', {
+      'suggestedName': suggestedName,
+      'appVersion': appVersion,
+      'openClawVersion': openClawVersion,
+    });
+    if (result == null) return null;
+    return Map<String, dynamic>.from(result);
+  }
+
+  static Future<Map<String, dynamic>?> inspectWorkspaceBackup(
+    String path,
+  ) async {
+    final result = await _channel.invokeMethod(
+      'inspectWorkspaceBackup',
+      {'path': path},
+    );
+    if (result == null) return null;
+    return Map<String, dynamic>.from(result);
+  }
+
+  static Future<bool> restoreWorkspaceBackup(String path) async {
+    return await _channel.invokeMethod(
+      'restoreWorkspaceBackup',
+      {'path': path},
+    );
+  }
+
   static Stream<String> get gatewayLogStream {
     return _eventChannel
         .receiveBroadcastStream()
