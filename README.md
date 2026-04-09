@@ -1,17 +1,18 @@
-﻿<div align="center">
-  <h1>OpenClaw 中文整合版（openclaw-termux-zh）</h1>
+<div align="center">
+  <img src="assets/ic_launcher.png" alt="OpenClaw" width="160" />
+  <h1>OpenClaw 中文整合版</h1>
   <p>
     <a href="README.md">简体中文</a> | <a href="docs/README_en.md">English</a>
   </p>
-  <img src="assets/ic_launcher.png" alt="OpenClaw" width="160" />
-  <h3 align="center">面向中文用户维护与分发的 OpenClaw Android 独立整合版本</h3>
-  <p align="center">内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、移动端配置体验与 Android 原生集成。</p>
-  <p align="center">
-    <img src="https://img.shields.io/badge/Version-v1.9.9-D32222?style=for-the-badge" alt="Version" />
+  <p>面向中文用户维护与分发的 OpenClaw Android 独立整合版本</p>
+  <p>内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、移动端配置体验与 Android 原生集成。</p>
+  <p>
+    <img src="https://img.shields.io/github/v/release/JunWan666/openclaw-termux-zh?display_name=tag&style=for-the-badge" alt="Release" />
+    <img src="https://img.shields.io/github/stars/JunWan666/openclaw-termux-zh?style=for-the-badge&logo=github" alt="GitHub stars" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
   </p>
-  <p align="center">
+  <p>
     <img src="https://img.shields.io/badge/Flutter-App_Shell-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter" />
     <img src="https://img.shields.io/badge/Dart-UI_Logic-0175C2?style=flat-square&logo=dart&logoColor=white" alt="Dart" />
     <img src="https://img.shields.io/badge/Kotlin-Android_Service-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin" />
@@ -21,47 +22,122 @@
   </p>
 </div>
 
-> 本仓库为中文整合版，主要用于中文用户维护与分发。
+> 本仓库为社区维护的中文整合版，主要用于中文用户维护、测试与分发。
 >
 > 整合来源：
-> - 上游项目：[`mithun50/openclaw-termux`](https://github.com/mithun50/openclaw-termux)
-> - 汉化分支作者：[`TIANLI0/openclaw-termux` 的 `feature/translation` 分支](https://github.com/TIANLI0/openclaw-termux/tree/feature/translation)
+> - Android 集成上游：[`mithun50/openclaw-termux`](https://github.com/mithun50/openclaw-termux)
+> - 汉化基础分支：[`TIANLI0/openclaw-termux` 的 `feature/translation` 分支](https://github.com/TIANLI0/openclaw-termux/tree/feature/translation)
+> - OpenClaw 核心项目：[`openclaw/openclaw`](https://github.com/openclaw/openclaw)
 
-## 当前发布版本
+## 项目定位
+
+这个仓库的目标不是简单把 OpenClaw 打成 APK，而是让中文 Android 用户更容易完成以下事情：
+
+- 在手机上直接安装 Ubuntu RootFS、Node.js 与 OpenClaw，不依赖 Termux。
+- 用中文界面完成初始化、配置、日志查看、版本切换和备份恢复。
+- 在 Android 上管理 AI 提供商、消息平台、网关和节点能力。
+- 更直观地编辑 `openclaw.json`、查看对话日志和恢复记忆/会话数据。
+
+## 重要警告
+
+> [!IMPORTANT]
+> - **本仓库不是 OpenClaw 官方 Android 发布渠道，升级前请自行评估兼容性与风险**。
+> - 首次安装会下载并解压 Ubuntu RootFS、Node.js 与 OpenClaw，务必保证网络、存储空间和前台运行时间足够。
+> - 导入配置或工作目录备份时，会覆盖当前 `/root/.openclaw` 下的核心数据；恢复前请先确认自己是否需要另做备份。
+> - 节点能力中的 `Canvas` 目前仍是未实现状态，README 会展示能力规划，但这项功能现在不能当成已可用能力使用。
+> - 如果要长时间运行 Gateway、做局域网访问或后台保持会话，建议**关闭系统电池优化**，并正确授予存储等必要权限。
+
+## 功能亮点
+
+- 一键安装 Android 独立运行环境：Ubuntu RootFS、Node.js、OpenClaw。
+- 中文首页与安装向导，可直接选择 OpenClaw 版本并完成初始化。
+- AI 提供商管理、消息平台接入、可选组件安装、节点能力配置。
+- 支持配置文件编辑、对话日志查看、备份导出与工作目录恢复。
+- 支持局域网访问说明、节点日志复制、结构化对话日志展示等移动端优化。
+- 支持全架构 APK 打包，便于真机与模拟器测试。
+
+## 界面截图
+
+<table>
+  <tr>
+    <td align="center"><img src="assets/home-dashboard.jpg" alt="首页" width="220" /><br />首页</td>
+    <td align="center"><img src="assets/ai-providers.jpg" alt="AI 提供商" width="220" /><br />AI 提供商</td>
+    <td align="center"><img src="assets/messaging-platforms.jpg" alt="消息平台" width="220" /><br />消息平台</td>
+    <td align="center"><img src="assets/optional-packages.jpg" alt="可选组件" width="220" /><br />可选组件</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="assets/node-capabilities.jpg" alt="节点能力" width="220" /><br />节点能力</td>
+    <td align="center"><img src="assets/config-editor.jpg" alt="配置文件编辑" width="220" /><br />配置文件编辑</td>
+    <td align="center"><img src="assets/backup-export.jpg" alt="导出备份" width="220" /><br />导出备份</td>
+    <td align="center"><img src="assets/webui-chat.jpg" alt="WebUI 对话界面" width="220" /><br />WebUI 对话界面</td>
+  </tr>
+</table>
+
+## 节点能力
+
+当前 Android 端已经围绕“设备能力接入 Gateway”做了基础支持，能力状态如下：
+
+| 能力 | 状态 | 说明 |
+| --- | --- | --- |
+| Camera | ✅ 已接入 | 拍照和视频片段采集 |
+| Location | ✅ 已接入 | 获取设备 GPS 坐标 |
+| Screen Recording | ✅ 已接入 | 录制设备屏幕，每次都需要授权 |
+| Flashlight | ✅ 已接入 | 控制手电筒开关 |
+| Vibration | ✅ 已接入 | 触发振动和触觉反馈 |
+| Sensors | ✅ 已接入 | 读取加速度计、陀螺仪、磁力计、气压计等 |
+| Serial | ✅ 已接入 | 蓝牙和 USB 串口通信 |
+| Canvas | ⏳ 暂未启用 | 当前 Android 端 WebView Canvas capability 仍未实现 |
+
+补充说明：
+
+- 节点页支持本地网关和远程网关两种连接方式。
+- 已加入节点日志查看与复制，方便排查连接和配对问题。
+- `Canvas` 在代码里是明确返回 `NOT_IMPLEMENTED` 的占位实现，不是隐藏入口。
+
+## 架构图
+
+下面是这个整合版的大致结构：
+
+<div align="center">
+  <img src="assets/architecture.png" alt="OpenClaw 中文整合版架构图" width="100%" />
+</div>
+
+可以简单理解为：
+
+- `flutter_app/` 负责 Android 端 UI、权限、安装流程和原生能力桥接。
+- PRoot 里的 Ubuntu 负责承载 Node.js 与 OpenClaw CLI / Gateway 运行环境。
+- `/root/.openclaw` 负责保存配置、记忆、技能、扩展和会话等核心数据。
+- 节点能力是 Android 设备侧的补充能力层，通过配对后向 Gateway 暴露设备能力。
+
+## 当前正式发布版本
 
 - 版本：`v1.9.9`
-- 发布说明：见 [release/v1.9.9/Release.zh.md](release/v1.9.9/Release.zh.md)
-- 改动日志：见 [CHANGELOG.md](CHANGELOG.md)
+- 发布说明：[release/v1.9.9/Release.zh.md](release/v1.9.9/Release.zh.md)
+- 改动日志：[CHANGELOG.md](CHANGELOG.md)
 - Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
+
+> 不确定版本该下哪个时，请优先以 GitHub Releases 页面为准。
 
 ## 下载指南
 
 > 不确定手机架构时，优先下载 `universal.apk`。
 
 | 文件 | 适用设备 | 大小 | 下载 |
-|---|---|---:|---|
+| --- | --- | ---: | --- |
 | `OpenClaw-v1.9.9-universal.apk` | 不确定架构、想直接安装 | 100.34 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-universal.apk) |
 | `OpenClaw-v1.9.9-arm64-v8a.apk` | 大多数现代 Android 手机 | 83.24 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-arm64-v8a.apk) |
 | `OpenClaw-v1.9.9-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 82.88 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-armeabi-v7a.apk) |
 | `OpenClaw-v1.9.9-x86_64.apk` | 模拟器或 x86_64 设备 | 83.45 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-x86_64.apk) |
 | `OpenClaw-v1.9.9.aab` | 应用商店分发 | 107.14 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9.aab) |
 
-## v1.9.9 亮点
-
-- 维护页现在支持两种导出：仅导出 `openclaw.json` 的配置文件，或导出覆盖 `/root/.openclaw` 核心数据的工作目录备份，更适合迁移记忆和恢复会话沉淀。
-- 导入入口改为自动识别：配置 JSON、旧快照 JSON、工作目录 ZIP 都可以直接选择，应用会按文件类型感知意图，不再额外询问。
-- 工作目录恢复加入安全边界：恢复前会先停止网关，只允许恢复白名单路径，并校验压缩包标识与内部路径，避免无边界覆盖整个 rootfs。
-- 安装向导完成页也同步支持新的备份导入链路，首次安装后恢复历史配置与记忆更直接。
-- 版本链路统一到正式版 `v1.9.9`，Android 构建号递增到 `44`，用于后续正式打包与发布。
-
 ## 快速开始
 
 ### 方式一：Android APK（推荐）
 
 1. 从上方“下载指南”中选择适合自己设备的 APK。
-2. 安装后打开应用。
-3. 如需指定 OpenClaw 版本，可先在安装页上方选择版本，再点击“开始安装”。
-4. 完成 Onboarding、模型提供商与 API Key 配置。
+2. 安装后打开应用，并授予必要权限。
+3. 如需指定 OpenClaw 版本，可在安装页顶部选择版本后再点击“开始安装”。
+4. 完成 Onboarding、AI 提供商与 API Key 配置。
 5. 启动 Gateway。
 6. 点击首页地址，或在浏览器访问 `http://127.0.0.1:18789` 打开 Web 控制台。
 
@@ -77,17 +153,8 @@ flutter build apk --release
 如需直接生成发布目录中的 APK / AAB，可使用仓库自带脚本：
 
 ```bash
-python scripts/build_release.py --version 1.9.9 --build-number 44
+python scripts/build_release.py --version <版本号> --build-number <构建号>
 ```
-
-## 目录说明
-
-- `flutter_app/`：Flutter Android 主应用
-- `lib/`：Node / CLI 相关脚本
-- `scripts/`：构建与依赖准备脚本
-- `release/`：发布产物与版本说明
-- `docs/README_en.md`：英文文档
-- `CHANGELOG.md`：版本改动记录
 
 ## 交流反馈
 
@@ -98,9 +165,20 @@ python scripts/build_release.py --version 1.9.9 --build-number 44
   <p>微信扫码加入交流群</p>
 </div>
 
+## 更多文档
+
+- [CHANGELOG.md](CHANGELOG.md)
+- [docs/jsonl_format_guide.md](docs/jsonl_format_guide.md)
+- [docs/README_en.md](docs/README_en.md)
+- [release/v1.9.9/Release.zh.md](release/v1.9.9/Release.zh.md)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=JunWan666/openclaw-termux-zh&type=Date)](https://star-history.com/#JunWan666/openclaw-termux-zh&Date)
+
 ## 免责声明
 
-本仓库为社区维护的中文整合版本，不代表上游官方发布。若用于生产环境，请自行评估兼容性与风险。
+本仓库为社区维护的中文整合版本，不代表 OpenClaw 官方发布。若用于生产环境，请自行评估兼容性、升级风险与数据安全策略。
 
 ## 许可证
 
