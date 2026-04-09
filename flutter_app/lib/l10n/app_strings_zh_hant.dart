@@ -226,6 +226,25 @@ const Map<String, String> appStringsZhHant = {
   'setupWizardConfigureApiKeys': '配置 API Key',
   'setupWizardRetry': '重新安裝',
   'setupWizardBegin': '開始安裝',
+  'setupWizardSelectVersion': 'OpenClaw 版本',
+  'setupWizardSelectedVersionHint': '將安裝 {version} · {size}',
+  'setupWizardRecommended': '推薦',
+  'openClawInstallOptionsSummaryTitle': '推薦安裝優化已啟用',
+  'openClawInstallOptionsAdvanced': '高級設定',
+  'openClawInstallOptionsLiveLogs': '詳細安裝日誌',
+  'openClawInstallOptionsParallelSummary': '並行編譯：{value}',
+  'openClawInstallOptionsIgnoreScriptsChip': '跳過 npm scripts',
+  'openClawInstallOptionsTitle': 'OpenClaw 安裝設定',
+  'openClawInstallOptionsDescription':
+      '這些推薦優化始終啟用：關閉 npm audit/fund/progress，顯示詳細安裝日誌，並開啟並行編譯。',
+  'openClawInstallOptionsParallelLabel': '並行編譯執行緒',
+  'openClawInstallOptionsParallelAuto': '自動（推薦）',
+  'openClawInstallOptionsParallelThreadCount': '{count} 執行緒',
+  'openClawInstallOptionsParallelHint': '自動模式會根據 CPU 核心數，當前最多使用 {count} 個執行緒。',
+  'openClawInstallOptionsIgnoreScriptsTitle':
+      '跳過 npm scripts (--ignore-scripts)',
+  'openClawInstallOptionsIgnoreScriptsSubtitle':
+      '實驗性選項。部分 OpenClaw 版本安裝後可能跳過外掛或執行期依賴配置。',
   'setupWizardRequirements': '需要約 500MB 存儲空間和網絡連接',
   'setupWizardStorageDialogTitle': '安裝前授予檔案存取權限',
   'setupWizardStorageDialogBody':

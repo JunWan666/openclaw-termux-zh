@@ -94,7 +94,7 @@ python scripts/build_release.py --version 1.9.9 --build-number 44
 如需交流使用经验、排查问题或反馈建议，欢迎加入 `OpenClaw-zh` 开源项目交流群。
 
 <div align="center">
-  <img src="docs/openclaw-termux-zh-weixin-04-07.png" alt="OpenClaw-zh 开源项目交流群 微信群二维码" width="320" />
+  <img src="docs/openclaw-termux-zh-weixin-04-16.png" alt="OpenClaw-zh 开源项目交流群 微信群二维码" width="320" />
   <p>微信扫码加入交流群</p>
 </div>
 

@@ -387,6 +387,25 @@ const Map<String, String> appStringsEn = {
   'setupWizardBegin': 'Begin Setup',
   'setupWizardSelectVersion': 'OpenClaw Version',
   'setupWizardSelectedVersionHint': 'Will install {version} · {size}',
+  'setupWizardRecommended': 'Recommended',
+  'openClawInstallOptionsSummaryTitle':
+      'Recommended install optimizations are enabled',
+  'openClawInstallOptionsAdvanced': 'Advanced',
+  'openClawInstallOptionsLiveLogs': 'Detailed install logs',
+  'openClawInstallOptionsParallelSummary': 'Parallel build: {value}',
+  'openClawInstallOptionsIgnoreScriptsChip': 'Skip npm scripts',
+  'openClawInstallOptionsTitle': 'OpenClaw install settings',
+  'openClawInstallOptionsDescription':
+      'These recommended optimizations are always on: disable npm audit/fund/progress, keep detailed install logs visible, and enable parallel compilation.',
+  'openClawInstallOptionsParallelLabel': 'Parallel build threads',
+  'openClawInstallOptionsParallelAuto': 'Auto (Recommended)',
+  'openClawInstallOptionsParallelThreadCount': '{count} threads',
+  'openClawInstallOptionsParallelHint':
+      'Auto mode currently uses up to {count} threads based on your CPU.',
+  'openClawInstallOptionsIgnoreScriptsTitle':
+      'Skip npm scripts (--ignore-scripts)',
+  'openClawInstallOptionsIgnoreScriptsSubtitle':
+      'Experimental. Some OpenClaw versions may skip plugin or runtime dependency setup after install.',
   'setupWizardRequirements':
       'Requires ~500MB of storage and an internet connection',
   'setupWizardStorageDialogTitle': 'Grant file access before setup',

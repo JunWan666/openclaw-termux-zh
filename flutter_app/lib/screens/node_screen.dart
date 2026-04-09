@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../app.dart';
 import '../l10n/app_localizations.dart';
@@ -65,7 +66,7 @@ class _NodeScreenState extends State<NodeScreen> {
                 return ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    const NodeControls(),
+                    const NodeControls(showConfigureButton: false),
                     const SizedBox(height: 16),
 
                     // Gateway Connection
@@ -78,7 +79,8 @@ class _NodeScreenState extends State<NodeScreen> {
                           children: [
                             RadioListTile<bool>(
                               title: Text(l10n.t('nodeLocalGateway')),
-                              subtitle: Text(l10n.t('nodeLocalGatewaySubtitle')),
+                              subtitle:
+                                  Text(l10n.t('nodeLocalGatewaySubtitle')),
                               value: true,
                               groupValue: _isLocal,
                               onChanged: (value) {
@@ -89,7 +91,8 @@ class _NodeScreenState extends State<NodeScreen> {
                             ),
                             RadioListTile<bool>(
                               title: Text(l10n.t('nodeRemoteGateway')),
-                              subtitle: Text(l10n.t('nodeRemoteGatewaySubtitle')),
+                              subtitle:
+                                  Text(l10n.t('nodeRemoteGatewaySubtitle')),
                               value: false,
                               groupValue: _isLocal,
                               onChanged: (value) {
@@ -99,52 +102,50 @@ class _NodeScreenState extends State<NodeScreen> {
                               },
                             ),
                             if (!_isLocal) ...[
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: _hostController,
-                                  decoration: InputDecoration(
-                                    labelText: l10n.t('nodeGatewayHost'),
-                                    hintText: '192.168.1.100',
-                                  ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _hostController,
+                                decoration: InputDecoration(
+                                  labelText: l10n.t('nodeGatewayHost'),
+                                  hintText: '192.168.1.100',
                                 ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: _portController,
-                                  decoration: InputDecoration(
-                                    labelText: l10n.t('nodeGatewayPort'),
-                                    hintText: '18789',
-                                  ),
-                                  keyboardType: TextInputType.number,
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _portController,
+                                decoration: InputDecoration(
+                                  labelText: l10n.t('nodeGatewayPort'),
+                                  hintText: '18789',
                                 ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: _tokenController,
-                                  decoration: InputDecoration(
-                                    labelText: l10n.t('nodeGatewayToken'),
-                                    hintText: l10n.t('nodeGatewayTokenHint'),
-                                    helperText:
-                                        l10n.t('nodeGatewayTokenHelper'),
-                                    prefixIcon: const Icon(Icons.key),
-                                  ),
-                                  obscureText: true,
+                                keyboardType: TextInputType.number,
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _tokenController,
+                                decoration: InputDecoration(
+                                  labelText: l10n.t('nodeGatewayToken'),
+                                  hintText: l10n.t('nodeGatewayTokenHint'),
+                                  helperText: l10n.t('nodeGatewayTokenHelper'),
+                                  prefixIcon: const Icon(Icons.key),
                                 ),
-                                const SizedBox(height: 12),
-                                FilledButton.icon(
-                                  onPressed: () {
-                                    final host = _hostController.text.trim();
-                                    final port = int.tryParse(
-                                            _portController.text.trim()) ??
-                                        18789;
-                                    final token = _tokenController.text.trim();
-                                    if (host.isNotEmpty) {
-                                      provider.connectRemote(host, port,
-                                          token:
-                                              token.isNotEmpty ? token : null);
-                                    }
-                                  },
-                                  icon: const Icon(Icons.link),
-                                  label: Text(l10n.t('nodeConnect')),
-                                ),
+                                obscureText: true,
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton.icon(
+                                onPressed: () {
+                                  final host = _hostController.text.trim();
+                                  final port = int.tryParse(
+                                          _portController.text.trim()) ??
+                                      18789;
+                                  final token = _tokenController.text.trim();
+                                  if (host.isNotEmpty) {
+                                    provider.connectRemote(host, port,
+                                        token: token.isNotEmpty ? token : null);
+                                  }
+                                },
+                                icon: const Icon(Icons.link),
+                                label: Text(l10n.t('nodeConnect')),
+                              ),
                             ],
                           ],
                         ),
@@ -251,7 +252,20 @@ class _NodeScreenState extends State<NodeScreen> {
                     const SizedBox(height: 16),
 
                     // Logs
-                    _sectionHeader(theme, l10n.t('nodeLogs')),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _sectionHeader(theme, l10n.t('nodeLogs')),
+                        ),
+                        IconButton(
+                          tooltip: l10n.t('commonCopy'),
+                          onPressed: state.logs.isEmpty
+                              ? null
+                              : () => _copyLogs(context, state.logs),
+                          icon: const Icon(Icons.copy_rounded, size: 18),
+                        ),
+                      ],
+                    ),
                     Card(
                       child: Container(
                         height: 200,
@@ -323,6 +337,13 @@ class _NodeScreenState extends State<NodeScreen> {
                 size: 20,
               ),
       ),
+    );
+  }
+
+  void _copyLogs(BuildContext context, List<String> logs) {
+    Clipboard.setData(ClipboardData(text: logs.join('\n')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.t('commonCopiedToClipboard'))),
     );
   }
 }

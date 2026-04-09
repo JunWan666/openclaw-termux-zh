@@ -129,6 +129,7 @@ class _ConfigEditorScreenState extends State<ConfigEditorScreen> {
   static const _configPath = 'root/.openclaw/openclaw.json';
 
   final _controller = JsonSyntaxTextController();
+  final _editorFocusNode = FocusNode();
   bool _loading = true;
   bool _saving = false;
   String? _validationError;
@@ -138,6 +139,7 @@ class _ConfigEditorScreenState extends State<ConfigEditorScreen> {
   void initState() {
     super.initState();
     _controller.addListener(_handleTextChanged);
+    _editorFocusNode.addListener(_handleEditorFocusChanged);
     _loadConfig();
   }
 
@@ -146,7 +148,16 @@ class _ConfigEditorScreenState extends State<ConfigEditorScreen> {
     _controller
       ..removeListener(_handleTextChanged)
       ..dispose();
+    _editorFocusNode
+      ..removeListener(_handleEditorFocusChanged)
+      ..dispose();
     super.dispose();
+  }
+
+  void _handleEditorFocusChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadConfig() async {
@@ -272,6 +283,8 @@ class _ConfigEditorScreenState extends State<ConfigEditorScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final editorBg = isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface;
     final validationError = _validationError;
+    final isEditingCompact = _editorFocusNode.hasFocus ||
+        MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -286,107 +299,59 @@ class _ConfigEditorScreenState extends State<ConfigEditorScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
+          : AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                isEditingCompact ? 8 : 16,
+                16,
+                isEditingCompact ? 8 : 16,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.t('configEditorSubtitle'),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _configPath,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontFamily: 'DejaVuSansMono',
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: validationError == null
-                                  ? AppColors.statusGreen.withAlpha(22)
-                                  : theme.colorScheme.errorContainer,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              validationError == null
-                                  ? l10n.t('configEditorValidationOk')
-                                  : l10n.t('configEditorValidationError'),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: validationError == null
-                                    ? AppColors.statusGreen
-                                    : theme.colorScheme.error,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          if (_loadError != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              l10n.t('configEditorLoadFailed', {
-                                'error': _loadError,
-                              }),
-                              style: TextStyle(color: theme.colorScheme.error),
-                            ),
-                          ],
-                          if (validationError != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              validationError,
-                              style: TextStyle(color: theme.colorScheme.error),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: isEditingCompact
+                        ? _buildCompactToolbar(theme, l10n, validationError)
+                        : _buildExpandedHeader(theme, l10n, validationError),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _saving ? null : _formatJson,
-                        icon: const Icon(Icons.auto_fix_high),
-                        label: Text(l10n.t('configEditorFormat')),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton.icon(
-                        onPressed: _saving || validationError != null
-                            ? null
-                            : _saveConfig,
-                        icon: _saving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.save_outlined),
-                        label: Text(
-                          _saving
-                              ? l10n.t('configEditorSaving')
-                              : l10n.t('configEditorSave'),
+                  SizedBox(height: isEditingCompact ? 8 : 12),
+                  if (!isEditingCompact)
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _saving ? null : _formatJson,
+                          icon: const Icon(Icons.auto_fix_high),
+                          label: Text(l10n.t('configEditorFormat')),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          onPressed: _saving || validationError != null
+                              ? null
+                              : _saveConfig,
+                          icon: _saving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.save_outlined),
+                          label: Text(
+                            _saving
+                                ? l10n.t('configEditorSaving')
+                                : l10n.t('configEditorSave'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (!isEditingCompact) const SizedBox(height: 12),
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
@@ -398,6 +363,7 @@ class _ConfigEditorScreenState extends State<ConfigEditorScreen> {
                       ),
                       child: TextField(
                         controller: _controller,
+                        focusNode: _editorFocusNode,
                         expands: true,
                         maxLines: null,
                         minLines: null,
@@ -406,14 +372,21 @@ class _ConfigEditorScreenState extends State<ConfigEditorScreen> {
                         keyboardType: TextInputType.multiline,
                         smartDashesType: SmartDashesType.disabled,
                         smartQuotesType: SmartQuotesType.disabled,
-                        style: theme.textTheme.bodyMedium?.copyWith(
+                        scrollPadding:
+                            const EdgeInsets.fromLTRB(16, 16, 16, 140),
+                        style: (isEditingCompact
+                                ? theme.textTheme.bodySmall
+                                : theme.textTheme.bodyMedium)
+                            ?.copyWith(
                           fontFamily: 'DejaVuSansMono',
                           height: 1.5,
                         ),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: '{\n  "gateway": {}\n}',
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.all(16),
+                          contentPadding: EdgeInsets.all(
+                            isEditingCompact ? 12 : 16,
+                          ),
                           filled: false,
                         ),
                       ),
@@ -422,6 +395,123 @@ class _ConfigEditorScreenState extends State<ConfigEditorScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildExpandedHeader(
+    ThemeData theme,
+    AppLocalizations l10n,
+    String? validationError,
+  ) {
+    return Card(
+      key: const ValueKey('expanded-header'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.t('configEditorSubtitle'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _configPath,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontFamily: 'DejaVuSansMono',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildValidationChip(theme, l10n, validationError),
+            if (_loadError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                l10n.t('configEditorLoadFailed', {
+                  'error': _loadError,
+                }),
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ],
+            if (validationError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                validationError,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactToolbar(
+    ThemeData theme,
+    AppLocalizations l10n,
+    String? validationError,
+  ) {
+    return Container(
+      key: const ValueKey('compact-header'),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline.withAlpha(40)),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _buildValidationChip(theme, l10n, validationError)),
+          const SizedBox(width: 10),
+          FilledButton.icon(
+            onPressed: _saving || validationError != null ? null : _saveConfig,
+            icon: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.save_outlined, size: 18),
+            label: Text(
+              _saving
+                  ? l10n.t('configEditorSaving')
+                  : l10n.t('configEditorSave'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValidationChip(
+    ThemeData theme,
+    AppLocalizations l10n,
+    String? validationError,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: validationError == null
+            ? AppColors.statusGreen.withAlpha(22)
+            : theme.colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        validationError == null
+            ? l10n.t('configEditorValidationOk')
+            : l10n.t('configEditorValidationError'),
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: validationError == null
+              ? AppColors.statusGreen
+              : theme.colorScheme.error,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

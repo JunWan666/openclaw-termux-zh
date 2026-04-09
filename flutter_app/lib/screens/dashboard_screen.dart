@@ -221,6 +221,31 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  Widget _buildAppVersionBadge(ThemeData theme) {
+    final versionLabel = AppConstants.version.startsWith('v')
+        ? AppConstants.version
+        : 'v${AppConstants.version}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha(90),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: theme.colorScheme.outline.withAlpha(120),
+        ),
+      ),
+      child: Text(
+        versionLabel,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openScreen(Widget screen) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => screen),
@@ -242,6 +267,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(l10n.t('appName')),
+            const SizedBox(width: 8),
+            _buildAppVersionBadge(theme),
             const SizedBox(width: 8),
             _buildAppUpdateAction(theme, l10n),
           ],
@@ -354,8 +381,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               },
             ),
             StatusCard(
-              title: l10n.t('dashboardCommandsTitle'),
-              subtitle: l10n.t('dashboardCommandsSubtitle'),
+              title: _guidesTitle(context, l10n),
+              subtitle: _guidesSubtitle(context, l10n),
               icon: Icons.code_outlined,
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _openScreen(const CommandShortcutsScreen()),
@@ -410,5 +437,17 @@ class _DashboardScreenState extends State<DashboardScreen>
       case NodeStatus.error:
         return l10n.t('nodeStatusError');
     }
+  }
+
+  String _guidesTitle(BuildContext context, AppLocalizations l10n) {
+    return Localizations.localeOf(context).languageCode == 'zh'
+        ? '常用说明'
+        : 'Guides';
+  }
+
+  String _guidesSubtitle(BuildContext context, AppLocalizations l10n) {
+    return Localizations.localeOf(context).languageCode == 'zh'
+        ? '查看常见操作说明，并复制相关命令、地址或提示词'
+        : 'Open common how-to guides and copy related commands or prompts';
   }
 }

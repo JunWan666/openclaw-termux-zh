@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants.dart';
+import '../models/openclaw_install_options.dart';
 import 'native_bridge.dart';
 
 typedef OpenClawInstallProgressCallback = void Function(
@@ -36,7 +37,8 @@ class OpenClawReleaseInfo {
           dist is Map<String, dynamic> ? dist['unpackedSize'] as int? : null,
       nodeRequirement:
           engines is Map<String, dynamic> ? engines['node'] as String? : null,
-      tarballUrl: dist is Map<String, dynamic> ? dist['tarball'] as String? : null,
+      tarballUrl:
+          dist is Map<String, dynamic> ? dist['tarball'] as String? : null,
     );
   }
 
@@ -146,8 +148,7 @@ class OpenClawVersionService {
       String currentMb,
       String totalMb,
       String details,
-    )
-        detailBuilder,
+    ) detailBuilder,
   }) async {
     _emitProgress(
       onProgress,
@@ -164,7 +165,8 @@ class OpenClawVersionService {
           return;
         }
         final ratio = received / total;
-        final progress = startProgress + ((endProgress - startProgress) * ratio);
+        final progress =
+            startProgress + ((endProgress - startProgress) * ratio);
         final currentMb = (received / 1024 / 1024).toStringAsFixed(1);
         final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
         final details = tracker.describe(received, total);
@@ -198,6 +200,26 @@ class OpenClawVersionService {
         detail: trimmed,
       );
     });
+  }
+
+  String _buildInstallCommand(
+    String packageSpecifier,
+    OpenClawInstallOptions installOptions,
+  ) {
+    final envPrefix = installOptions.installEnvironment.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(' ');
+    final commandSegments = <String>[
+      if (envPrefix.isNotEmpty) envPrefix,
+      'node',
+      _nodeWrapper,
+      _npmCli,
+      'install',
+      '-g',
+      ...installOptions.npmFlags,
+      packageSpecifier,
+    ];
+    return commandSegments.join(' ');
   }
 
   Future<String?> readInstalledVersion() async {
@@ -361,12 +383,14 @@ class OpenClawVersionService {
   Future<void> updateToLatest({
     OpenClawReleaseInfo? latestRelease,
     OpenClawInstallProgressCallback? onProgress,
+    OpenClawInstallOptions installOptions = const OpenClawInstallOptions(),
     bool captureLiveLogs = true,
   }) async {
     final release = latestRelease ?? await fetchLatestRelease();
     await installVersion(
       release.version,
       releaseInfo: release,
+      installOptions: installOptions,
       onProgress: onProgress,
       captureLiveLogs: captureLiveLogs,
     );
@@ -376,6 +400,7 @@ class OpenClawVersionService {
     String version, {
     OpenClawReleaseInfo? releaseInfo,
     OpenClawInstallProgressCallback? onProgress,
+    OpenClawInstallOptions installOptions = const OpenClawInstallOptions(),
     bool captureLiveLogs = true,
   }) async {
     _lastProgress = const OpenClawInstallProgress(progress: 0.0, message: '');
@@ -413,8 +438,8 @@ class OpenClawVersionService {
         progressEnd: 0.28,
       );
 
-      final packageFile =
-          File('${await NativeBridge.getFilesDir()}/rootfs/ubuntu/tmp/openclaw-$normalizedVersion.tgz');
+      final packageFile = File(
+          '${await NativeBridge.getFilesDir()}/rootfs/ubuntu/tmp/openclaw-$normalizedVersion.tgz');
       packageFile.parent.createSync(recursive: true);
       if (packageFile.existsSync() && packageFile.lengthSync() <= 0) {
         try {
@@ -445,15 +470,17 @@ class OpenClawVersionService {
         }
       }
 
-      final installCommand = tarballUrl != null && tarballUrl.isNotEmpty
-          ? 'node $_nodeWrapper $_npmCli install -g /tmp/${packageFile.uri.pathSegments.last}'
-          : 'node $_nodeWrapper $_npmCli install -g openclaw@$normalizedVersion';
+      final packageSpecifier = tarballUrl != null && tarballUrl.isNotEmpty
+          ? '/tmp/${packageFile.uri.pathSegments.last}'
+          : 'openclaw@$normalizedVersion';
+      final installCommand =
+          _buildInstallCommand(packageSpecifier, installOptions);
       await _runEstimatedProgress(
         onProgress: onProgress,
         startProgress: 0.54,
         targetProgress: 0.88,
         message: 'Installing OpenClaw dependencies...',
-        detail: 'Running npm install for OpenClaw...',
+        detail: captureLiveLogs ? 'Running npm install for OpenClaw...' : null,
         estimatedDuration: const Duration(minutes: 3),
         task: () => NativeBridge.runInProot(
           installCommand,
@@ -756,7 +783,8 @@ class _TransferProgressTracker {
         (_stopwatch.elapsedMilliseconds / 1000).clamp(0.001, double.infinity);
     final bytesPerSecond = received / elapsedSeconds;
     final remainingBytes = math.max(0, total - received);
-    final etaSeconds = bytesPerSecond <= 0 ? 0 : (remainingBytes / bytesPerSecond).round();
+    final etaSeconds =
+        bytesPerSecond <= 0 ? 0 : (remainingBytes / bytesPerSecond).round();
     return '${_formatSpeed(bytesPerSecond)} | ETA ${_formatEta(etaSeconds)}';
   }
 

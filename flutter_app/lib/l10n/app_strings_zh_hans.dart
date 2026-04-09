@@ -260,6 +260,23 @@ const Map<String, String> appStringsZhHans = {
   'setupWizardBegin': '开始安装',
   'setupWizardSelectVersion': 'OpenClaw 版本',
   'setupWizardSelectedVersionHint': '将安装 {version} · {size}',
+  'setupWizardRecommended': '推荐',
+  'openClawInstallOptionsSummaryTitle': '推荐安装优化已启用',
+  'openClawInstallOptionsAdvanced': '高级设置',
+  'openClawInstallOptionsLiveLogs': '详细安装日志',
+  'openClawInstallOptionsParallelSummary': '并行编译：{value}',
+  'openClawInstallOptionsIgnoreScriptsChip': '跳过 npm scripts',
+  'openClawInstallOptionsTitle': 'OpenClaw 安装设置',
+  'openClawInstallOptionsDescription':
+      '这些推荐优化始终启用：关闭 npm audit/fund/progress，显示详细安装日志，并开启并行编译。',
+  'openClawInstallOptionsParallelLabel': '并行编译线程',
+  'openClawInstallOptionsParallelAuto': '自动（推荐）',
+  'openClawInstallOptionsParallelThreadCount': '{count} 线程',
+  'openClawInstallOptionsParallelHint': '自动模式会根据 CPU 核心数，当前最多使用 {count} 个线程。',
+  'openClawInstallOptionsIgnoreScriptsTitle':
+      '跳过 npm scripts (--ignore-scripts)',
+  'openClawInstallOptionsIgnoreScriptsSubtitle':
+      '实验性选项。部分 OpenClaw 版本安装后可能跳过插件或运行时依赖配置。',
   'setupWizardRequirements': '需要约 500MB 存储空间和网络连接',
   'setupWizardStorageDialogTitle': '安装前授予文件访问权限',
   'setupWizardStorageDialogBody':

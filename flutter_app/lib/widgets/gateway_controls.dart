@@ -6,6 +6,7 @@ import '../app.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/gateway_state.dart';
+import '../models/openclaw_install_options.dart';
 import '../providers/gateway_provider.dart';
 import '../screens/logs_screen.dart';
 import '../screens/web_dashboard_screen.dart';
@@ -44,12 +45,16 @@ class _GatewayControlsState extends State<GatewayControls> {
   @override
   void initState() {
     super.initState();
-    _refreshInstalledVersion();
-    _loadReleaseOptions();
+    _initializeVersionCard();
   }
 
   @override
   void dispose() => super.dispose();
+
+  Future<void> _initializeVersionCard() async {
+    await _refreshInstalledVersion();
+    await _loadReleaseOptions();
+  }
 
   Future<void> _refreshInstalledVersion({bool showLoading = true}) async {
     if (showLoading && mounted) {
@@ -85,9 +90,13 @@ class _GatewayControlsState extends State<GatewayControls> {
       }
       final mergedReleases =
           _mergeAvailableReleases(availableReleases, latestRelease);
-      final preferredVersion = _selectedRelease?.version;
+      final preferredVersion = _selectedRelease?.version ?? _installedVersion;
       final selectedRelease =
           _findReleaseByVersion(mergedReleases, preferredVersion) ??
+              _findReleaseByVersion(
+                mergedReleases,
+                defaultRecommendedOpenClawReleaseVersion,
+              ) ??
               _findReleaseByVersion(mergedReleases, latestRelease.version) ??
               latestRelease;
 
@@ -931,10 +940,11 @@ class _GatewayControlsState extends State<GatewayControls> {
     OpenClawReleaseInfo release,
     AppLocalizations l10n,
   ) {
-    if (release.version == _latestRelease?.version) {
-      return '${release.version} (${l10n.t('gatewayLatest')})';
-    }
-    return release.version;
+    return formatOpenClawReleaseLabel(
+      l10n,
+      release.version,
+      latestVersion: _latestRelease?.version,
+    );
   }
 
   Widget _statusBadge(

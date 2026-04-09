@@ -236,6 +236,26 @@ const Map<String, String> appStringsJa = {
   'setupWizardConfigureApiKeys': 'API キーを設定',
   'setupWizardRetry': '再試行',
   'setupWizardBegin': 'セットアップ開始',
+  'setupWizardSelectVersion': 'OpenClaw バージョン',
+  'setupWizardSelectedVersionHint': '{version} · {size} をインストールします',
+  'setupWizardRecommended': 'おすすめ',
+  'openClawInstallOptionsSummaryTitle': '推奨インストール最適化を有効化',
+  'openClawInstallOptionsAdvanced': '詳細設定',
+  'openClawInstallOptionsLiveLogs': '詳細インストールログ',
+  'openClawInstallOptionsParallelSummary': '並列ビルド: {value}',
+  'openClawInstallOptionsIgnoreScriptsChip': 'npm scripts をスキップ',
+  'openClawInstallOptionsTitle': 'OpenClaw インストール設定',
+  'openClawInstallOptionsDescription':
+      'これらの推奨最適化は常に有効です。npm audit/fund/progress を無効化し、詳細なインストールログを表示し、並列ビルドを有効にします。',
+  'openClawInstallOptionsParallelLabel': '並列ビルドのスレッド数',
+  'openClawInstallOptionsParallelAuto': '自動（推奨）',
+  'openClawInstallOptionsParallelThreadCount': '{count} スレッド',
+  'openClawInstallOptionsParallelHint':
+      '自動モードでは CPU コア数に応じて現在最大 {count} スレッドを使います。',
+  'openClawInstallOptionsIgnoreScriptsTitle':
+      'npm scripts をスキップ (--ignore-scripts)',
+  'openClawInstallOptionsIgnoreScriptsSubtitle':
+      '実験的な設定です。OpenClaw の一部バージョンでは、インストール後のプラグインやランタイム依存関係のセットアップを省略する可能性があります。',
   'setupWizardRequirements': '約 500MB の空き容量とインターネット接続が必要です',
   'setupWizardStorageDialogTitle': 'セットアップ前にファイルアクセスを許可',
   'setupWizardStorageDialogBody':

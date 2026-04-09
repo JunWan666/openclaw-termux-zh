@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:dio/dio.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
+import '../models/openclaw_install_options.dart';
 import '../models/setup_state.dart';
 import 'install_status_message_formatter.dart';
 import 'native_bridge.dart';
@@ -313,6 +314,7 @@ class BootstrapService {
   Future<void> runFullSetup({
     required void Function(SetupState) onProgress,
     OpenClawReleaseInfo? selectedOpenClawRelease,
+    OpenClawInstallOptions installOptions = const OpenClawInstallOptions(),
   }) async {
     _lastSetupState = const SetupState();
     final logSubscription = NativeBridge.setupLogStream.listen((line) {
@@ -725,14 +727,17 @@ class BootstrapService {
         await _openClawVersionService.installVersion(
           selectedOpenClawRelease?.version ?? 'latest',
           releaseInfo: selectedOpenClawRelease,
+          installOptions: installOptions,
           captureLiveLogs: false,
           onProgress: (installProgress) {
+            final detail = installProgress.detail?.trim();
             _emitProgress(
               onProgress: onProgress,
               step: SetupStep.installingOpenClaw,
               progress: installProgress.progress,
               message: installProgress.message,
-              detail: installProgress.detail,
+              detail: detail?.isEmpty == true ? null : detail,
+              preserveDetail: detail == null || detail.isEmpty,
             );
           },
         );

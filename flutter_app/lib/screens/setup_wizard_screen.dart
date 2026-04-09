@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
+import '../models/openclaw_install_options.dart';
 import '../models/setup_state.dart';
 import '../providers/setup_provider.dart';
 import '../services/backup_service.dart';
@@ -70,6 +71,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       final preferredVersion = _selectedRelease?.version;
       final selectedRelease =
           _findReleaseByVersion(mergedReleases, preferredVersion) ??
+              _findReleaseByVersion(
+                mergedReleases,
+                defaultRecommendedOpenClawReleaseVersion,
+              ) ??
               _findReleaseByVersion(mergedReleases, latestRelease.version) ??
               latestRelease;
 
@@ -592,7 +597,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       children: [
         DropdownButtonFormField<String>(
           isExpanded: true,
-          value: canSelectVersions ? selectedRelease.version : null,
+          initialValue: canSelectVersions ? selectedRelease.version : null,
           decoration: InputDecoration(
             labelText: l10n.t('setupWizardSelectVersion'),
             border: const OutlineInputBorder(),
@@ -619,9 +624,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                 (release) => DropdownMenuItem(
                   value: release.version,
                   child: Text(
-                    release.version == latestRelease?.version
-                        ? '${release.version} (${l10n.t('gatewayLatest')})'
-                        : release.version,
+                    _formatSetupReleaseLabel(
+                      l10n,
+                      release,
+                      latestRelease,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -696,6 +703,18 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       }
     }
     return null;
+  }
+
+  String _formatSetupReleaseLabel(
+    AppLocalizations l10n,
+    OpenClawReleaseInfo release,
+    OpenClawReleaseInfo? latestRelease,
+  ) {
+    return formatOpenClawReleaseLabel(
+      l10n,
+      release.version,
+      latestVersion: latestRelease?.version,
+    );
   }
 
   String _localizedSetupMessage(AppLocalizations l10n, String? message) {
