@@ -1,0 +1,141 @@
+{
+  "wizard": {
+    "lastRunAt": "2026-04-09T02:48:21.088Z",
+    "lastRunVersion": "2026.3.23",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "susu": {
+        "baseUrl": "https://susuapi.nas.cpolar.cn/v1",
+        "apiKey": "sk-xquJQght3GTL4durjqiZNXQNxJ6R85d4O7artxMYLdqWbeLx",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "英伟达/openai/gpt-oss-120b",
+            "name": "英伟达/openai/gpt-oss-120b (Custom Provider)",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 10,
+              "output": 10,
+              "cacheRead": 1,
+              "cacheWrite": 10
+            },
+            "contextWindow": 128000,
+            "maxTokens": 4096
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "susu/英伟达/openai/gpt-oss-120b"
+      },
+      "models": {
+        "susu/英伟达/openai/gpt-oss-120b": {}
+      },
+      "workspace": "/root/.openclaw/workspace"
+    }
+  },
+  "tools": {
+    "profile": "full",
+    "web": {
+      "search": {
+        "enabled": true,
+        "provider": "duckduckgo"
+      }
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "boot-md": {
+          "enabled": true
+        },
+        "bootstrap-extra-files": {
+          "enabled": true
+        },
+        "command-logger": {
+          "enabled": true
+        },
+        "session-memory": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": "c1445934435321300d03f37cdfef09ecb5e66be983119ed8"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "nodes": {
+      "denyCommands": [],
+      "allowCommands": [
+        "camera.snap",
+        "camera.clip",
+        "camera.list",
+        "canvas.navigate",
+        "canvas.eval",
+        "canvas.snapshot",
+        "flash.on",
+        "flash.off",
+        "flash.toggle",
+        "flash.status",
+        "location.get",
+        "screen.record",
+        "sensor.read",
+        "sensor.list",
+        "haptic.vibrate",
+        "serial.list",
+        "serial.connect",
+        "serial.disconnect",
+        "serial.write",
+        "serial.read"
+      ]
+    },
+    "reload": {
+      "mode": "hybrid"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "duckduckgo": {
+        "enabled": true
+      }
+    }
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.3.23",
+    "lastTouchedAt": "2026-04-09T02:48:21.784Z"
+  },
+  "discovery": {
+    "mdns": {
+      "mode": "off"
+    }
+  }
+}

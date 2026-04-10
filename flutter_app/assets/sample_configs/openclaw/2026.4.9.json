@@ -1,0 +1,125 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "/root/.openclaw/workspace",
+      "model": {
+        "primary": "susu/英伟达/openai/gpt-oss-120b"
+      },
+      "models": {
+        "susu/英伟达/openai/gpt-oss-120b": {}
+      }
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "e406a9c7f1e670cc320e6d1139df5b8eaf6848a92aa7ce51"
+    },
+    "port": 18789,
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "controlUi": {
+      "allowInsecureAuth": true
+    },
+    "nodes": {
+      "denyCommands": [],
+      "allowCommands": [
+        "camera.snap",
+        "camera.clip",
+        "camera.list",
+        "canvas.navigate",
+        "canvas.eval",
+        "canvas.snapshot",
+        "flash.on",
+        "flash.off",
+        "flash.toggle",
+        "flash.status",
+        "location.get",
+        "screen.record",
+        "sensor.read",
+        "sensor.list",
+        "haptic.vibrate",
+        "serial.list",
+        "serial.connect",
+        "serial.disconnect",
+        "serial.write",
+        "serial.read"
+      ]
+    },
+    "reload": {
+      "mode": "hybrid"
+    }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "susu": {
+        "baseUrl": "https://susuapi.nas.cpolar.cn/v1",
+        "api": "openai-completions",
+        "apiKey": "sk-xquJQght3GTL4durjqiZNXQNxJ6R85d4O7artxMYLdqWbeLx",
+        "models": [
+          {
+            "id": "英伟达/openai/gpt-oss-120b",
+            "name": "英伟达/openai/gpt-oss-120b (Custom Provider)",
+            "contextWindow": 128000,
+            "maxTokens": 4096,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 10,
+              "output": 10,
+              "cacheRead": 1,
+              "cacheWrite": 10
+            },
+            "reasoning": false
+          }
+        ]
+      }
+    }
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "session-memory": {
+          "enabled": true
+        },
+        "bootstrap-extra-files": {
+          "enabled": true
+        },
+        "boot-md": {
+          "enabled": true
+        },
+        "command-logger": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-04-09T05:57:59.801Z",
+    "lastRunVersion": "2026.4.9",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.4.9",
+    "lastTouchedAt": "2026-04-09T05:58:02.102Z"
+  },
+  "discovery": {
+    "mdns": {
+      "mode": "off"
+    }
+  }
+}

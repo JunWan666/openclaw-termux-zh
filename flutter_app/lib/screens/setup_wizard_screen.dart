@@ -6,6 +6,7 @@ import '../models/openclaw_install_options.dart';
 import '../models/setup_state.dart';
 import '../providers/setup_provider.dart';
 import '../services/backup_service.dart';
+import '../services/bundled_sample_config_service.dart';
 import '../services/install_status_message_formatter.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/preferences_service.dart';
@@ -446,7 +447,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: _goToOnboarding,
+                            onPressed: _handleConfigureApi,
                             icon: const Icon(Icons.arrow_forward),
                             label: Text(l10n.t('setupWizardConfigureApiKeys')),
                           ),
@@ -725,6 +726,123 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     return InstallStatusMessageFormatter.localizeDetail(l10n, detail);
   }
 
+  bool get _isChineseLocale =>
+      Localizations.localeOf(context).languageCode == 'zh';
+
+  Future<void> _handleConfigureApi() async {
+    final installedVersion = await _versionService.readInstalledVersion();
+    final sample = await BundledSampleConfigService.loadForVersion(
+      installedVersion,
+    );
+
+    if (!mounted || sample == null) {
+      await _goToOnboarding();
+      return;
+    }
+
+    final choice = await _showBundledSampleConfigDialog(sample.version);
+    if (!mounted || choice == null) {
+      return;
+    }
+
+    switch (choice) {
+      case _BundledConfigChoice.useSample:
+        await _applyBundledSampleConfig(sample);
+        break;
+      case _BundledConfigChoice.useTerminalOnboarding:
+        await _goToOnboarding();
+        break;
+    }
+  }
+
+  Future<_BundledConfigChoice?> _showBundledSampleConfigDialog(
+    String version,
+  ) async {
+    final isZh = _isChineseLocale;
+    return showDialog<_BundledConfigChoice>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          isZh ? '发现内置示例配置' : 'Built-in sample config available',
+        ),
+        content: Text(
+          isZh
+              ? '检测到当前已安装的 OpenClaw 版本为 $version，并且应用内置了对应示例配置。\n\n使用示例配置后，可以跳过终端引导，直接进入首页；之后只需要去“AI 提供商”里把 Base URL、API Key 和模型改成你自己的即可。'
+              : 'A built-in sample config is available for the installed OpenClaw version $version.\n\nIf you use it, you can skip terminal onboarding and go straight to the dashboard. Afterwards, just update the Base URL, API key, and model from the AI Providers page.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(context.l10n.t('commonCancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext)
+                .pop(_BundledConfigChoice.useTerminalOnboarding),
+            child: Text(
+              isZh ? '继续终端引导' : 'Use terminal onboarding',
+            ),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_BundledConfigChoice.useSample),
+            child: Text(
+              isZh ? '使用示例配置' : 'Use sample config',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _applyBundledSampleConfig(BundledSampleConfig sample) async {
+    final isZh = _isChineseLocale;
+
+    try {
+      await BundledSampleConfigService.apply(sample);
+      await ProviderConfigService.ensureGatewayDefaults();
+
+      if (!mounted) return;
+
+      final acknowledged = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            isZh ? '示例配置已套用' : 'Sample config applied',
+          ),
+          content: Text(
+            isZh
+                ? '已为 OpenClaw ${sample.version} 套用内置示例配置。\n\n接下来会直接进入首页。进入后请打开“AI 提供商”，把 Base URL、API Key、模型改成你自己的，再启动 Gateway。'
+                : 'The built-in sample config for OpenClaw ${sample.version} has been applied.\n\nYou will go straight to the dashboard next. Open AI Providers there and replace the Base URL, API key, and model with your own values before starting the gateway.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                isZh ? '前往首页' : 'Go to dashboard',
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (acknowledged == true) {
+        await _finishSetupFlow();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isZh
+                ? '套用内置示例配置失败，已回退到终端引导：$e'
+                : 'Failed to apply the built-in sample config. Falling back to terminal onboarding: $e',
+          ),
+        ),
+      );
+      await _goToOnboarding();
+    }
+  }
+
   Future<void> _goToOnboarding() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -735,4 +853,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     if (!mounted) return;
     await _completeIfGatewayConfigured();
   }
+}
+
+enum _BundledConfigChoice {
+  useSample,
+  useTerminalOnboarding,
 }

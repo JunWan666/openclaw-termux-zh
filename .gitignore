@@ -32,3 +32,6 @@ release/*
 release/*/*
 !release/*/Release.zh.md
 .codex-project-rules.md
+
+# Local exported OpenClaw configs with real API keys / tokens
+openclaw-config/openclaw-config-app-*.json

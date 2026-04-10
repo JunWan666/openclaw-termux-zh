@@ -1,0 +1,128 @@
+{
+  "wizard": {
+    "lastRunAt": "2026-04-09T02:25:16.177Z",
+    "lastRunVersion": "2026.3.13",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "susu": {
+        "baseUrl": "https://susuapi.nas.cpolar.cn/v1",
+        "apiKey": "sk-xquJQght3GTL4durjqiZNXQNxJ6R85d4O7artxMYLdqWbeLx",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "英伟达/openai/gpt-oss-120b",
+            "name": "英伟达/openai/gpt-oss-120b (Custom Provider)",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 10,
+              "output": 10,
+              "cacheRead": 1,
+              "cacheWrite": 10
+            },
+            "contextWindow": 128000,
+            "maxTokens": 4096
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "susu/英伟达/openai/gpt-oss-120b"
+      },
+      "models": {
+        "susu/英伟达/openai/gpt-oss-120b": {}
+      },
+      "workspace": "/root/.openclaw/workspace"
+    }
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "boot-md": {
+          "enabled": true
+        },
+        "session-memory": {
+          "enabled": true
+        },
+        "command-logger": {
+          "enabled": true
+        },
+        "bootstrap-extra-files": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": "f51e160bb273619ebc026aafe4e777aa39492795ef4becca"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "nodes": {
+      "denyCommands": [],
+      "allowCommands": [
+        "camera.snap",
+        "camera.clip",
+        "camera.list",
+        "canvas.navigate",
+        "canvas.eval",
+        "canvas.snapshot",
+        "flash.on",
+        "flash.off",
+        "flash.toggle",
+        "flash.status",
+        "location.get",
+        "screen.record",
+        "sensor.read",
+        "sensor.list",
+        "haptic.vibrate",
+        "serial.list",
+        "serial.connect",
+        "serial.disconnect",
+        "serial.write",
+        "serial.read"
+      ]
+    },
+    "reload": {
+      "mode": "hybrid"
+    }
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-04-09T02:25:16.198Z"
+  },
+  "discovery": {
+    "mdns": {
+      "mode": "off"
+    }
+  }
+}

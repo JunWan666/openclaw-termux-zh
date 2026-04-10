@@ -9,6 +9,7 @@ class PreferencesService {
   static const _keyPendingSetupCompletionChoice =
       'pending_setup_completion_choice';
   static const _keyDashboardUrl = 'dashboard_url';
+  static const _keyWebDashboardScale = 'web_dashboard_scale';
   static const _keyLocaleCode = 'locale_code';
   static const _keyBonjourEnabled = 'bonjour_enabled';
   static const _keyNodeEnabled = 'node_enabled';
@@ -60,6 +61,22 @@ class PreferencesService {
       _prefs.setString(_keyDashboardUrl, normalized);
     } else {
       _prefs.remove(_keyDashboardUrl);
+    }
+  }
+
+  double get webDashboardScale {
+    final value = _prefs.getDouble(_keyWebDashboardScale);
+    if (value == null || value <= 0) {
+      return 1.0;
+    }
+    return value;
+  }
+
+  set webDashboardScale(double value) {
+    if (value <= 0 || (value - 1.0).abs() < 0.0001) {
+      _prefs.remove(_keyWebDashboardScale);
+    } else {
+      _prefs.setDouble(_keyWebDashboardScale, value);
     }
   }
 
