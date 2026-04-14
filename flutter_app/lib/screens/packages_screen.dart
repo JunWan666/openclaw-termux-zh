@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../models/optional_package.dart';
 import '../services/package_service.dart';
 import 'cpolar_screen.dart';
+import 'local_model_screen.dart';
 import 'package_install_screen.dart';
 
 /// Lists all optional packages with install/uninstall actions.
@@ -58,6 +59,21 @@ class _PackagesScreenState extends State<PackagesScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CpolarScreen(startInstallOnOpen: startInstallOnOpen),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    await _refreshStatuses();
+  }
+
+  Future<void> _openLocalModel({
+    bool startInstallOnOpen = false,
+  }) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            LocalModelScreen(startInstallOnOpen: startInstallOnOpen),
       ),
     );
     if (!mounted) {
@@ -156,7 +172,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                     children: [
                       Flexible(
                         child: Text(
-                          package.name,
+                          _packageName(l10n, package),
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -226,6 +242,18 @@ class _PackagesScreenState extends State<PackagesScreen> {
             );
     }
 
+    if (package.id == 'local-model') {
+      return installed
+          ? OutlinedButton(
+              onPressed: () => _openLocalModel(),
+              child: Text(l10n.t('commonManage')),
+            )
+          : FilledButton(
+              onPressed: () => _openLocalModel(startInstallOnOpen: true),
+              child: Text(l10n.t('packagesInstall')),
+            );
+    }
+
     return installed
         ? OutlinedButton(
             onPressed: () => _confirmUninstall(package),
@@ -239,6 +267,8 @@ class _PackagesScreenState extends State<PackagesScreen> {
 
   String _packageDescription(AppLocalizations l10n, OptionalPackage package) {
     switch (package.id) {
+      case 'local-model':
+        return l10n.t('packageLocalModelDescription');
       case 'go':
         return l10n.t('packageGoDescription');
       case 'brew':
@@ -251,6 +281,15 @@ class _PackagesScreenState extends State<PackagesScreen> {
         return l10n.t('packageCpolarDescription');
       default:
         return package.description;
+    }
+  }
+
+  String _packageName(AppLocalizations l10n, OptionalPackage package) {
+    switch (package.id) {
+      case 'local-model':
+        return '${l10n.t('localModelTitle')} (llama.cpp)';
+      default:
+        return package.name;
     }
   }
 }

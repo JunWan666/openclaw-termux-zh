@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,11 @@ class LogsScreen extends StatefulWidget {
 }
 
 class _LogsScreenState extends State<LogsScreen> {
+  static const _conversationSessionsRelativePath =
+      'root/.openclaw/agents/main/sessions';
+  static const _conversationSessionsDisplayPath =
+      '/root/.openclaw/agents/main/sessions';
+
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   final _screenshotKey = GlobalKey();
@@ -62,6 +68,52 @@ class _LogsScreenState extends State<LogsScreen> {
     });
   }
 
+  Future<File?> _findLatestConversationLogFile() async {
+    final filesDir = await NativeBridge.getFilesDir();
+    final sessionsDir =
+        Directory('$filesDir/rootfs/ubuntu/$_conversationSessionsRelativePath');
+    if (!await sessionsDir.exists()) {
+      return null;
+    }
+
+    final jsonlFiles = <File>[];
+    await for (final entry in sessionsDir.list(followLinks: false)) {
+      if (entry is File && entry.path.toLowerCase().endsWith('.jsonl')) {
+        jsonlFiles.add(entry);
+      }
+    }
+
+    if (jsonlFiles.isEmpty) {
+      return null;
+    }
+
+    final stampedFiles = <({File file, DateTime modifiedAt})>[];
+    for (final file in jsonlFiles) {
+      try {
+        stampedFiles.add((file: file, modifiedAt: await file.lastModified()));
+      } catch (_) {
+        // Ignore files that disappear between listing and stat.
+      }
+    }
+
+    if (stampedFiles.isEmpty) {
+      return null;
+    }
+
+    stampedFiles.sort((left, right) {
+      final modifiedCompare = right.modifiedAt.compareTo(left.modifiedAt);
+      if (modifiedCompare != 0) {
+        return modifiedCompare;
+      }
+      return right.file.path.compareTo(left.file.path);
+    });
+    return stampedFiles.first.file;
+  }
+
+  String _displayConversationLogPath(File file) {
+    return '$_conversationSessionsDisplayPath/${file.uri.pathSegments.last}';
+  }
+
   Future<void> _loadConversationLogs({bool silent = false}) async {
     if (_conversationLoadInFlight) return;
     _conversationLoadInFlight = true;
@@ -77,31 +129,15 @@ class _LogsScreenState extends State<LogsScreen> {
     }
 
     try {
-      final output = await NativeBridge.runInProot(
-        r'''
-latest="$(ls -1t /root/.openclaw/agents/main/sessions/*.jsonl 2>/dev/null | head -n 1)"
-if [ -n "$latest" ]; then
-  printf '__OPENCLAW_SESSION_FILE__%s\n' "$latest"
-  cat "$latest"
-fi
-''',
-        timeout: 60,
-      );
-
-      final lines = const LineSplitter().convert(output);
-      String? filePath;
-      if (lines.isNotEmpty &&
-          lines.first.startsWith('__OPENCLAW_SESSION_FILE__')) {
-        filePath =
-            lines.first.replaceFirst('__OPENCLAW_SESSION_FILE__', '').trim();
-      }
-
-      final rawLogs = filePath == null
+      final latestFile = await _findLatestConversationLogFile();
+      final rawLogs = latestFile == null
           ? const <String>[]
-          : lines
-              .skip(1)
+          : const LineSplitter()
+              .convert(await latestFile.readAsString())
               .where((line) => line.trim().isNotEmpty)
               .toList(growable: false);
+      final filePath =
+          latestFile == null ? null : _displayConversationLogPath(latestFile);
 
       if (!mounted) return;
       setState(() {

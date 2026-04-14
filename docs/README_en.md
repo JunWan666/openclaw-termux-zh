@@ -10,28 +10,30 @@
 
 ## Current Version
 
-- Version: `v1.9.9`
-- Release notes: [release/v1.9.9/Release.zh.md](../release/v1.9.9/Release.zh.md)
+- Version: `v2.0.1`
+- Release notes: [release/v2.0.1/Release.zh.md](../release/v2.0.1/Release.zh.md)
 - Change log: [CHANGELOG.md](../CHANGELOG.md)
 - Releases page: <https://github.com/JunWan666/openclaw-termux-zh/releases>
 
-## What's New In v1.9.9
+## What's New In v2.0.1
 
-- Maintenance now supports two export modes: a config-only `openclaw.json` backup, or a workspace backup that covers the core `/root/.openclaw` runtime data used for memory and session recovery.
-- Import now auto-detects config JSON, legacy snapshot JSON, and tagged workspace ZIP archives, so users can choose a file directly without an extra type selector.
-- Workspace restore now stops the gateway first and only restores a validated whitelist of paths, reducing the risk of corrupting the whole rootfs with an unsafe archive.
-- The setup completion screen now reuses the same backup import flow, making first-run recovery much easier.
-- Release metadata is synced to formal `v1.9.9`, and the Android build number is bumped to `44`.
+- Fixed custom model names leaking across other providers. Each provider now keeps its own selected or typed model.
+- Fixed conversation log loading by reading `.jsonl` session files directly from the app workspace instead of going through an extra proot exec path that could retrigger the missing `resolv.conf` issue.
+- Added a dedicated "Local Model & Chat" home shortcut. From there you can install the official `llama.cpp` runtime, browse built-in GGUF recommendations, search public GGUF files online, manage installed models, and jump straight into a local chat page.
+- Added built-in Gemma 4 entries and more plain-language device-fit suggestions, so users no longer need to manually hunt for GGUF download links.
+- Upgraded the local chat page with stream output, thinking toggles, Markdown rendering, stop generation, collapsible runtime header, memory usage display, API endpoint copy, and the ability to switch between local, saved, or manually entered endpoints.
+- Replaced the old backup shortcut flow with a Backup Center that can import, store, switch, restore, and export backups in one place.
+- Release metadata is synced back to formal `v2.0.1`, and the Android build number is bumped to `68`.
 
 ## Download Artifacts
 
 | File | Target Device | Size | Download |
 |---|---|---:|---|
-| `OpenClaw-v1.9.9-universal.apk` | Best default choice | 100.34 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-universal.apk) |
-| `OpenClaw-v1.9.9-arm64-v8a.apk` | Most modern Android phones | 83.24 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-arm64-v8a.apk) |
-| `OpenClaw-v1.9.9-armeabi-v7a.apk` | Older 32-bit ARM devices | 82.88 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-armeabi-v7a.apk) |
-| `OpenClaw-v1.9.9-x86_64.apk` | Emulator or x86_64 device | 83.45 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-x86_64.apk) |
-| `OpenClaw-v1.9.9.aab` | Store distribution | 107.14 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9.aab) |
+| `OpenClaw-v2.0.1-universal.apk` | Best default choice | 102.06 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-universal.apk) |
+| `OpenClaw-v2.0.1-arm64-v8a.apk` | Most modern Android phones | 83.80 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-arm64-v8a.apk) |
+| `OpenClaw-v2.0.1-armeabi-v7a.apk` | Older 32-bit ARM devices | 83.53 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-armeabi-v7a.apk) |
+| `OpenClaw-v2.0.1-x86_64.apk` | Emulator or x86_64 device | 84.01 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-x86_64.apk) |
+| `OpenClaw-v2.0.1.aab` | Store distribution | 108.84 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1.aab) |
 
 ## Quick Start
 
@@ -55,7 +57,7 @@ flutter build apk --release
 To generate the release directory with APKs and AAB:
 
 ```bash
-python scripts/build_release.py --version 1.9.9 --build-number 44
+python scripts/build_release.py --version 2.0.1 --build-number 68
 ```
 
 ## Repository Structure

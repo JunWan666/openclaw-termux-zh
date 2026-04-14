@@ -25,6 +25,73 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   bool _loading = true;
   bool _switchingPreset = false;
 
+  Map<String, dynamic>? _providerConfig(AiProvider provider) {
+    return _providers[provider.id] as Map<String, dynamic>?;
+  }
+
+  String? _configuredModelForProvider(AiProvider provider) {
+    final configuredModel = _providerConfig(provider)?['model'] as String?;
+    if (configuredModel == null || configuredModel.trim().isEmpty) {
+      return null;
+    }
+    return configuredModel.trim();
+  }
+
+  String? _modelIdFromRef(String modelRef) {
+    final separatorIndex = modelRef.indexOf('/');
+    if (separatorIndex < 0 || separatorIndex >= modelRef.length - 1) {
+      return modelRef;
+    }
+    return modelRef.substring(separatorIndex + 1);
+  }
+
+  bool _isProviderActive(AiProvider provider) {
+    final activeModel = _activeModel;
+    if (activeModel == null || activeModel.trim().isEmpty) {
+      return false;
+    }
+
+    final trimmedActiveModel = activeModel.trim();
+    final activeProviderId =
+        ProviderConfigService.providerIdFromModelRef(trimmedActiveModel);
+    if (activeProviderId != null) {
+      return activeProviderId == provider.id;
+    }
+
+    final configuredModel = _configuredModelForProvider(provider);
+    if (configuredModel != null) {
+      return configuredModel == trimmedActiveModel;
+    }
+
+    return provider.defaultModels.contains(trimmedActiveModel);
+  }
+
+  String? _existingModelForProvider(AiProvider provider) {
+    final configuredModel = _configuredModelForProvider(provider);
+    if (configuredModel != null) {
+      return configuredModel;
+    }
+
+    final activeModel = _activeModel;
+    if (activeModel == null || activeModel.trim().isEmpty) {
+      return null;
+    }
+
+    final trimmedActiveModel = activeModel.trim();
+    final activeProviderId =
+        ProviderConfigService.providerIdFromModelRef(trimmedActiveModel);
+    if (activeProviderId == provider.id) {
+      return _modelIdFromRef(trimmedActiveModel);
+    }
+
+    if (activeProviderId == null &&
+        provider.defaultModels.contains(trimmedActiveModel)) {
+      return trimmedActiveModel;
+    }
+
+    return null;
+  }
+
   CustomProviderPreset? get _activeCustomPreset {
     final activeModel = _activeModel;
     if (activeModel == null || activeModel.isEmpty) {
@@ -73,13 +140,10 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
             MaterialPageRoute(
               builder: (_) => ProviderDetailScreen(
                 provider: provider,
-                existingApiKey: (_providers[provider.id]
-                    as Map<String, dynamic>?)?['apiKey'] as String?,
-                existingBaseUrl: (_providers[provider.id]
-                    as Map<String, dynamic>?)?['baseUrl'] as String?,
-                existingModel: (_providers[provider.id]
-                        as Map<String, dynamic>?)?['model'] as String? ??
-                    _activeModel,
+                existingApiKey: _providerConfig(provider)?['apiKey'] as String?,
+                existingBaseUrl:
+                    _providerConfig(provider)?['baseUrl'] as String?,
+                existingModel: _existingModelForProvider(provider),
               ),
             ),
           );
@@ -150,15 +214,10 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
       return (label: '', isActive: false);
     }
 
-    final providerConfig = _providers[provider.id] as Map<String, dynamic>?;
-    final configuredModel = providerConfig?['model'] as String?;
-    if (_activeModel != null) {
-      final isActive = configuredModel == _activeModel ||
-          provider.matchesModel(_activeModel!);
-      if (isActive) {
-        return (label: l10n.t('providersStatusActive'), isActive: true);
-      }
+    if (_isProviderActive(provider)) {
+      return (label: l10n.t('providersStatusActive'), isActive: true);
     }
+
     return (
       label: l10n.t('providersStatusConfigured'),
       isActive: false,

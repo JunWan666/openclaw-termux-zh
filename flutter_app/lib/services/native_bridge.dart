@@ -298,6 +298,48 @@ class NativeBridge {
     return await _channel.invokeMethod('isCpolarServiceRunning');
   }
 
+  static Future<bool> startLocalModelService({
+    required String binaryPath,
+    required String modelPath,
+    required String logPath,
+    required int port,
+    required String alias,
+    required int contextSize,
+    required int threads,
+    required int threadsBatch,
+    required int batchSize,
+    required int ubatchSize,
+  }) async {
+    return await _channel.invokeMethod('startLocalModelService', {
+      'binaryPath': binaryPath,
+      'modelPath': modelPath,
+      'logPath': logPath,
+      'port': port,
+      'alias': alias,
+      'contextSize': contextSize,
+      'threads': threads,
+      'threadsBatch': threadsBatch,
+      'batchSize': batchSize,
+      'ubatchSize': ubatchSize,
+    });
+  }
+
+  static Future<bool> stopLocalModelService() async {
+    return await _channel.invokeMethod('stopLocalModelService');
+  }
+
+  static Future<bool> isLocalModelServiceRunning() async {
+    return await _channel.invokeMethod('isLocalModelServiceRunning');
+  }
+
+  static Future<Map<String, dynamic>?> getLocalModelRuntimeStats() async {
+    final result = await _channel.invokeMethod('getLocalModelRuntimeStats');
+    if (result == null) {
+      return null;
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
   static Future<List<String>> getDeviceIps() async {
     final result = await _channel.invokeMethod('getDeviceIps');
     return List<String>.from(result);

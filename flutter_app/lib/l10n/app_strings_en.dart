@@ -258,7 +258,7 @@ const Map<String, String> appStringsEn = {
   'providerDescriptionXai': 'Grok models from xAI',
   'dashboardPackagesTitle': 'Packages',
   'dashboardPackagesSubtitle':
-      'Install optional tools (Go, Homebrew, SSH, ADB, cpolar)',
+      'Install optional tools (Local Model, Go, Homebrew, SSH, ADB, cpolar)',
   'dashboardSshTitle': 'SSH Access',
   'dashboardSshSubtitle': 'Remote terminal access via SSH',
   'dashboardLogsTitle': 'Logs',
@@ -354,8 +354,212 @@ const Map<String, String> appStringsEn = {
   'packageBrewDescription': 'The missing package manager for Linux',
   'packageSshDescription': 'SSH client and server for secure remote access',
   'packageAdbDescription': 'Android Debug Bridge command line tools',
+  'packageLocalModelDescription':
+      'Run a local GGUF model with llama.cpp and expose it as an OpenAI-compatible endpoint',
   'packageCpolarDescription':
       'Tunnel local services to the public internet with cpolar',
+  'localModelTitle': 'Local Model',
+  'localModelIntro':
+      'Install the official llama.cpp runtime, then either pick from a built-in GGUF model list or paste your own direct download URL.',
+  'localModelUnsupportedArchitecture':
+      'This architecture is not supported by the official llama.cpp Ubuntu release: {arch}',
+  'localModelRecommendationTitle': 'Recommended Model Tier',
+  'localModelCatalogTitle': 'GGUF Model List',
+  'localModelCatalogIntro':
+      'These entries already include ready-to-use GGUF download links, so you do not need to search for files manually.',
+  'localModelCatalogSearchHint': 'Search by model name, use case, or keyword',
+  'localModelCatalogAutoDownloadHint':
+      'Tap "One-tap Download" to return to the previous page and start the download automatically.',
+  'localModelCatalogNoResults':
+      'No models matched this search. Try terms like 3B, coding, or Qwen.',
+  'localModelCatalogRecommendRam': 'Recommended RAM {value}GB+',
+  'localModelCatalogBestForLabel': 'Best for',
+  'localModelCatalogOneTapDownload': 'One-tap Download',
+  'localModelCatalogCompatUnknown': 'Start small',
+  'localModelCatalogCompatUnknownBody':
+      'Memory could not be detected yet, so it is safer to start with 0.5B or 1.5B.',
+  'localModelCatalogCompatGreat': 'Good fit',
+  'localModelCatalogCompatGreatBody':
+      'This model should be a practical fit for this phone and is a reasonable first choice.',
+  'localModelCatalogCompatOkay': 'May run slowly',
+  'localModelCatalogCompatOkayBody':
+      'This phone can probably run it, but expect more heat, slower generation, or tighter memory.',
+  'localModelCatalogCompatTooHeavy': 'Too heavy for now',
+  'localModelCatalogCompatTooHeavyBody':
+      'This model is likely too heavy for this phone. A smaller option is the safer first step.',
+  'localModelCatalogFilterAll': 'All',
+  'localModelCatalogFilterStarter': 'Starter',
+  'localModelCatalogFilterDaily': 'Daily',
+  'localModelCatalogFilterStrong': 'Stronger',
+  'localModelCatalogFilterCoding': 'Coding',
+  'localModelCatalogModeBuiltIn': 'Built-in Picks',
+  'localModelCatalogModeOnline': 'Search Online',
+  'localModelCatalogBrowseTitle': 'Pick From Model List',
+  'localModelCatalogBrowseBody':
+      'Use this when you do not want to search for GGUF links yourself. The list is searchable and gives a rough fit hint for this phone.',
+  'localModelCatalogOpenAction': 'Open Model List',
+  'localModelCatalogOnlineIntro':
+      'Search public GGUF repositories online, then choose a specific `.gguf` file to download. For most phones, start with Q4_K_M or Q4_0 variants.',
+  'localModelCatalogOnlineSearchHint':
+      'Search online model names, such as qwen, gemma, coder...',
+  'localModelCatalogOnlineSearchAction': 'Search Online',
+  'localModelCatalogOnlineSearchRequired':
+      'Enter a keyword first, then search online.',
+  'localModelCatalogOnlineLoading': 'Searching online models...',
+  'localModelCatalogOnlineEmpty':
+      'No matching online GGUF models were found. Try another keyword like qwen, gemma, or coder.',
+  'localModelCatalogOnlineRateLimited':
+      'The online model source is rate-limiting requests right now. Wait a bit, then search again.',
+  'localModelCatalogOnlineTimeout':
+      'The online model search timed out. Try again in a moment.',
+  'localModelCatalogOnlineRequestFailed': 'Online model search failed: {error}',
+  'localModelCatalogOnlineAction': 'Choose GGUF File',
+  'localModelCatalogOnlineDownloads': 'Downloads {value}',
+  'localModelCatalogOnlineLikes': 'Likes {value}',
+  'localModelCatalogOnlineUpdated': 'Updated {value}',
+  'localModelCatalogOnlineGated': 'May require access',
+  'localModelCatalogVariantTitle': 'Choose GGUF File',
+  'localModelCatalogVariantHint':
+      'Pick a quantized file first. Q4_K_M is the safest default, Q4_0 is the next easiest choice, and FP16 is usually too large for phones.',
+  'localModelCatalogVariantRecommendQ4km':
+      'Recommended first choice. Usually the safest balance of quality and phone load.',
+  'localModelCatalogVariantRecommendQ40':
+      'A lighter option. Good when you want to reduce memory pressure.',
+  'localModelCatalogVariantGeneral':
+      'A usable variant, but check the file name and size before downloading.',
+  'localModelCatalogVariantTooLarge':
+      'Usually too large for phones. Only try this on very strong devices.',
+  'localModelQuickActionsTitle': 'Quick Actions',
+  'localModelQuickActionsBody':
+      'Use the installed-model page to switch, start, or delete downloaded models. Once the local server is running, you can also open a simple local chat page directly from here.',
+  'localModelOpenLibraryAction': 'Installed Models',
+  'localModelOpenChatAction': 'Open Local Chat',
+  'localModelChatUnavailable':
+      'Start the local model service first, then open the chat page.',
+  'localModelChatUnavailableHint':
+      'The local chat page becomes available after the local model service is running.',
+  'localModelRuntimeTitle': 'Runtime',
+  'localModelRuntimeBody':
+      'The runtime uses the official llama.cpp Ubuntu release package and runs the local server as a background foreground-service task.',
+  'localModelInstallLogsTitle': 'Runtime Install Logs',
+  'localModelDownloadTitle': 'Download GGUF Model',
+  'localModelManualDownloadTitle': 'Manual Download (Advanced)',
+  'localModelManualDownloadBody':
+      'If you already have a direct GGUF file URL, paste it here. For most users, the built-in model list above is the easier path.',
+  'localModelDownloadUrlLabel': 'Model URL',
+  'localModelFileNameLabel': 'Saved file name',
+  'localModelDownloadAction': 'Download Model',
+  'localModelDownloadProgressTitle': 'Download Progress',
+  'localModelDownloadProgressValue': '{current} / {total}',
+  'localModelDownloadProgressValueUnknown': 'Downloaded {current}',
+  'localModelDownloadSourceLabel': 'Current source: {value}',
+  'localModelDownloadLogsTitle': 'Model Download Logs',
+  'localModelModelsTitle': 'Model and Endpoint',
+  'localModelNoModels':
+      'No GGUF files found yet. Download one first, then start the local server.',
+  'localModelStoredModelsTitle': 'Stored Models',
+  'localModelContextSizeLabel': 'Context size',
+  'localModelStartServer': 'Start Server',
+  'localModelStartAndEnable': 'Start and Enable',
+  'localModelPresetActivated':
+      'Local model {model} is now active in AI Providers.',
+  'localModelServerStarted': 'Local model server started on port {port}',
+  'localModelErrorUrlRequired': 'Model download URL cannot be empty.',
+  'localModelErrorFileNameRequired': 'Saved file name cannot be empty.',
+  'localModelErrorSelectModel': 'Select a downloaded GGUF model first.',
+  'localModelChipArch': 'Arch {value}',
+  'localModelChipRam': 'RAM {value} GB',
+  'localModelChipStorage': 'Free {value} GB',
+  'localModelRuntimeLogsTitle': 'Runtime Logs',
+  'localModelDeleteTitle': 'Delete local model?',
+  'localModelDeleteBody':
+      'This will remove the local model file {model} from the device.',
+  'localModelLibraryTitle': 'Installed Models',
+  'localModelLibraryIntro':
+      'Manage the GGUF files already stored on this phone. You can switch the selected model, start it, enable it in AI Providers, or delete it here.',
+  'localModelLibraryUseSelected': 'Use Selected',
+  'localModelLibraryEmpty': 'No local models have been downloaded yet.',
+  'localModelLibrarySelected': 'Selected',
+  'localModelLibraryConfigured': 'Configured',
+  'localModelLibraryRunning': 'Running',
+  'localModelChatTitle': 'Local Model Chat',
+  'localModelChatIntro':
+      'This page talks directly to the local llama.cpp endpoint on the phone. It is meant for quick testing before you switch back to the main OpenClaw flow.',
+  'localModelChatModelLabel': 'Current model',
+  'localModelChatEmpty':
+      'No messages yet. Type something below to quickly test whether the local model is replying normally.',
+  'localModelChatComposerHint': 'Ask something to test the local model...',
+  'localModelChatSending': 'Thinking...',
+  'localModelChatErrorEmpty': 'Enter a message first.',
+  'localModelChatRequestFailed': 'Request failed: {error}',
+  'localModelChatClearAction': 'Clear Chat',
+  'localModelChatClearTitle': 'Clear this chat?',
+  'localModelChatClearBody':
+      'This only clears the messages on this page. It will not stop the local model service.',
+  'localModelChatSettingsAction': 'Session Settings',
+  'localModelChatSettingsTitle': 'Chat Settings',
+  'localModelChatSettingsIntro':
+      'Move the chat options here so the message area stays cleaner. You can also switch to another saved model config or use a temporary manual config for testing.',
+  'localModelChatStreamToggle': 'Stream Output',
+  'localModelChatStreamToggleHint':
+      'Show the reply while it is being generated.',
+  'localModelChatStreamUnsupportedHint':
+      'This connection currently falls back to normal output even if stream mode stays on.',
+  'localModelChatThinkingToggle': 'Enable Thinking',
+  'localModelChatThinkingToggleHint':
+      'Ask the model to place its thought process in `<think>` blocks when possible.',
+  'localModelChatShowReasoningToggle': 'Show Thinking',
+  'localModelChatShowReasoningToggleHint':
+      'Control whether the `<think>` content is visible in the chat.',
+  'localModelChatHeaderExpandedToggle': 'Keep Top Card Expanded',
+  'localModelChatHeaderExpandedToggleHint':
+      'Turn this off if the top summary card is taking too much space.',
+  'localModelChatSettingStateStreamOn': 'Streaming on',
+  'localModelChatSettingStateStreamOff': 'Streaming off',
+  'localModelChatSettingStateThinkingOn': 'Thinking on',
+  'localModelChatSettingStateThinkingOff': 'Thinking off',
+  'localModelChatSettingStateReasoningOn': 'Thinking visible',
+  'localModelChatSettingStateReasoningOff': 'Thinking hidden',
+  'localModelChatHeaderCollapseAction': 'Collapse Top Card',
+  'localModelChatHeaderExpandAction': 'Expand Top Card',
+  'localModelChatHeaderHint':
+      'This top card can now be collapsed, and more options are available from the settings button in the top right.',
+  'localModelChatHeaderCollapsedHint':
+      'Top card is collapsed. Open it again from the arrow or the settings page.',
+  'localModelChatSessionChanged':
+      'Switched to another chat target. The current chat was cleared.',
+  'localModelChatSessionSourceTitle': 'Chat Source',
+  'localModelChatSourceLocal': 'Local Model',
+  'localModelChatSourceSaved': 'Saved Config',
+  'localModelChatSourceManual': 'Manual Config',
+  'localModelChatSessionBehaviorTitle': 'Behavior',
+  'localModelChatSavedConfigSource': 'Saved provider config',
+  'localModelChatSavedConfigEmpty': 'Pick a saved config first.',
+  'localModelChatSavedConfigLoading': 'Loading saved chat configs...',
+  'localModelChatSavedConfigEmptyHint':
+      'No supported saved chat configs were found yet. Configure an OpenAI-compatible provider first, or switch to manual config below.',
+  'localModelChatSavedConfigPicker': 'Saved model config',
+  'localModelChatSavedConfigUnsupportedHint':
+      '{count} saved provider entries are not shown here because this chat page currently focuses on local and OpenAI-compatible endpoints.',
+  'localModelChatManualSource': 'Manual config',
+  'localModelChatManualCompatibilityLabel': 'Protocol',
+  'localModelChatManualNameLabel': 'Display name',
+  'localModelChatManualHint':
+      'This is only for the current test chat. It does not write anything back into the config file.',
+  'localModelChatToggleHint':
+      'Stream output shows text as it arrives. Enable Thinking asks the model to place its reasoning in `<think>` blocks when possible, and Show Thinking controls whether those blocks are visible on this page.',
+  'localModelChatReasoningLabel': 'Thinking',
+  'localModelChatStopped': 'Generation stopped.',
+  'localModelChatStoppedTag': 'Stopped',
+  'localModelChatBenchmarkAction': 'Benchmark',
+  'localModelChatBenchmarkTitle': 'Latest Speed Test',
+  'localModelChatBenchmarkDone': 'Speed test completed.',
+  'localModelChatBenchmarkFailed': 'Speed test failed: {error}',
+  'localModelChatMetricDuration': 'Total {value}',
+  'localModelChatMetricFirstToken': 'First token {value}',
+  'localModelChatMetricTokensPerSecond': '{value} tok/s',
+  'localModelChatMetricOutputTokens': 'Output {value} tok',
+  'localModelChatMetricOutputTokensEstimated': 'Output ~{value} tok',
   'packageCpolarGuideTitle': 'Quick Start',
   'packageCpolarGuideBody':
       'After installation, open the token page first to get your authtoken, then run the commands below in the terminal to start cpolar and manage tunnels from the local 9200 Web UI.',
@@ -700,6 +904,86 @@ const Map<String, String> appStringsEn = {
       'Backup OpenClaw version: {version}',
   'settingsSnapshotVersionCurrentOpenClaw':
       'Current OpenClaw version: {version}',
+  'settingsBackupCenterTitle': 'Backup Center',
+  'settingsBackupCenterSubtitle':
+      'Import, save, switch, export, and restore backups from one place',
+  'dashboardLocalModelTitle': 'Local Model & Chat',
+  'dashboardLocalModelSubtitle':
+      'Install llama.cpp, manage local models, and open the chat page',
+  'backupManagerTitle': 'Backup Center',
+  'backupManagerIntro':
+      'Keep imported backups here so you can switch or restore them quickly later.',
+  'backupManagerImportAction': 'Import Backup',
+  'backupManagerSaveCurrentAction': 'Save Current Config',
+  'backupManagerExportConfigAction': 'Export Config',
+  'backupManagerExportWorkspaceAction': 'Export Workspace',
+  'backupManagerEmpty': 'No stored backups yet.',
+  'backupManagerImported': 'Imported backup: {file}',
+  'backupManagerSavedLocal': 'Saved current config: {file}',
+  'backupManagerDeleteTitle': 'Delete this backup?',
+  'backupManagerDeleteBody': 'This removes the stored backup file {file}.',
+  'backupManagerKindConfig': 'Config',
+  'backupManagerKindSnapshot': 'Snapshot',
+  'backupManagerKindWorkspace': 'Workspace',
+  'backupManagerCompatibilityWarning':
+      'This backup version does not fully match the current environment. Review before restoring.',
+  'backupManagerRestoreAction': 'Restore',
+  'localModelRuntimeSettingsTitle': 'Local Runtime Settings',
+  'localModelRuntimeSettingsIntro':
+      'These limits are soft tuning hints for llama.cpp. They help control heat, memory pressure, and speed on the phone.',
+  'localModelRuntimeSettingsSaved':
+      'Local runtime settings saved. They apply the next time the model starts.',
+  'localModelRuntimeSettingsDeviceTitle': 'Device Reference',
+  'localModelRuntimeSettingsDeviceSummary':
+      'Detected CPU: {cpu} cores | Detected memory: {memory} GB',
+  'localModelRuntimeSettingsCpuTitle': 'CPU Limit',
+  'localModelRuntimeSettingsAuto': 'Auto',
+  'localModelRuntimeSettingsCpuOption': '{value} cores',
+  'localModelRuntimeSettingsCpuLabel': 'Max CPU cores',
+  'localModelRuntimeSettingsCpuHint':
+      'Lower values reduce heat and foreground pressure, but replies may be slower.',
+  'localModelRuntimeSettingsMemoryTitle': 'Memory Soft Limit',
+  'localModelRuntimeSettingsMemoryLabel': 'Memory soft limit',
+  'localModelRuntimeSettingsMemoryHint':
+      'Leave blank to auto-tune. Use GB here, for example 5.8. This is not a hard OS cap, but it guides smaller runtime settings.',
+  'localModelRuntimeSettingsMemoryDetected':
+      'Detected total phone memory is about {value} GB.',
+  'localModelRuntimeSettingsMemoryInvalid':
+      'Enter a number like 5.8, or leave it blank.',
+  'localModelRuntimeSettingsModeTitle': 'Performance Mode',
+  'localModelRuntimeSettingsModeMemorySaver': 'Memory saver',
+  'localModelRuntimeSettingsModeBalanced': 'Balanced',
+  'localModelRuntimeSettingsModePerformance': 'Performance',
+  'localModelRuntimeSettingsModeHint':
+      'The descriptions below explain which mode fits which situation.',
+  'localModelRuntimeSettingsModeMemorySaverDetail':
+      'Most conservative. Lowers threads and batch sizes first. Best when the phone runs hot, memory is tight, or you mainly want stability.',
+  'localModelRuntimeSettingsModeBalancedDetail':
+      'Recommended default. Tries to balance speed, heat, and memory pressure for everyday use on most phones.',
+  'localModelRuntimeSettingsModePerformanceDetail':
+      'More aggressive. Pushes threads and batch sizes higher for speed when possible, but uses more memory and may run hotter.',
+  'localModelOpenRuntimeSettingsAction': 'Resource Settings',
+  'localModelChatAvailableHint':
+      'The local service is already running. You can enter chat directly or switch to another saved model from chat settings.',
+  'localModelChatPreopenHint':
+      'You can open the chat page before starting the local service. If it is not running yet, switch targets in chat settings or come back after starting it.',
+  'localModelDownloadEtaLabel': 'ETA {value}',
+  'localModelDownloadFallbackSource': 'Fallback source',
+  'localModelChatRuntimeNotRunning': 'Local model not started',
+  'localModelChatRuntimeWaiting': 'Reading runtime stats...',
+  'localModelChatRuntimeConnected': 'Model connected',
+  'localModelChatRuntimeUnavailable': 'Runtime stats unavailable',
+  'localModelChatRuntimeMemoryPanelTitle': 'Memory usage',
+  'localModelChatRuntimeMemoryUsage': 'Using {used} / {total}',
+  'localModelChatRuntimeRefreshing': 'Refreshing every second',
+  'localModelChatRuntimeCpu': 'CPU {value}%',
+  'localModelChatRuntimeMemory': 'RAM {value}',
+  'localModelChatRuntimeThreads': 'Threads {value}',
+  'localModelChatRuntimeCores': '~{value} cores',
+  'localModelChatLocalUnavailableHint':
+      'The local model is not running yet. You can start it first, or open chat settings and switch to another saved model.',
+  'localModelChatComposerDisabledHint':
+      'Start the local model first, or switch to another model in chat settings',
   'statusInstalled': 'Installed',
   'statusNotInstalled': 'Not installed',
 };

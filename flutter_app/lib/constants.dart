@@ -1,6 +1,6 @@
-﻿class AppConstants {
+class AppConstants {
   static const String appName = 'OpenClaw';
-  static const String version = '2.0.0';
+  static const String version = '2.0.1';
   static const String packageName = 'com.junwan666.openclawzh';
 
   /// Matches ANSI escape sequences (e.g. color codes in terminal output).
@@ -143,5 +143,3 @@
     }
   }
 }
-
-

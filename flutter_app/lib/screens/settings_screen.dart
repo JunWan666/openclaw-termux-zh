@@ -8,18 +8,14 @@ import '../l10n/app_localizations.dart';
 import '../providers/gateway_provider.dart';
 import '../providers/locale_provider.dart';
 import '../providers/node_provider.dart';
-import '../services/backup_service.dart';
 import '../services/native_bridge.dart';
-import '../services/openclaw_version_service.dart';
 import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
-import '../services/snapshot_service.dart';
 import '../services/update_flow_service.dart';
 import '../services/update_service.dart';
+import 'backup_manager_screen.dart';
 import 'node_screen.dart';
 import 'setup_wizard_screen.dart';
-
-enum _BackupExportKind { config, workspace }
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -32,7 +28,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _showOrgSection = false;
 
   final _prefs = PreferencesService();
-  final _openClawVersionService = OpenClawVersionService();
   bool _autoStart = false;
   bool _bonjourEnabled = false;
   bool _nodeEnabled = false;
@@ -297,18 +292,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Divider(),
                 _sectionHeader(theme, l10n.t('settingsMaintenance')),
                 ListTile(
-                  title: Text(l10n.t('settingsExportSnapshot')),
-                  subtitle: Text(l10n.t('settingsExportSnapshotSubtitle')),
-                  leading: const Icon(Icons.upload_file),
+                  title: Text(l10n.t('settingsBackupCenterTitle')),
+                  subtitle: Text(l10n.t('settingsBackupCenterSubtitle')),
+                  leading: const Icon(Icons.backup_table_rounded),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: _exportBackup,
-                ),
-                ListTile(
-                  title: Text(l10n.t('settingsImportSnapshot')),
-                  subtitle: Text(l10n.t('settingsImportSnapshotSubtitle')),
-                  leading: const Icon(Icons.download),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _importBackup,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const BackupManagerScreen(),
+                    ),
+                  ),
                 ),
                 ListTile(
                   title: Text(l10n.t('settingsRerunSetup')),
@@ -493,337 +485,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
     );
-  }
-
-  String _backupTimestampSuffix() {
-    final now = DateTime.now();
-    final year = now.year.toString().padLeft(4, '0');
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-    final second = now.second.toString().padLeft(2, '0');
-    return '$year-$month-$day-$hour$minute$second';
-  }
-
-  String _defaultConfigBackupFileName({
-    required String appVersion,
-    String? openClawVersion,
-  }) {
-    final appPart = _sanitizeBackupFilePart(appVersion);
-    final openClawPart = _sanitizeBackupFilePart(openClawVersion);
-    return 'openclaw-config-app-$appPart-openclaw-$openClawPart-${_backupTimestampSuffix()}.json';
-  }
-
-  String _defaultWorkspaceBackupFileName({
-    required String appVersion,
-    String? openClawVersion,
-  }) {
-    final appPart = _sanitizeBackupFilePart(appVersion);
-    final openClawPart = _sanitizeBackupFilePart(openClawVersion);
-    return 'openclaw-workspace-app-$appPart-openclaw-$openClawPart-${_backupTimestampSuffix()}.zip';
-  }
-
-  String _sanitizeBackupFilePart(String? value) {
-    final normalized = value?.trim();
-    if (normalized == null || normalized.isEmpty) {
-      return 'unknown';
-    }
-
-    final sanitized = normalized
-        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '-')
-        .replaceAll(RegExp(r'-{2,}'), '-');
-    return sanitized.isEmpty ? 'unknown' : sanitized;
-  }
-
-  Future<_BackupExportKind?> _pickExportKind() async {
-    final l10n = context.l10n;
-    return showDialog<_BackupExportKind>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.t('settingsBackupExportTypeTitle')),
-        contentPadding: const EdgeInsets.only(top: 12, bottom: 8),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.folder_zip_outlined),
-              title: Text(l10n.t('settingsBackupExportWorkspace')),
-              subtitle: Text(l10n.t('settingsBackupExportWorkspaceSubtitle')),
-              onTap: () => Navigator.of(dialogContext).pop(
-                _BackupExportKind.workspace,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.description_outlined),
-              title: Text(l10n.t('settingsBackupExportConfig')),
-              subtitle: Text(l10n.t('settingsBackupExportConfigSubtitle')),
-              onTap: () => Navigator.of(dialogContext).pop(
-                _BackupExportKind.config,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l10n.t('commonCancel')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<bool> _confirmSnapshotImportIfNeeded(
-    SnapshotCompatibility compatibility,
-  ) async {
-    if (!compatibility.requiresConfirmation) {
-      return true;
-    }
-
-    final l10n = context.l10n;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.t('settingsSnapshotVersionWarningTitle')),
-        content: SingleChildScrollView(
-          child: Text(_buildSnapshotImportWarningMessage(l10n, compatibility)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.t('commonCancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.t('commonContinue')),
-          ),
-        ],
-      ),
-    );
-
-    return confirmed ?? false;
-  }
-
-  Future<bool> _confirmConfigImport() async {
-    final l10n = context.l10n;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.t('settingsBackupImportConfigWarningTitle')),
-        content: Text(l10n.t('settingsBackupImportConfigWarningBody')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.t('commonCancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.t('commonContinue')),
-          ),
-        ],
-      ),
-    );
-
-    return confirmed ?? false;
-  }
-
-  Future<bool> _confirmWorkspaceImportIfNeeded(
-    SnapshotCompatibility? compatibility,
-  ) async {
-    final l10n = context.l10n;
-    final lines = <String>[
-      l10n.t('settingsBackupImportWorkspaceWarningBody'),
-    ];
-
-    if (compatibility != null && compatibility.requiresConfirmation) {
-      lines
-        ..add('')
-        ..add(_buildSnapshotImportWarningMessage(l10n, compatibility));
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.t('settingsBackupImportWorkspaceWarningTitle')),
-        content: SingleChildScrollView(
-          child: Text(lines.join('\n')),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.t('commonCancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.t('commonContinue')),
-          ),
-        ],
-      ),
-    );
-
-    return confirmed ?? false;
-  }
-
-  String _buildSnapshotImportWarningMessage(
-    AppLocalizations l10n,
-    SnapshotCompatibility compatibility,
-  ) {
-    final unknown = l10n.t('commonUnknown');
-    final lines = <String>[
-      l10n.t('settingsSnapshotVersionWarningIntro'),
-    ];
-
-    if (compatibility.hasMissingVersionInfo) {
-      lines.add(l10n.t('settingsSnapshotVersionWarningMissing'));
-    }
-    if (compatibility.hasAppVersionMismatch) {
-      lines.add(l10n.t('settingsSnapshotVersionWarningAppMismatch'));
-    }
-    if (compatibility.hasOpenClawVersionMismatch) {
-      lines.add(l10n.t('settingsSnapshotVersionWarningOpenClawMismatch'));
-    }
-
-    lines.add('');
-    lines.add(
-      l10n.t('settingsSnapshotVersionSnapshotApp', {
-        'version': compatibility.snapshotAppVersion ?? unknown,
-      }),
-    );
-    lines.add(
-      l10n.t('settingsSnapshotVersionCurrentApp', {
-        'version': compatibility.currentAppVersion ?? unknown,
-      }),
-    );
-    lines.add(
-      l10n.t('settingsSnapshotVersionSnapshotOpenClaw', {
-        'version': compatibility.snapshotOpenClawVersion ?? unknown,
-      }),
-    );
-    lines.add(
-      l10n.t('settingsSnapshotVersionCurrentOpenClaw', {
-        'version': compatibility.currentOpenClawVersion ?? unknown,
-      }),
-    );
-
-    return lines.join('\n');
-  }
-
-  Future<void> _exportBackup() async {
-    final exportKind = await _pickExportKind();
-    if (exportKind == null) {
-      return;
-    }
-
-    try {
-      final installedOpenClawVersion =
-          await _openClawVersionService.readInstalledVersion();
-      late final String fallbackName;
-      late final Map<String, dynamic>? saved;
-      switch (exportKind) {
-        case _BackupExportKind.config:
-          fallbackName = _defaultConfigBackupFileName(
-            appVersion: AppConstants.version,
-            openClawVersion: installedOpenClawVersion,
-          );
-          saved = await BackupService.exportConfigBackup(
-            suggestedName: fallbackName,
-          );
-          break;
-        case _BackupExportKind.workspace:
-          fallbackName = _defaultWorkspaceBackupFileName(
-            appVersion: AppConstants.version,
-            openClawVersion: installedOpenClawVersion,
-          );
-          saved = await BackupService.exportWorkspaceBackup(
-            suggestedName: fallbackName,
-            appVersion: AppConstants.version,
-            openClawVersion: installedOpenClawVersion,
-          );
-          break;
-      }
-
-      if (saved == null) {
-        return;
-      }
-      final savedName = (saved['name'] as String?) ?? fallbackName;
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.l10n.t('settingsSnapshotSaved', {'path': savedName}),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.t('settingsExportFailed', {'error': e})),
-        ),
-      );
-    }
-  }
-
-  Future<void> _importBackup() async {
-    final l10n = context.l10n;
-    try {
-      final picked = await BackupService.pickBackupForRestore(
-        emptyFileMessage: l10n.t('settingsSnapshotFileEmpty'),
-        unsupportedFileMessage: l10n.t('settingsBackupUnsupportedFile'),
-        invalidWorkspaceBackupMessage:
-            l10n.t('settingsBackupInvalidWorkspaceArchive'),
-      );
-      if (picked == null) {
-        return;
-      }
-
-      final currentOpenClawVersion =
-          await _openClawVersionService.readInstalledVersion();
-      final compatibility = picked.compatibility(
-        currentAppVersion: AppConstants.version,
-        currentOpenClawVersion: currentOpenClawVersion,
-      );
-      final shouldContinue = switch (picked.kind) {
-        BackupImportKind.config => await _confirmConfigImport(),
-        BackupImportKind.legacySnapshot => compatibility == null
-            ? true
-            : await _confirmSnapshotImportIfNeeded(compatibility),
-        BackupImportKind.workspace =>
-          await _confirmWorkspaceImportIfNeeded(compatibility),
-      };
-      if (!shouldContinue) {
-        return;
-      }
-
-      if (!mounted) return;
-      final gatewayProvider = context.read<GatewayProvider>();
-      await gatewayProvider.stop();
-      await gatewayProvider.syncState();
-      await picked.restore();
-
-      // Refresh UI
-      await _loadSettings();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.t('settingsSnapshotRestored', {
-              'file': picked.fileName,
-            }),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.t('settingsImportFailed', {'error': e})),
-        ),
-      );
-    }
   }
 
   Future<void> _checkForUpdates() async {

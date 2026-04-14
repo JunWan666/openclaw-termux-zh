@@ -270,8 +270,23 @@ echo ">>> CPOLAR_UNINSTALL_COMPLETE"
     completionSentinel: 'CPOLAR_INSTALL_COMPLETE',
   );
 
+  static const localModelPackage = OptionalPackage(
+    id: 'local-model',
+    name: 'Local Model (llama.cpp)',
+    description: 'Run a local GGUF model through llama.cpp on this device',
+    icon: Icons.memory,
+    color: Colors.deepOrange,
+    installCommand: 'echo "Open the Local Model screen to install llama.cpp."',
+    uninstallCommand:
+        'echo "Open the Local Model screen to uninstall llama.cpp."',
+    checkPath: 'usr/local/bin/llama-server',
+    estimatedSize: '~30 MB runtime + model files',
+    completionSentinel: 'LOCAL_MODEL_INSTALL_COMPLETE',
+  );
+
   /// All available optional packages.
   static const all = [
+    localModelPackage,
     goPackage,
     brewPackage,
     sshPackage,

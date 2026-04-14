@@ -8,6 +8,8 @@ import 'preferences_service.dart';
 /// Reads and writes AI provider configuration in openclaw.json.
 class ProviderConfigService {
   static const _configPath = '/root/.openclaw/openclaw.json';
+  static const _customPresetMetadataPath =
+      '/root/.openclaw/app/custom-provider-presets.json';
   static const _customOpenaiId = 'custom-openai';
   static const _customOpenaiContextWindow = 128000;
   static const _customOpenaiMaxTokens = 8192;
@@ -51,6 +53,30 @@ class ProviderConfigService {
     await NativeBridge.writeRootfsFile(
       _configPath,
       const JsonEncoder.withIndent('  ').convert(config),
+    );
+  }
+
+  static Future<Map<String, dynamic>> _readCustomPresetMetadataMap() async {
+    try {
+      final content =
+          await NativeBridge.readRootfsFile(_customPresetMetadataPath);
+      if (content == null || content.trim().isEmpty) {
+        return <String, dynamic>{};
+      }
+      return _asStringKeyedMap(jsonDecode(content));
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  static Future<void> _writeCustomPresetMetadataMap(
+    Map<String, dynamic> metadata,
+  ) async {
+    final presets = _ensureCustomPresetMetadataEntries(metadata);
+    metadata['presets'] = presets;
+    await NativeBridge.writeRootfsFile(
+      _customPresetMetadataPath,
+      const JsonEncoder.withIndent('  ').convert(metadata),
     );
   }
 
@@ -143,6 +169,65 @@ class ProviderConfigService {
       return casted;
     }
     return null;
+  }
+
+  static Map<String, dynamic> _ensureCustomPresetMetadataEntries(
+    Map<String, dynamic> metadata,
+  ) {
+    final presets = _asStringKeyedMap(metadata['presets']);
+    metadata['presets'] = presets;
+    return presets;
+  }
+
+  static Map<String, dynamic> _customPresetMetadataEntry(
+    Map<String, dynamic>? metadata,
+    String providerId,
+  ) {
+    if (metadata == null) {
+      return <String, dynamic>{};
+    }
+    final presets = _asStringKeyedMap(metadata['presets']);
+    return _asStringKeyedMap(presets[providerId]);
+  }
+
+  static bool _setCustomPresetAlias(
+    Map<String, dynamic> metadata, {
+    required String providerId,
+    required String alias,
+  }) {
+    final presets = _ensureCustomPresetMetadataEntries(metadata);
+    final trimmedAlias = alias.trim();
+    final existingEntry = _asStringKeyedMap(presets[providerId]);
+    final currentAlias = (existingEntry['alias'] as String? ?? '').trim();
+
+    if (trimmedAlias.isEmpty) {
+      if (existingEntry.isEmpty) {
+        return false;
+      }
+      existingEntry.remove('alias');
+      if (existingEntry.isEmpty) {
+        presets.remove(providerId);
+      } else {
+        presets[providerId] = existingEntry;
+      }
+      return currentAlias.isNotEmpty || !presets.containsKey(providerId);
+    }
+
+    if (currentAlias == trimmedAlias) {
+      return false;
+    }
+
+    existingEntry['alias'] = trimmedAlias;
+    presets[providerId] = existingEntry;
+    return true;
+  }
+
+  static bool _removeCustomPresetMetadataEntry(
+    Map<String, dynamic> metadata, {
+    required String providerId,
+  }) {
+    final presets = _ensureCustomPresetMetadataEntries(metadata);
+    return presets.remove(providerId) != null;
   }
 
   static String? _readActiveModel(Map<String, dynamic> config) {
@@ -393,6 +478,7 @@ class ProviderConfigService {
     required String providerId,
     required dynamic rawProviderConfig,
     Map<String, dynamic>? allowList,
+    Map<String, dynamic>? presetMetadata,
   }) {
     if (_builtInProviderIds.contains(providerId)) {
       return null;
@@ -409,7 +495,10 @@ class ProviderConfigService {
     final allowListEntry = allowList == null
         ? const <String, dynamic>{}
         : _asStringKeyedMap(allowList[modelRef]);
-    final alias = (providerConfig['alias'] as String? ??
+    final presetMetadataEntry =
+        _customPresetMetadataEntry(presetMetadata, providerId);
+    final alias = (presetMetadataEntry['alias'] as String? ??
+            providerConfig['alias'] as String? ??
             allowListEntry['alias'] as String? ??
             '')
         .trim();
@@ -427,76 +516,108 @@ class ProviderConfigService {
     );
   }
 
-  static void _syncAliasInAllowList(
+  static bool _clearLegacyAliasInAllowList(
     Map<String, dynamic> config, {
     required String modelRef,
-    required String alias,
   }) {
     final allowList = _defaultModelsAllowList(config);
     if (allowList == null) {
-      return;
+      return false;
+    }
+
+    if (!allowList.containsKey(modelRef)) {
+      return false;
     }
 
     final existingEntry = _asStringKeyedMap(allowList[modelRef]);
-    if (alias.isNotEmpty) {
-      existingEntry['alias'] = alias;
-      allowList[modelRef] = existingEntry;
-      return;
-    }
-
-    existingEntry.remove('alias');
+    final removedAlias = existingEntry.remove('alias') != null;
     if (existingEntry.isEmpty) {
       allowList.remove(modelRef);
     } else {
       allowList[modelRef] = existingEntry;
     }
-  }
-
-  static void _removeFromAllowList(
-      Map<String, dynamic> config, String modelRef) {
-    final allowList = _defaultModelsAllowList(config);
-    allowList?.remove(modelRef);
+    return removedAlias;
   }
 
   static Future<void> migrateCustomProviderConfigIfNeeded() async {
     try {
       final config = await _readConfigMap();
+      final presetMetadata = await _readCustomPresetMetadataMap();
       final providers = _ensureProvidersSection(config);
       final activeModel = _readActiveModel(config);
-      var changed = false;
+      final allowList = _defaultModelsAllowList(config);
+      final knownCustomProviderIds = <String>{};
+      var configChanged = false;
+      var metadataChanged = false;
 
       for (final entry in providers.entries.toList()) {
         final preset = _customPresetFromEntry(
           providerId: entry.key,
           rawProviderConfig: entry.value,
+          allowList: allowList,
+          presetMetadata: presetMetadata,
         );
         if (preset == null) {
           continue;
         }
+        knownCustomProviderIds.add(entry.key);
 
         final normalizedBaseUrl = normalizeCustomBaseUrl(
           preset.baseUrl,
           preset.compatibility,
         );
+        final providerConfig = _asStringKeyedMap(entry.value);
         if (normalizedBaseUrl != preset.baseUrl) {
-          final providerConfig = _asStringKeyedMap(entry.value);
           providerConfig['baseUrl'] = normalizedBaseUrl;
           providers[entry.key] = providerConfig;
-          changed = true;
+          configChanged = true;
         }
 
         final normalizedPrimary = preset.modelRef;
         if (activeModel == preset.modelId) {
           _ensureDefaultModelSection(config)['primary'] = normalizedPrimary;
-          changed = true;
+          configChanged = true;
+        }
+
+        if (providerConfig.containsKey('alias')) {
+          providerConfig.remove('alias');
+          providers[entry.key] = providerConfig;
+          configChanged = true;
+        }
+
+        if (_clearLegacyAliasInAllowList(config, modelRef: normalizedPrimary)) {
+          configChanged = true;
+        }
+
+        if (_setCustomPresetAlias(
+          presetMetadata,
+          providerId: entry.key,
+          alias: preset.alias,
+        )) {
+          metadataChanged = true;
         }
       }
 
-      if (!changed) {
-        return;
+      final presetEntries =
+          _ensureCustomPresetMetadataEntries(presetMetadata).keys.toList();
+      for (final providerId in presetEntries) {
+        if (!knownCustomProviderIds.contains(providerId)) {
+          if (_removeCustomPresetMetadataEntry(
+            presetMetadata,
+            providerId: providerId,
+          )) {
+            metadataChanged = true;
+          }
+        }
       }
 
-      await _writeConfigMap(config);
+      if (configChanged) {
+        await _writeConfigMap(config);
+      }
+
+      if (metadataChanged) {
+        await _writeCustomPresetMetadataMap(presetMetadata);
+      }
     } catch (_) {
       // Non-fatal: the user can still re-save the provider manually.
     }
@@ -509,6 +630,7 @@ class ProviderConfigService {
   static Future<Map<String, dynamic>> readConfig() async {
     try {
       final config = await _readConfigMap();
+      final presetMetadata = await _readCustomPresetMetadataMap();
       final activeModel = _readActiveModel(config);
       final providers = <String, dynamic>{};
       final customPresets = <CustomProviderPreset>[];
@@ -526,6 +648,7 @@ class ProviderConfigService {
           providerId: entry.key,
           rawProviderConfig: entry.value,
           allowList: allowList,
+          presetMetadata: presetMetadata,
         );
         if (preset != null) {
           customPresets.add(preset);
@@ -649,7 +772,6 @@ class ProviderConfigService {
     required String apiKey,
     required String baseUrl,
     required String modelId,
-    required String alias,
   }) {
     final providerEntry = _asStringKeyedMap(existingValue);
     if (compatibility.apiValue != null) {
@@ -659,11 +781,7 @@ class ProviderConfigService {
     }
     providerEntry['apiKey'] = apiKey;
     providerEntry['baseUrl'] = baseUrl;
-    if (alias.isNotEmpty) {
-      providerEntry['alias'] = alias;
-    } else {
-      providerEntry.remove('alias');
-    }
+    providerEntry.remove('alias');
 
     final rawModels = providerEntry['models'];
     final modelTemplate =
@@ -696,6 +814,7 @@ class ProviderConfigService {
     String? previousProviderId,
   }) async {
     final config = await _readConfigMap();
+    final presetMetadata = await _readCustomPresetMetadataMap();
     _ensureLocalGatewayMode(config);
 
     final providers = _ensureProvidersSection(config);
@@ -716,16 +835,20 @@ class ProviderConfigService {
         previousProviderId != resolvedProviderId) {
       providers.remove(previousProviderId);
       if (_isNonEmptyString(previousModelId)) {
-        _removeFromAllowList(
+        _clearLegacyAliasInAllowList(
           config,
-          '$previousProviderId/${previousModelId!.trim()}',
+          modelRef: '$previousProviderId/${previousModelId!.trim()}',
         );
       }
+      _removeCustomPresetMetadataEntry(
+        presetMetadata,
+        providerId: previousProviderId,
+      );
     } else if (_isNonEmptyString(previousModelId) &&
         previousModelId != trimmedModelId) {
-      _removeFromAllowList(
+      _clearLegacyAliasInAllowList(
         config,
-        '$resolvedProviderId/${previousModelId!.trim()}',
+        modelRef: '$resolvedProviderId/${previousModelId!.trim()}',
       );
     }
 
@@ -735,18 +858,19 @@ class ProviderConfigService {
       apiKey: apiKey.trim(),
       baseUrl: resolvedBaseUrl,
       modelId: trimmedModelId,
-      alias: trimmedAlias,
     );
 
     final modelRef = '$resolvedProviderId/$trimmedModelId';
     _ensureDefaultModelSection(config)['primary'] = modelRef;
-    _syncAliasInAllowList(
-      config,
-      modelRef: modelRef,
+    _clearLegacyAliasInAllowList(config, modelRef: modelRef);
+    _setCustomPresetAlias(
+      presetMetadata,
+      providerId: resolvedProviderId,
       alias: trimmedAlias,
     );
 
     await _writeConfigMap(config);
+    await _writeCustomPresetMetadataMap(presetMetadata);
     return CustomProviderPreset(
       providerId: resolvedProviderId,
       modelId: trimmedModelId,
@@ -798,15 +922,20 @@ class ProviderConfigService {
     required String providerId,
   }) async {
     final config = await _readConfigMap();
+    final presetMetadata = await _readCustomPresetMetadataMap();
     final providers = _ensureProvidersSection(config);
     final existing = _asStringKeyedMap(providers[providerId]);
     final modelId = _extractModelId(existing);
 
     providers.remove(providerId);
+    _removeCustomPresetMetadataEntry(
+      presetMetadata,
+      providerId: providerId,
+    );
 
     if (_isNonEmptyString(modelId)) {
       final modelRef = '$providerId/${modelId!.trim()}';
-      _removeFromAllowList(config, modelRef);
+      _clearLegacyAliasInAllowList(config, modelRef: modelRef);
 
       final activeModel = _readActiveModel(config);
       if (activeModel == modelRef || activeModel == modelId) {
@@ -815,5 +944,6 @@ class ProviderConfigService {
     }
 
     await _writeConfigMap(config);
+    await _writeCustomPresetMetadataMap(presetMetadata);
   }
 }

@@ -257,6 +257,66 @@ class MainActivity : FlutterActivity() {
                 "isCpolarServiceRunning" -> {
                     result.success(CpolarForegroundService.isRunning)
                 }
+                "startLocalModelService" -> {
+                    val binaryPath = call.argument<String>("binaryPath")
+                    val modelPath = call.argument<String>("modelPath")
+                    val logPath = call.argument<String>("logPath")
+                    val port = call.argument<Int>("port") ?: 18080
+                    val alias = call.argument<String>("alias") ?: "local-model"
+                    val contextSize = call.argument<Int>("contextSize") ?: 4096
+                    val threads = call.argument<Int>("threads") ?: 4
+                    val threadsBatch = call.argument<Int>("threadsBatch") ?: threads
+                    val batchSize = call.argument<Int>("batchSize") ?: 512
+                    val ubatchSize = call.argument<Int>("ubatchSize") ?: minOf(batchSize, 256)
+
+                    if (binaryPath != null && modelPath != null && logPath != null) {
+                        try {
+                            LocalModelForegroundService.start(
+                                applicationContext,
+                                binaryPath,
+                                modelPath,
+                                logPath,
+                                port,
+                                alias,
+                                contextSize,
+                                threads,
+                                threadsBatch,
+                                batchSize,
+                                ubatchSize
+                            )
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("SERVICE_ERROR", e.message, null)
+                        }
+                    } else {
+                        result.error(
+                            "INVALID_ARGS",
+                            "binaryPath, modelPath, and logPath required",
+                            null
+                        )
+                    }
+                }
+                "stopLocalModelService" -> {
+                    try {
+                        LocalModelForegroundService.stop(applicationContext)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("SERVICE_ERROR", e.message, null)
+                    }
+                }
+                "isLocalModelServiceRunning" -> {
+                    result.success(LocalModelForegroundService.isRunning)
+                }
+                "getLocalModelRuntimeStats" -> {
+                    Thread {
+                        try {
+                            val stats = LocalModelForegroundService.snapshotRuntimeStats(applicationContext)
+                            runOnUiThread { result.success(stats) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("SERVICE_ERROR", e.message, null) }
+                        }
+                    }.start()
+                }
                 "startSshd" -> {
                     val port = call.argument<Int>("port") ?: 8022
                     try {

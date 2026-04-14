@@ -12,9 +12,11 @@ import '../services/update_flow_service.dart';
 import '../services/update_service.dart';
 import '../widgets/gateway_controls.dart';
 import '../widgets/status_card.dart';
+import 'backup_manager_screen.dart';
 import 'command_shortcuts_screen.dart';
 import 'config_editor_screen.dart';
 import 'configure_screen.dart';
+import 'local_model_screen.dart';
 import 'logs_screen.dart';
 import 'message_platforms_screen.dart';
 import 'node_screen.dart';
@@ -33,6 +35,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with WidgetsBindingObserver {
+  static const _showLogsShortcut = false;
+
   String? _activeModel;
   bool _loadingActiveModel = true;
   UpdateResult? _latestAppUpdate;
@@ -344,18 +348,26 @@ class _DashboardScreenState extends State<DashboardScreen>
               onTap: () => _openScreen(const SshScreen()),
             ),
             StatusCard(
-              title: l10n.t('dashboardLogsTitle'),
-              subtitle: l10n.t('dashboardLogsSubtitle'),
-              icon: Icons.article_outlined,
+              title: l10n.t('dashboardLocalModelTitle'),
+              subtitle: l10n.t('dashboardLocalModelSubtitle'),
+              icon: Icons.memory_rounded,
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => _openScreen(const LogsScreen()),
+              onTap: () => _openScreen(const LocalModelScreen()),
             ),
+            if (_showLogsShortcut)
+              StatusCard(
+                title: l10n.t('dashboardLogsTitle'),
+                subtitle: l10n.t('dashboardLogsSubtitle'),
+                icon: Icons.article_outlined,
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openScreen(const LogsScreen()),
+              ),
             StatusCard(
               title: l10n.t('dashboardSnapshotTitle'),
               subtitle: l10n.t('dashboardSnapshotSubtitle'),
               icon: Icons.backup,
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => _openScreen(const SettingsScreen()),
+              onTap: () => _openScreen(const BackupManagerScreen()),
             ),
             StatusCard(
               title: l10n.t('dashboardEditConfigTitle'),

@@ -52,7 +52,10 @@
 - 一键安装 Android 独立运行环境：Ubuntu RootFS、Node.js、OpenClaw。
 - 中文首页与安装向导，可直接选择 OpenClaw 版本并完成初始化。
 - AI 提供商管理、消息平台接入、可选组件安装、节点能力配置。
-- 支持配置文件编辑、对话日志查看、备份导出与工作目录恢复。
+- 首页快捷操作新增“本地模型和对话”与“备份中心”，更适合手机上直接操作。
+- 支持在手机上安装 `llama.cpp`、下载和管理 GGUF 模型、写入本地 Provider 预设，并直接进入本地对话页测试。
+- 本地对话页支持流式输出、思考开关、Markdown 渲染、停止生成、折叠头部、内存占用查看和切换其他已保存模型配置。
+- 支持配置文件编辑、对话日志查看、备份导出、备份库切换与工作目录恢复。
 - 支持局域网访问说明、节点日志复制、结构化对话日志展示等移动端优化。
 - 支持全架构 APK 打包，便于真机与模拟器测试。
 
@@ -111,12 +114,21 @@
 
 ## 当前正式发布版本
 
-- 版本：`v1.9.9`
-- 发布说明：[release/v1.9.9/Release.zh.md](release/v1.9.9/Release.zh.md)
+- 版本：`v2.0.1`
+- 发布说明：[release/v2.0.1/Release.zh.md](release/v2.0.1/Release.zh.md)
 - 改动日志：[CHANGELOG.md](CHANGELOG.md)
 - Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
 
 > 不确定版本该下哪个时，请优先以 GitHub Releases 页面为准。
+
+## v2.0.1 重点亮点
+
+- 修复 AI 提供商里“自定义模型”串到其他渠道的问题，现在每个提供商的模型值都会独立保存。
+- 对话日志改为直接读取应用工作目录里的 `.jsonl` 会话文件，规避旧的 `resolv.conf` 缺失问题。
+- 首页快捷操作新增“本地模型和对话”，可直接安装 `llama.cpp`、管理已下载模型、进入本地对话。
+- 内置 GGUF 模型列表、联网搜索和 Gemma 4 热门模型推荐，不再要求自己到处找链接。
+- 本地对话页支持切换本地模型、已保存 Provider 配置和手动接口，也支持流式、思考、Markdown 和停止生成。
+- 备份入口升级为“备份中心”，统一管理导入、保存、切换、恢复和导出备份。
 
 ## 下载指南
 
@@ -124,11 +136,11 @@
 
 | 文件 | 适用设备 | 大小 | 下载 |
 | --- | --- | ---: | --- |
-| `OpenClaw-v1.9.9-universal.apk` | 不确定架构、想直接安装 | 100.34 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-universal.apk) |
-| `OpenClaw-v1.9.9-arm64-v8a.apk` | 大多数现代 Android 手机 | 83.24 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-arm64-v8a.apk) |
-| `OpenClaw-v1.9.9-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 82.88 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-armeabi-v7a.apk) |
-| `OpenClaw-v1.9.9-x86_64.apk` | 模拟器或 x86_64 设备 | 83.45 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9-x86_64.apk) |
-| `OpenClaw-v1.9.9.aab` | 应用商店分发 | 107.14 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v1.9.9/OpenClaw-v1.9.9.aab) |
+| `OpenClaw-v2.0.1-universal.apk` | 不确定架构、想直接安装 | 102.06 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-universal.apk) |
+| `OpenClaw-v2.0.1-arm64-v8a.apk` | 大多数现代 Android 手机 | 83.80 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-arm64-v8a.apk) |
+| `OpenClaw-v2.0.1-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 83.53 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-armeabi-v7a.apk) |
+| `OpenClaw-v2.0.1-x86_64.apk` | 模拟器或 x86_64 设备 | 84.01 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-x86_64.apk) |
+| `OpenClaw-v2.0.1.aab` | 应用商店分发 | 108.84 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1.aab) |
 
 ## 快速开始
 
@@ -153,7 +165,7 @@ flutter build apk --release
 如需直接生成发布目录中的 APK / AAB，可使用仓库自带脚本：
 
 ```bash
-python scripts/build_release.py --version <版本号> --build-number <构建号>
+python scripts/build_release.py --version 2.0.1 --build-number 68
 ```
 
 ## 交流反馈
@@ -170,7 +182,7 @@ python scripts/build_release.py --version <版本号> --build-number <构建号>
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/jsonl_format_guide.md](docs/jsonl_format_guide.md)
 - [docs/README_en.md](docs/README_en.md)
-- [release/v1.9.9/Release.zh.md](release/v1.9.9/Release.zh.md)
+- [release/v2.0.1/Release.zh.md](release/v2.0.1/Release.zh.md)
 
 ## Star History
 

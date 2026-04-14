@@ -169,6 +169,8 @@ class GatewayService {
       }
     } catch (_) {}
 
+    await ProviderConfigService.migrateCustomProviderConfigIfNeeded();
+
     final alreadyRunning = await NativeBridge.isGatewayRunning();
     if (alreadyRunning) {
       // Write allowCommands config so the next gateway restart picks it up,
@@ -786,6 +788,9 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
   }
 
   Future<void> applyConfigChanges({String source = 'configuration'}) async {
+    await ProviderConfigService.migrateCustomProviderConfigIfNeeded();
+    await ProviderConfigService.ensureGatewayDefaults();
+
     final isGatewayActive = _state.status == GatewayStatus.running ||
         _state.status == GatewayStatus.starting;
 
@@ -803,7 +808,6 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     ]));
 
     try {
-      await ProviderConfigService.ensureGatewayDefaults();
       await _refreshDashboardUrlFromConfig(notify: false);
       unawaited(_maybeRefreshDashboardUrl(force: true));
       await syncStateFromSystem();

@@ -650,4 +650,292 @@ const Map<String, String> appStringsZhHans = {
   'settingsSnapshotVersionSnapshotOpenClaw': '备份 OpenClaw 版本：{version}',
   'settingsSnapshotVersionCurrentOpenClaw':
       '\u5f53\u524d OpenClaw \u7248\u672c\uff1a{version}',
+  'packageLocalModelDescription':
+      '\u901a\u8fc7 llama.cpp \u8fd0\u884c\u672c\u5730 GGUF \u6a21\u578b\uff0c\u5e76\u63d0\u4f9b OpenAI \u517c\u5bb9\u7684\u672c\u5730\u63a5\u53e3',
+  'localModelTitle': '\u672c\u5730\u6a21\u578b',
+  'localModelIntro':
+      '\u5b89\u88c5\u5b98\u65b9 llama.cpp \u8fd0\u884c\u65f6\uff0c\u53ef\u4ee5\u76f4\u63a5\u4ece\u6a21\u578b\u5217\u8868\u4e00\u952e\u4e0b\u8f7d GGUF \u6a21\u578b\uff0c\u4e5f\u53ef\u4ee5\u624b\u52a8\u586b\u94fe\u63a5\u3002',
+  'localModelUnsupportedArchitecture':
+      '\u5f53\u524d\u67b6\u6784 {arch} \u6682\u4e0d\u5728 llama.cpp \u5b98\u65b9 Ubuntu \u9884\u7f16\u8bd1\u5305\u7684\u652f\u6301\u8303\u56f4\u5185\u3002',
+  'localModelRecommendationTitle': '\u6a21\u578b\u5efa\u8bae',
+  'localModelCatalogTitle': 'GGUF \u6a21\u578b\u5217\u8868',
+  'localModelCatalogIntro':
+      '\u8fd9\u91cc\u5df2\u7ecf\u914d\u597d\u5e38\u7528\u6a21\u578b\u7684\u4e0b\u8f7d\u94fe\u63a5\uff0c\u4e0d\u7528\u4f60\u81ea\u5df1\u5230\u5904\u627e GGUF \u5730\u5740\u3002',
+  'localModelCatalogSearchHint':
+      '\u641c\u6a21\u578b\u540d\u3001\u7528\u9014\u6216\u5173\u952e\u8bcd',
+  'localModelCatalogAutoDownloadHint':
+      '\u70b9\u201c\u4e00\u952e\u4e0b\u8f7d\u201d\u540e\uff0c\u4f1a\u56de\u5230\u4e0a\u4e00\u9875\u5e76\u81ea\u52a8\u5f00\u59cb\u4e0b\u8f7d\u3002',
+  'localModelCatalogNoResults':
+      '\u6ca1\u627e\u5230\u5339\u914d\u7684\u6a21\u578b\uff0c\u53ef\u4ee5\u8bd5\u8bd5\u641c\u201c3B\u201d\u3001\u201c\u4ee3\u7801\u201d\u3001\u201cQwen\u201d\u3002',
+  'localModelCatalogRecommendRam': '\u5efa\u8bae\u5185\u5b58 {value}GB+',
+  'localModelCatalogBestForLabel': '\u9002\u5408\u8c01',
+  'localModelCatalogOneTapDownload': '\u4e00\u952e\u4e0b\u8f7d',
+  'localModelCatalogCompatUnknown': '\u5148\u8bd5\u5c0f\u6a21\u578b',
+  'localModelCatalogCompatUnknownBody':
+      '\u8fd8\u6ca1\u8bfb\u5230\u8fd9\u53f0\u624b\u673a\u7684\u5185\u5b58\uff0c\u5efa\u8bae\u5148\u4ece 0.5B \u6216 1.5B \u5f00\u59cb\u3002',
+  'localModelCatalogCompatGreat': '\u6bd4\u8f83\u7a33',
+  'localModelCatalogCompatGreatBody':
+      '\u8fd9\u53f0\u624b\u673a\u8dd1\u8fd9\u4e2a\u6a21\u578b\u6bd4\u8f83\u7a33\uff0c\u53ef\u4ee5\u4f18\u5148\u8bd5\u8fd9\u4e2a\u3002',
+  'localModelCatalogCompatOkay': '\u80fd\u8dd1\uff0c\u4f46\u53ef\u80fd\u6162',
+  'localModelCatalogCompatOkayBody':
+      '\u8fd9\u53f0\u624b\u673a\u5927\u6982\u80fd\u8dd1\uff0c\u4f46\u66f4\u5bb9\u6613\u53d1\u70ed\uff0c\u4e5f\u53ef\u80fd\u6bd4\u8f83\u6162\u3002',
+  'localModelCatalogCompatTooHeavy': '\u5148\u522b\u4e0b\u8fd9\u4e2a',
+  'localModelCatalogCompatTooHeavyBody':
+      '\u5bf9\u8fd9\u53f0\u624b\u673a\u6765\u8bf4\u8fd9\u4e2a\u6a21\u578b\u592a\u91cd\u4e86\uff0c\u5efa\u8bae\u5148\u9009\u66f4\u5c0f\u7684\u3002',
+  'localModelCatalogFilterAll': '\u5168\u90e8',
+  'localModelCatalogFilterStarter': '\u5165\u95e8',
+  'localModelCatalogFilterDaily': '\u65e5\u5e38',
+  'localModelCatalogFilterStrong': '\u66f4\u5f3a',
+  'localModelCatalogFilterCoding': '\u4ee3\u7801',
+  'localModelCatalogModeBuiltIn': '\u5185\u7f6e\u63a8\u8350',
+  'localModelCatalogModeOnline': '\u8054\u7f51\u641c\u6a21\u578b',
+  'localModelCatalogBrowseTitle': '\u4ece\u6a21\u578b\u5217\u8868\u9009',
+  'localModelCatalogBrowseBody':
+      '\u4e0d\u77e5\u9053\u53bb\u54ea\u627e GGUF \u94fe\u63a5\u65f6\uff0c\u76f4\u63a5\u70b9\u8fd9\u91cc\u3002\u91cc\u9762\u6709\u5e38\u7528\u6a21\u578b\uff0c\u8fd8\u4f1a\u6309\u4f60\u8fd9\u53f0\u624b\u673a\u7ed9\u4e2a\u5927\u6982\u7684\u5efa\u8bae\u3002',
+  'localModelCatalogOpenAction': '\u53bb\u6a21\u578b\u5217\u8868',
+  'localModelCatalogOnlineIntro':
+      '\u8fd9\u91cc\u53ef\u4ee5\u8054\u7f51\u641c\u516c\u5f00\u7684 GGUF \u6a21\u578b\u4ed3\u5e93\uff0c\u7136\u540e\u518d\u9009\u62e9\u5177\u4f53\u7684 `.gguf` \u6587\u4ef6\u4e0b\u8f7d\u3002\u666e\u901a\u60c5\u51b5\u4e0b\uff0c\u4f18\u5148\u9009 Q4_K_M\uff0c\u5176\u6b21 Q4_0\u3002',
+  'localModelCatalogOnlineSearchHint':
+      '\u641c\u8054\u7f51\u6a21\u578b\uff0c\u6bd4\u5982 qwen\u3001gemma\u3001coder...',
+  'localModelCatalogOnlineSearchAction': '\u8054\u7f51\u641c\u7d22',
+  'localModelCatalogOnlineSearchRequired':
+      '\u8bf7\u5148\u8f93\u5165\u5173\u952e\u8bcd\uff0c\u518d\u70b9\u8054\u7f51\u641c\u7d22\u3002',
+  'localModelCatalogOnlineLoading':
+      '\u6b63\u5728\u8054\u7f51\u641c\u6a21\u578b...',
+  'localModelCatalogOnlineEmpty':
+      '\u6ca1\u627e\u5230\u5339\u914d\u7684\u8054\u7f51 GGUF \u6a21\u578b\u3002\u53ef\u4ee5\u8bd5\u8bd5 qwen\u3001gemma \u6216 coder \u8fd9\u7c7b\u5173\u952e\u8bcd\u3002',
+  'localModelCatalogOnlineRateLimited':
+      '\u8054\u7f51\u6a21\u578b\u6e90\u7ad9\u73b0\u5728\u9650\u6d41\u4e86\uff0c\u7b49\u4e00\u4f1a\u513f\u518d\u641c\u5c31\u884c\u3002',
+  'localModelCatalogOnlineTimeout':
+      '\u8054\u7f51\u641c\u7d22\u8d85\u65f6\u4e86\uff0c\u7a0d\u540e\u518d\u8bd5\u4e00\u6b21\u3002',
+  'localModelCatalogOnlineRequestFailed':
+      '\u8054\u7f51\u641c\u7d22\u5931\u8d25\uff1a{error}',
+  'localModelCatalogOnlineAction': '\u9009 GGUF \u6587\u4ef6',
+  'localModelCatalogOnlineDownloads': '\u4e0b\u8f7d {value}',
+  'localModelCatalogOnlineLikes': '\u70b9\u8d5e {value}',
+  'localModelCatalogOnlineUpdated': '\u66f4\u65b0\u4e8e {value}',
+  'localModelCatalogOnlineGated': '\u53ef\u80fd\u8981\u7533\u8bf7',
+  'localModelCatalogVariantTitle': '\u9009\u62e9 GGUF \u6587\u4ef6',
+  'localModelCatalogVariantHint':
+      '\u5148\u9009\u91cf\u5316\u6587\u4ef6\u3002Q4_K_M \u901a\u5e38\u662f\u624b\u673a\u6700\u7a33\u7684\u9ed8\u8ba4\u9009\u62e9\uff0cQ4_0 \u4f1a\u66f4\u8f7b\u4e00\u70b9\uff0cFP16 \u901a\u5e38\u5bf9\u624b\u673a\u6765\u8bf4\u592a\u5927\u4e86\u3002',
+  'localModelCatalogVariantRecommendQ4km':
+      '\u9996\u9009\u8fd9\u4e2a\u3002\u901a\u5e38\u662f\u6548\u679c\u548c\u624b\u673a\u538b\u529b\u4e4b\u95f4\u6700\u7a33\u7684\u5e73\u8861\u3002',
+  'localModelCatalogVariantRecommendQ40':
+      '\u66f4\u8f7b\u4e00\u70b9\u7684\u9009\u62e9\uff0c\u9002\u5408\u60f3\u518d\u964d\u4e00\u70b9\u5185\u5b58\u538b\u529b\u3002',
+  'localModelCatalogVariantGeneral':
+      '\u8fd9\u4e2a\u4e5f\u80fd\u8bd5\uff0c\u4f46\u4e0b\u8f7d\u524d\u6700\u597d\u5148\u770b\u4e00\u4e0b\u6587\u4ef6\u540d\u548c\u5927\u5c0f\u3002',
+  'localModelCatalogVariantTooLarge':
+      '\u8fd9\u79cd\u901a\u5e38\u5bf9\u624b\u673a\u592a\u5927\u4e86\uff0c\u53ea\u5efa\u8bae\u5f88\u5f3a\u7684\u8bbe\u5907\u518d\u8bd5\u3002',
+  'localModelQuickActionsTitle': '\u5e38\u7528\u64cd\u4f5c',
+  'localModelQuickActionsBody':
+      '\u6a21\u578b\u5df2\u7ecf\u4e0b\u597d\u540e\uff0c\u53ef\u4ee5\u53bb\u201c\u5df2\u5b89\u88c5\u6a21\u578b\u201d\u9875\u9762\u5207\u6362\u3001\u542f\u52a8\u3001\u5220\u9664\u3002\u53ea\u8981\u672c\u5730\u670d\u52a1\u5df2\u7ecf\u8dd1\u8d77\u6765\uff0c\u4e5f\u53ef\u4ee5\u76f4\u63a5\u8fdb\u5165\u672c\u5730\u5bf9\u8bdd\u9875\u9762\u8bd5\u4e00\u4e0b\u3002',
+  'localModelOpenLibraryAction': '\u5df2\u5b89\u88c5\u6a21\u578b',
+  'localModelOpenChatAction': '\u8fdb\u5165\u672c\u5730\u5bf9\u8bdd',
+  'localModelChatUnavailable':
+      '\u8bf7\u5148\u542f\u52a8\u672c\u5730\u6a21\u578b\u670d\u52a1\uff0c\u518d\u8fdb\u5165\u5bf9\u8bdd\u9875\u3002',
+  'localModelChatUnavailableHint':
+      '\u8981\u5148\u628a\u672c\u5730\u6a21\u578b\u670d\u52a1\u8dd1\u8d77\u6765\uff0c\u201c\u8fdb\u5165\u672c\u5730\u5bf9\u8bdd\u201d\u6309\u94ae\u624d\u80fd\u7528\u3002',
+  'localModelRuntimeTitle': '\u8fd0\u884c\u65f6',
+  'localModelRuntimeBody':
+      '\u8fd9\u91cc\u4f1a\u5b89\u88c5 llama.cpp \u5b98\u65b9 Ubuntu \u9884\u7f16\u8bd1\u5305\uff0c\u5e76\u4ee5\u524d\u53f0\u670d\u52a1\u7684\u65b9\u5f0f\u5728\u540e\u53f0\u8fd0\u884c\u672c\u5730\u6a21\u578b\u670d\u52a1\u3002',
+  'localModelInstallLogsTitle': '\u8fd0\u884c\u65f6\u5b89\u88c5\u65e5\u5fd7',
+  'localModelDownloadTitle': '\u4e0b\u8f7d GGUF \u6a21\u578b',
+  'localModelManualDownloadTitle':
+      '\u624b\u52a8\u4e0b\u8f7d\uff08\u9ad8\u7ea7\uff09',
+  'localModelManualDownloadBody':
+      '\u5982\u679c\u4f60\u81ea\u5df1\u5df2\u7ecf\u6709 GGUF \u94fe\u63a5\uff0c\u53ef\u4ee5\u5728\u8fd9\u91cc\u624b\u52a8\u586b\u5199\u3002\u666e\u901a\u60c5\u51b5\u4e0b\uff0c\u66f4\u5efa\u8bae\u7528\u4e0a\u9762\u7684\u201c\u6a21\u578b\u5217\u8868\u201d\u3002',
+  'localModelDownloadUrlLabel': '\u6a21\u578b\u4e0b\u8f7d\u5730\u5740',
+  'localModelFileNameLabel': '\u4fdd\u5b58\u6587\u4ef6\u540d',
+  'localModelDownloadAction': '\u4e0b\u8f7d\u6a21\u578b',
+  'localModelDownloadProgressTitle': '\u4e0b\u8f7d\u8fdb\u5ea6',
+  'localModelDownloadProgressValue': '{current} / {total}',
+  'localModelDownloadProgressValueUnknown': '\u5df2\u4e0b\u8f7d {current}',
+  'localModelDownloadSourceLabel': '\u5f53\u524d\u6e90\uff1a{value}',
+  'localModelDownloadLogsTitle': '\u6a21\u578b\u4e0b\u8f7d\u65e5\u5fd7',
+  'localModelModelsTitle': '\u6a21\u578b\u4e0e\u7aef\u70b9\u914d\u7f6e',
+  'localModelNoModels':
+      '\u8fd8\u6ca1\u6709\u627e\u5230 GGUF \u6a21\u578b\u6587\u4ef6\u3002\u8bf7\u5148\u4e0b\u8f7d\u4e00\u4e2a\u6a21\u578b\uff0c\u518d\u542f\u52a8\u672c\u5730\u670d\u52a1\u3002',
+  'localModelStoredModelsTitle': '\u5df2\u4fdd\u5b58\u7684\u6a21\u578b',
+  'localModelContextSizeLabel': '\u4e0a\u4e0b\u6587\u957f\u5ea6',
+  'localModelStartServer': '\u542f\u52a8\u670d\u52a1',
+  'localModelStartAndEnable': '\u542f\u52a8\u5e76\u542f\u7528',
+  'localModelPresetActivated':
+      '\u672c\u5730\u6a21\u578b {model} \u5df2\u5199\u5165 AI Providers \u5e76\u542f\u7528\u3002',
+  'localModelServerStarted':
+      '\u672c\u5730\u6a21\u578b\u670d\u52a1\u5df2\u5728\u7aef\u53e3 {port} \u542f\u52a8',
+  'localModelErrorUrlRequired':
+      '\u6a21\u578b\u4e0b\u8f7d\u94fe\u63a5\u4e0d\u80fd\u4e3a\u7a7a',
+  'localModelErrorFileNameRequired':
+      '\u4fdd\u5b58\u6587\u4ef6\u540d\u4e0d\u80fd\u4e3a\u7a7a',
+  'localModelErrorSelectModel':
+      '\u8bf7\u5148\u9009\u4e2d\u4e00\u4e2a\u5df2\u4e0b\u8f7d\u7684 GGUF \u6a21\u578b',
+  'localModelChipArch': '\u67b6\u6784 {value}',
+  'localModelChipRam': '\u5185\u5b58 {value} GB',
+  'localModelChipStorage': '\u5269\u4f59\u7a7a\u95f4 {value} GB',
+  'localModelRuntimeLogsTitle': '\u8fd0\u884c\u65e5\u5fd7',
+  'localModelDeleteTitle': '\u5220\u9664\u672c\u5730\u6a21\u578b\uff1f',
+  'localModelDeleteBody':
+      '\u8fd9\u4f1a\u4ece\u624b\u673a\u4e0a\u5220\u9664\u6a21\u578b\u6587\u4ef6 {model}\u3002',
+  'localModelLibraryTitle': '\u5df2\u5b89\u88c5\u6a21\u578b',
+  'localModelLibraryIntro':
+      '\u8fd9\u91cc\u4e13\u95e8\u7ba1\u7406\u5df2\u7ecf\u4e0b\u8f7d\u5230\u624b\u673a\u91cc\u7684 GGUF \u6a21\u578b\u3002\u4f60\u53ef\u4ee5\u5728\u8fd9\u91cc\u5207\u6362\u8981\u7528\u54ea\u4e2a\u6a21\u578b\uff0c\u542f\u52a8\u5b83\uff0c\u5199\u5165 AI Providers\uff0c\u6216\u8005\u76f4\u63a5\u5220\u6389\u4e0d\u7528\u7684\u6a21\u578b\u3002',
+  'localModelLibraryUseSelected': '\u4f7f\u7528\u8fd9\u4e2a',
+  'localModelLibraryEmpty':
+      '\u8fd8\u6ca1\u6709\u5df2\u4e0b\u8f7d\u7684\u672c\u5730\u6a21\u578b\u3002',
+  'localModelLibrarySelected': '\u5f53\u524d\u9009\u4e2d',
+  'localModelLibraryConfigured': '\u5df2\u914d\u7f6e',
+  'localModelLibraryRunning': '\u8fd0\u884c\u4e2d',
+  'localModelChatTitle': '\u672c\u5730\u6a21\u578b\u5bf9\u8bdd',
+  'localModelChatIntro':
+      '\u8fd9\u4e2a\u9875\u9762\u4f1a\u76f4\u63a5\u8fde\u5230\u624b\u673a\u91cc\u6b63\u5728\u8fd0\u884c\u7684 llama.cpp \u672c\u5730\u63a5\u53e3\uff0c\u9002\u5408\u5148\u505a\u7b80\u5355\u6d4b\u8bd5\uff0c\u786e\u8ba4\u6a21\u578b\u6709\u6ca1\u6709\u6b63\u5e38\u56de\u590d\u3002',
+  'localModelChatModelLabel': '\u5f53\u524d\u6a21\u578b',
+  'localModelChatEmpty':
+      '\u8fd8\u6ca1\u6709\u5f00\u59cb\u5bf9\u8bdd\u3002\u4f60\u53ef\u4ee5\u5148\u968f\u4fbf\u95ee\u4e00\u53e5\uff0c\u770b\u770b\u672c\u5730\u6a21\u578b\u80fd\u4e0d\u80fd\u6b63\u5e38\u56de\u590d\u3002',
+  'localModelChatComposerHint':
+      '\u8f93\u5165\u4e00\u53e5\u8bdd\uff0c\u8bd5\u8bd5\u672c\u5730\u6a21\u578b...',
+  'localModelChatSending': '\u6b63\u5728\u56de\u590d...',
+  'localModelChatErrorEmpty':
+      '\u8bf7\u5148\u8f93\u5165\u4e00\u70b9\u5185\u5bb9',
+  'localModelChatRequestFailed': '\u8bf7\u6c42\u5931\u8d25\uff1a{error}',
+  'localModelChatClearAction': '\u6e05\u7a7a\u5bf9\u8bdd',
+  'localModelChatClearTitle': '\u6e05\u7a7a\u8fd9\u4e2a\u5bf9\u8bdd\uff1f',
+  'localModelChatClearBody':
+      '\u8fd9\u53ea\u4f1a\u6e05\u6389\u8fd9\u4e2a\u9875\u9762\u91cc\u7684\u6d88\u606f\uff0c\u4e0d\u4f1a\u505c\u6b62\u672c\u5730\u6a21\u578b\u670d\u52a1\u3002',
+  'localModelChatSettingsAction': '\u4f1a\u8bdd\u8bbe\u7f6e',
+  'localModelChatSettingsTitle': '\u5bf9\u8bdd\u8bbe\u7f6e',
+  'localModelChatSettingsIntro':
+      '\u628a\u5bf9\u8bdd\u5f00\u5173\u548c\u6a21\u578b\u5207\u6362\u90fd\u653e\u5230\u8fd9\u91cc\uff0c\u4e0a\u9762\u90a3\u5757\u5c31\u4e0d\u4f1a\u8001\u6321\u4f4f\u5bf9\u8bdd\u4e86\u3002\u4f60\u8fd8\u53ef\u4ee5\u5728\u8fd9\u91cc\u5207\u5230\u914d\u7f6e\u6587\u4ef6\u91cc\u5df2\u6709\u7684\u6a21\u578b\uff0c\u6216\u8005\u76f4\u63a5\u624b\u586b\u4e00\u7ec4\u6d4b\u8bd5\u914d\u7f6e\u3002',
+  'localModelChatStreamToggle': '\u6d41\u5f0f\u8f93\u51fa',
+  'localModelChatStreamToggleHint':
+      '\u8ba9\u56de\u590d\u50cf\u6253\u5b57\u4e00\u6837\u8fb9\u751f\u6210\u8fb9\u663e\u793a\u3002',
+  'localModelChatStreamUnsupportedHint':
+      '\u8fd9\u4e2a\u63a5\u5165\u65b9\u5f0f\u6682\u65f6\u53ea\u80fd\u8d70\u666e\u901a\u56de\u590d\uff0c\u6253\u5f00\u6d41\u5f0f\u4e5f\u4f1a\u81ea\u52a8\u9000\u56de\u666e\u901a\u6a21\u5f0f\u3002',
+  'localModelChatThinkingToggle': '\u542f\u7528\u601d\u8003',
+  'localModelChatThinkingToggleHint':
+      '\u5c3d\u91cf\u8ba9\u6a21\u578b\u628a\u601d\u8def\u653e\u5230 `<think>` \u91cc\u3002',
+  'localModelChatShowReasoningToggle': '\u663e\u793a\u601d\u8003',
+  'localModelChatShowReasoningToggleHint':
+      '\u51b3\u5b9a `<think>` \u91cc\u7684\u5185\u5bb9\u8981\u4e0d\u8981\u5728\u9875\u9762\u4e0a\u663e\u793a\u3002',
+  'localModelChatHeaderExpandedToggle':
+      '\u9876\u90e8\u5361\u7247\u9ed8\u8ba4\u5c55\u5f00',
+  'localModelChatHeaderExpandedToggleHint':
+      '\u5982\u679c\u4f60\u89c9\u5f97\u9876\u90e8\u592a\u6321\u4f4d\u7f6e\uff0c\u53ef\u4ee5\u5173\u6389\u8fd9\u4e2a\u3002',
+  'localModelChatSettingStateStreamOn': '\u6d41\u5f0f\u5f00',
+  'localModelChatSettingStateStreamOff': '\u6d41\u5f0f\u5173',
+  'localModelChatSettingStateThinkingOn': '\u601d\u8003\u5f00',
+  'localModelChatSettingStateThinkingOff': '\u601d\u8003\u5173',
+  'localModelChatSettingStateReasoningOn': '\u663e\u793a\u601d\u8003',
+  'localModelChatSettingStateReasoningOff': '\u9690\u85cf\u601d\u8003',
+  'localModelChatHeaderCollapseAction': '\u6536\u8d77\u9876\u90e8',
+  'localModelChatHeaderExpandAction': '\u5c55\u5f00\u9876\u90e8',
+  'localModelChatHeaderHint':
+      '\u8fd9\u5757\u73b0\u5728\u53ef\u4ee5\u6536\u8d77\uff0c\u53f3\u4e0a\u89d2\u7684\u8bbe\u7f6e\u9875\u91cc\u4e5f\u80fd\u8fdb\u53bb\u6539\u5f00\u5173\u548c\u5207\u6a21\u578b\u3002',
+  'localModelChatHeaderCollapsedHint':
+      '\u9876\u90e8\u4fe1\u606f\u5df2\u6536\u8d77\uff0c\u53ef\u4ee5\u70b9\u7bad\u5934\u6216\u53f3\u4e0a\u89d2\u8bbe\u7f6e\u518d\u6253\u5f00\u3002',
+  'localModelChatSessionChanged':
+      '\u5df2\u5207\u6362\u5230\u65b0\u7684\u5bf9\u8bdd\u76ee\u6807\uff0c\u5f53\u524d\u5bf9\u8bdd\u5df2\u6e05\u7a7a\u3002',
+  'localModelChatSessionSourceTitle': '\u5bf9\u8bdd\u6765\u6e90',
+  'localModelChatSourceLocal': '\u672c\u5730\u6a21\u578b',
+  'localModelChatSourceSaved': '\u5df2\u4fdd\u5b58\u914d\u7f6e',
+  'localModelChatSourceManual': '\u624b\u52a8\u586b\u5199',
+  'localModelChatSessionBehaviorTitle': '\u5bf9\u8bdd\u884c\u4e3a',
+  'localModelChatSavedConfigSource':
+      '\u5df2\u4fdd\u5b58\u7684 Provider \u914d\u7f6e',
+  'localModelChatSavedConfigEmpty':
+      '\u8bf7\u5148\u9009\u4e00\u4e2a\u5df2\u4fdd\u5b58\u7684\u914d\u7f6e',
+  'localModelChatSavedConfigLoading':
+      '\u6b63\u5728\u52a0\u8f7d\u5df2\u4fdd\u5b58\u7684\u5bf9\u8bdd\u914d\u7f6e...',
+  'localModelChatSavedConfigEmptyHint':
+      '\u8fd8\u6ca1\u627e\u5230\u80fd\u5728\u8fd9\u4e2a\u9875\u9762\u76f4\u63a5\u6d4b\u7684\u5df2\u4fdd\u5b58\u914d\u7f6e\u3002\u4f60\u53ef\u4ee5\u5148\u914d\u4e00\u4e2a OpenAI \u517c\u5bb9\u7684 Provider\uff0c\u6216\u8005\u76f4\u63a5\u5207\u5230\u4e0b\u9762\u7684\u624b\u52a8\u586b\u5199\u3002',
+  'localModelChatSavedConfigPicker':
+      '\u5df2\u4fdd\u5b58\u7684\u6a21\u578b\u914d\u7f6e',
+  'localModelChatSavedConfigUnsupportedHint':
+      '\u8fd8\u6709 {count} \u6761\u5df2\u4fdd\u5b58\u7684 Provider \u914d\u7f6e\u6ca1\u663e\u793a\u5728\u8fd9\u91cc\uff0c\u56e0\u4e3a\u8fd9\u4e2a\u5bf9\u8bdd\u9875\u76ee\u524d\u4e3b\u8981\u5148\u652f\u6301\u672c\u5730\u6a21\u578b\u548c OpenAI \u517c\u5bb9\u63a5\u53e3\u3002',
+  'localModelChatManualSource': '\u624b\u52a8\u914d\u7f6e',
+  'localModelChatManualCompatibilityLabel': '\u63a5\u53e3\u7c7b\u578b',
+  'localModelChatManualNameLabel': '\u663e\u793a\u540d',
+  'localModelChatManualHint':
+      '\u8fd9\u91cc\u53ea\u7528\u4e8e\u5f53\u524d\u8fd9\u4e2a\u6d4b\u8bd5\u5bf9\u8bdd\uff0c\u4e0d\u4f1a\u5199\u56de\u914d\u7f6e\u6587\u4ef6\u3002',
+  'localModelChatToggleHint':
+      '\u6253\u5f00\u201c\u6d41\u5f0f\u8f93\u51fa\u201d\u540e\uff0c\u5bf9\u8bdd\u4f1a\u50cf\u6253\u5b57\u4e00\u6837\u8fb9\u751f\u6210\u8fb9\u663e\u793a\u3002\u201c\u542f\u7528\u601d\u8003\u201d\u4f1a\u8ba9\u6a21\u578b\u5c3d\u91cf\u628a\u601d\u8def\u653e\u5728 `<think>` \u91cc\uff0c\u201c\u663e\u793a\u601d\u8003\u201d\u5219\u51b3\u5b9a\u8fd9\u4e9b\u5185\u5bb9\u8981\u4e0d\u8981\u5728\u9875\u9762\u4e0a\u5c55\u5f00\u3002',
+  'localModelChatReasoningLabel': '\u601d\u8003\u8fc7\u7a0b',
+  'localModelChatStopped': '\u5df2\u505c\u6b62\u751f\u6210',
+  'localModelChatStoppedTag': '\u5df2\u505c\u6b62',
+  'localModelChatBenchmarkAction': '\u6d4b\u901f',
+  'localModelChatBenchmarkTitle': '\u6700\u8fd1\u4e00\u6b21\u6d4b\u901f',
+  'localModelChatBenchmarkDone': '\u6d4b\u901f\u5b8c\u6210',
+  'localModelChatBenchmarkFailed': '\u6d4b\u901f\u5931\u8d25\uff1a{error}',
+  'localModelChatMetricDuration': '\u603b\u8017\u65f6 {value}',
+  'localModelChatMetricFirstToken': '\u9996 token {value}',
+  'localModelChatMetricTokensPerSecond': '{value} tok/s',
+  'localModelChatMetricOutputTokens': '\u8f93\u51fa {value} tok',
+  'localModelChatMetricOutputTokensEstimated': '\u8f93\u51fa\u7ea6 {value} tok',
+  'settingsBackupCenterTitle': '备份中心',
+  'settingsBackupCenterSubtitle': '统一管理导入、保存、切换、导出和恢复备份',
+  'dashboardLocalModelTitle': '本地模型和对话',
+  'dashboardLocalModelSubtitle': '安装 llama.cpp、管理本地模型，并直接进入对话页',
+  'backupManagerTitle': '备份中心',
+  'backupManagerIntro': '这里会保存你导入进来的备份，后面想切换或恢复时会方便很多。',
+  'backupManagerImportAction': '导入备份',
+  'backupManagerSaveCurrentAction': '保存当前配置',
+  'backupManagerExportConfigAction': '导出配置',
+  'backupManagerExportWorkspaceAction': '导出完整工作区',
+  'backupManagerEmpty': '还没有存下来的备份。',
+  'backupManagerImported': '已导入备份：{file}',
+  'backupManagerSavedLocal': '已保存当前配置：{file}',
+  'backupManagerDeleteTitle': '删除这个备份？',
+  'backupManagerDeleteBody': '这会删除本地保存的备份文件 {file}。',
+  'backupManagerKindConfig': '配置备份',
+  'backupManagerKindSnapshot': '旧版快照',
+  'backupManagerKindWorkspace': '完整工作区',
+  'backupManagerCompatibilityWarning': '这个备份的版本和当前环境不完全一致，恢复前最好看一下。',
+  'backupManagerRestoreAction': '恢复这个备份',
+  'localModelRuntimeSettingsTitle': '本地模型资源设置',
+  'localModelRuntimeSettingsIntro':
+      '这些是给 llama.cpp 用的软限制和调优建议，用来控制手机发热、内存压力和速度，不是系统级硬限制。',
+  'localModelRuntimeSettingsSaved': '本地模型资源设置已保存，下次启动模型时生效。',
+  'localModelRuntimeSettingsDeviceTitle': '这台手机的大概情况',
+  'localModelRuntimeSettingsDeviceSummary':
+      '检测到 CPU：{cpu} 核 | 检测到内存：{memory} GB',
+  'localModelRuntimeSettingsCpuTitle': 'CPU 使用上限',
+  'localModelRuntimeSettingsAuto': '自动',
+  'localModelRuntimeSettingsCpuOption': '{value} 核',
+  'localModelRuntimeSettingsCpuLabel': '最多使用 CPU 核心',
+  'localModelRuntimeSettingsCpuHint': '调低一点会更省电、更不容易发热，但回答速度也会慢一些。',
+  'localModelRuntimeSettingsMemoryTitle': '内存软限制',
+  'localModelRuntimeSettingsMemoryLabel': '内存软限制',
+  'localModelRuntimeSettingsMemoryHint':
+      '留空就是自动。这里用 GB 填，比如 5.8。它不会像系统那样强制卡死内存，只是让运行参数更保守一些。',
+  'localModelRuntimeSettingsMemoryDetected': '这台手机检测到的总内存大约是 {value} GB。',
+  'localModelRuntimeSettingsMemoryInvalid': '请输入像 5.8 这样的数字，或者留空。',
+  'localModelRuntimeSettingsModeTitle': '性能模式',
+  'localModelRuntimeSettingsModeMemorySaver': '省内存',
+  'localModelRuntimeSettingsModeBalanced': '均衡',
+  'localModelRuntimeSettingsModePerformance': '高性能',
+  'localModelRuntimeSettingsModeHint': '下面会直接告诉你每种模式更适合什么情况。',
+  'localModelRuntimeSettingsModeMemorySaverDetail':
+      '更保守，优先压低线程和批大小。适合小模型、发热明显，或者你只想先稳定跑起来。',
+  'localModelRuntimeSettingsModeBalancedDetail':
+      '默认推荐。速度、发热和内存压力会尽量取个中间值，适合大多数手机日常使用。',
+  'localModelRuntimeSettingsModePerformanceDetail':
+      '更激进，会尽量把线程和批大小往上提。可能更快，但也更吃内存、更热，更容易顶到极限。',
+  'localModelOpenRuntimeSettingsAction': '资源设置',
+  'localModelChatAvailableHint': '本地服务已经在运行，可以直接进对话；进了对话页后，也还能切到其他已保存的模型配置。',
+  'localModelChatPreopenHint': '对话页现在可以先进去，不用等本地服务先启动。没启动的话，也可以先在对话设置里切别的模型。',
+  'localModelDownloadEtaLabel': '预计剩余 {value}',
+  'localModelDownloadFallbackSource': '备用下载源',
+  'localModelChatRuntimeNotRunning': '本地模型还没启动',
+  'localModelChatRuntimeWaiting': '正在读取资源占用...',
+  'localModelChatRuntimeConnected': '模型已连接',
+  'localModelChatRuntimeUnavailable': '暂时读不到资源占用',
+  'localModelChatRuntimeMemoryPanelTitle': '内存占用',
+  'localModelChatRuntimeMemoryUsage': '已用 {used} / 总共 {total}',
+  'localModelChatRuntimeRefreshing': '每秒刷新',
+  'localModelChatRuntimeCpu': 'CPU {value}%',
+  'localModelChatRuntimeMemory': '内存 {value}',
+  'localModelChatRuntimeThreads': '线程 {value}',
+  'localModelChatRuntimeCores': '约 {value} 核',
+  'localModelChatLocalUnavailableHint':
+      '当前本地模型还没跑起来。你可以先去启动它，或者点右上角设置切到别的已保存模型。',
+  'localModelChatComposerDisabledHint': '先启动本地模型，或者去右上角设置里切到别的模型',
 };

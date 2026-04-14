@@ -211,11 +211,33 @@ class BackupService {
       throw Exception(unsupportedFileMessage);
     }
 
-    final workspaceMetadata = await NativeBridge.inspectWorkspaceBackup(path);
+    return loadBackupFromPath(
+      path.trim(),
+      fileName: fileName,
+      emptyFileMessage: emptyFileMessage,
+      unsupportedFileMessage: unsupportedFileMessage,
+      invalidWorkspaceBackupMessage: invalidWorkspaceBackupMessage,
+    );
+  }
+
+  static Future<BackupImportBundle> loadBackupFromPath(
+    String path, {
+    required String fileName,
+    required String emptyFileMessage,
+    required String unsupportedFileMessage,
+    required String invalidWorkspaceBackupMessage,
+  }) async {
+    final normalizedPath = path.trim();
+    if (normalizedPath.isEmpty) {
+      throw Exception(unsupportedFileMessage);
+    }
+
+    final workspaceMetadata =
+        await NativeBridge.inspectWorkspaceBackup(normalizedPath);
     if (workspaceMetadata != null) {
       return BackupImportBundle.workspace(
         fileName: fileName,
-        workspacePath: path,
+        workspacePath: normalizedPath,
         metadata: WorkspaceBackupMetadata.fromMap(workspaceMetadata),
       );
     }
@@ -226,7 +248,7 @@ class BackupService {
 
     late final String content;
     try {
-      content = await File(path).readAsString();
+      content = await File(normalizedPath).readAsString();
     } catch (_) {
       throw Exception(unsupportedFileMessage);
     }

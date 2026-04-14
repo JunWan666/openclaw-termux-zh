@@ -21,6 +21,9 @@ class PreferencesService {
   static const _keyLastAppVersion = 'last_app_version';
   static const _keyQqbotAppId = 'qqbot_app_id';
   static const _keyQqbotAppSecret = 'qqbot_app_secret';
+  static const _keyLocalModelMaxCpuCores = 'local_model_max_cpu_cores';
+  static const _keyLocalModelMemoryLimitMiB = 'local_model_memory_limit_mib';
+  static const _keyLocalModelPerformanceMode = 'local_model_performance_mode';
 
   late SharedPreferences _prefs;
 
@@ -148,6 +151,39 @@ class PreferencesService {
       _prefs.setString(_keyQqbotAppSecret, value);
     } else {
       _prefs.remove(_keyQqbotAppSecret);
+    }
+  }
+
+  int get localModelMaxCpuCores =>
+      (_prefs.getInt(_keyLocalModelMaxCpuCores) ?? 0).clamp(0, 128);
+  set localModelMaxCpuCores(int value) {
+    final normalized = value.clamp(0, 128);
+    if (normalized <= 0) {
+      _prefs.remove(_keyLocalModelMaxCpuCores);
+    } else {
+      _prefs.setInt(_keyLocalModelMaxCpuCores, normalized);
+    }
+  }
+
+  int get localModelMemoryLimitMiB =>
+      (_prefs.getInt(_keyLocalModelMemoryLimitMiB) ?? 0).clamp(0, 262144);
+  set localModelMemoryLimitMiB(int value) {
+    final normalized = value.clamp(0, 262144);
+    if (normalized <= 0) {
+      _prefs.remove(_keyLocalModelMemoryLimitMiB);
+    } else {
+      _prefs.setInt(_keyLocalModelMemoryLimitMiB, normalized);
+    }
+  }
+
+  String get localModelPerformanceMode =>
+      _prefs.getString(_keyLocalModelPerformanceMode) ?? 'balanced';
+  set localModelPerformanceMode(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty || normalized == 'balanced') {
+      _prefs.remove(_keyLocalModelPerformanceMode);
+    } else {
+      _prefs.setString(_keyLocalModelPerformanceMode, normalized);
     }
   }
 
