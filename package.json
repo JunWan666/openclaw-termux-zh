@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "openclaw-termux",
   "version": "2.0.1",
   "description": "OpenClaw AI Gateway for Android Termux with Bionic Bypass",
@@ -42,7 +42,7 @@
   ],
   "dependencies": {
     "chalk": "^5.3.0",
-    "inquirer": "^9.2.12",
+    "inquirer": "^13.4.2",
     "ora": "^7.0.1"
   },
   "devDependencies": {
