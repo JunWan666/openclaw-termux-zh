@@ -68,9 +68,31 @@ class BootstrapManager(
         // as libtalloc.so (jniLibs naming convention). Create a copy with the
         // correct SONAME so the dynamic linker finds it.
         setupLibtalloc()
+        ensureRootfsRuntimeDirectories()
         // Create fake /proc and /sys files for proot bind mounts
         setupFakeSysdata()
         ensureDefaultTimezone()
+    }
+
+    private fun ensureRootfsRuntimeDirectories() {
+        listOf(
+            "$rootfsDir/var/cache/apt",
+            "$rootfsDir/var/cache/apt/archives",
+            "$rootfsDir/var/cache/apt/archives/partial",
+            "$rootfsDir/var/lib/apt",
+            "$rootfsDir/var/lib/apt/lists",
+            "$rootfsDir/var/lib/apt/lists/partial",
+            "$rootfsDir/var/log/apt",
+            "$rootfsDir/var/lib/dpkg/updates",
+            "$rootfsDir/var/lib/dpkg/triggers",
+            "$rootfsDir/tmp",
+            "$rootfsDir/var/tmp",
+            "$rootfsDir/run",
+            "$rootfsDir/run/lock",
+            "$rootfsDir/dev/shm",
+        ).forEach { path ->
+            HostFilesystem.ensureDirectoryReady(path, "rootfs runtime directory")
+        }
     }
 
     private fun setupNativeRuntimeBinaries() {
@@ -169,6 +191,20 @@ class BootstrapManager(
         val nodeExists = File("$rootfsDir/usr/local/bin/node").exists()
         val openclawExists = File("$rootfsDir/usr/local/lib/node_modules/openclaw/package.json").exists()
         val bypassExists = File("$rootfsDir/root/.openclaw/bionic-bypass.js").exists()
+        val basePackageBinaries = listOf(
+            "$rootfsDir/usr/bin/git",
+            "$rootfsDir/usr/bin/python3",
+            "$rootfsDir/usr/bin/make",
+            "$rootfsDir/usr/bin/g++",
+            "$rootfsDir/usr/bin/curl",
+            "$rootfsDir/usr/bin/wget",
+        )
+        val caCertificatesReady =
+            File("$rootfsDir/etc/ssl/certs/ca-certificates.crt").exists() ||
+            File("$rootfsDir/usr/sbin/update-ca-certificates").exists()
+        val basePackagesInstalled = binBashExists &&
+            basePackageBinaries.all { File(it).exists() } &&
+            caCertificatesReady
 
         return mapOf(
             "rootfsExists" to rootfsExists,
@@ -176,6 +212,7 @@ class BootstrapManager(
             "nodeInstalled" to nodeExists,
             "openclawInstalled" to openclawExists,
             "bypassInstalled" to bypassExists,
+            "basePackagesInstalled" to basePackagesInstalled,
             "rootfsPath" to rootfsDir,
             "complete" to (rootfsExists && binBashExists && bypassExists
                 && nodeExists && openclawExists)
@@ -539,6 +576,13 @@ class BootstrapManager(
             "$rootfsDir/etc/ssl/certs",
             "$rootfsDir/usr/share/keyrings",
             "$rootfsDir/etc/apt/sources.list.d",
+            "$rootfsDir/var/cache/apt",
+            "$rootfsDir/var/cache/apt/archives",
+            "$rootfsDir/var/cache/apt/archives/partial",
+            "$rootfsDir/var/lib/apt",
+            "$rootfsDir/var/lib/apt/lists",
+            "$rootfsDir/var/lib/apt/lists/partial",
+            "$rootfsDir/var/log/apt",
             "$rootfsDir/var/lib/dpkg/updates",
             "$rootfsDir/var/lib/dpkg/triggers",
             // npm cache directories (npm can't mkdir inside proot)
@@ -1372,9 +1416,10 @@ require('/root/.openclaw/proot-compat.js');
 
     /**
      * Read DNS servers from Android's active network. Falls back to
-     * Google DNS (8.8.8.8, 8.8.4.4) if system DNS is unavailable (#60).
+     * public DNS servers if system DNS is unavailable (#60).
      */
     private fun getSystemDnsServers(): String {
+        val fallbackServers = listOf("223.5.5.5", "119.29.29.29", "8.8.8.8")
         try {
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             if (cm != null) {
@@ -1383,14 +1428,17 @@ require('/root/.openclaw/proot-compat.js');
                     val linkProps: LinkProperties? = cm.getLinkProperties(network)
                     val dnsServers = linkProps?.dnsServers
                     if (dnsServers != null && dnsServers.isNotEmpty()) {
-                        val lines = dnsServers.joinToString("\n") { "nameserver ${it.hostAddress}" }
-                        // Always append Google DNS as fallback
-                        return "$lines\nnameserver 8.8.8.8\n"
+                        val servers = (dnsServers.mapNotNull { it.hostAddress } + fallbackServers)
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .distinct()
+                            .take(3)
+                        return servers.joinToString("\n") { "nameserver $it" } + "\n"
                     }
                 }
             }
         } catch (_: Exception) {}
-        return "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
+        return fallbackServers.joinToString("\n") { "nameserver $it" } + "\n"
     }
 
     fun writeResolvConf() {

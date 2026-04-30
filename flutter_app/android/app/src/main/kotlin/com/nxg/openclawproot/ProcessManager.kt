@@ -84,7 +84,7 @@ class ProcessManager(
      * commonProotFlags(), so resolv.conf is guaranteed for all callers.
      */
     private fun ensureResolvConf(): File? {
-        val content = "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
+        val content = "nameserver 223.5.5.5\nnameserver 119.29.29.29\nnameserver 8.8.8.8\n"
         var hostResolvFile: File? = null
 
         // Primary: host-side file used by --bind mount
@@ -345,6 +345,7 @@ class ProcessManager(
         val process = pb.start()
         val output = StringBuilder()
         val errorLines = StringBuilder()
+        val criticalLines = StringBuilder()
         val reader = BufferedReader(InputStreamReader(process.inputStream))
 
         var line: String?
@@ -355,15 +356,12 @@ class ProcessManager(
             }
             emitInstallLog(l)
             output.appendLine(l)
-            // Collect error-relevant lines (skip apt download noise)
-            if (!l.startsWith("Get:") && !l.startsWith("Fetched ") &&
-                !l.startsWith("Hit:") && !l.startsWith("Ign:") &&
-                !l.contains(" kB]") && !l.contains(" MB]") &&
-                !l.startsWith("Reading package") && !l.startsWith("Building dependency") &&
-                !l.startsWith("Reading state") && !l.startsWith("The following") &&
-                !l.startsWith("Need to get") && !l.startsWith("After this") &&
-                l.trim().isNotEmpty()) {
-                errorLines.appendLine(l)
+            val trimmed = l.trim()
+            if (isCriticalErrorLine(trimmed)) {
+                criticalLines.appendLine(trimmed)
+            }
+            if (isErrorRelevantLine(trimmed)) {
+                errorLines.appendLine(trimmed)
             }
         }
 
@@ -375,7 +373,9 @@ class ProcessManager(
 
         val exitCode = process.exitValue()
         if (exitCode != 0) {
-            val errorOutput = errorLines.toString().takeLast(3000).ifEmpty {
+            val errorOutput = criticalLines.toString().takeLast(3000).ifEmpty {
+                errorLines.toString().takeLast(3000)
+            }.ifEmpty {
                 output.toString().takeLast(3000)
             }
             throw RuntimeException(
@@ -384,6 +384,48 @@ class ProcessManager(
         }
 
         return output.toString()
+    }
+
+    private fun isCriticalErrorLine(line: String): Boolean {
+        if (line.isEmpty()) return false
+        return line.startsWith("E:") ||
+            line.startsWith("Err:") ||
+            line.startsWith("dpkg: error") ||
+            line.startsWith("dpkg: dependency problems") ||
+            line.startsWith("Sub-process ") ||
+            line.startsWith("Errors were encountered") ||
+            line.contains("Temporary failure resolving") ||
+            line.contains("Could not resolve") ||
+            line.contains("Unable to fetch") ||
+            line.contains("Unable to locate package")
+    }
+
+    private fun isErrorRelevantLine(line: String): Boolean {
+        if (line.isEmpty()) return false
+        if (isCriticalErrorLine(line)) return true
+        if (line.startsWith("Get:") ||
+            line.startsWith("Hit:") ||
+            line.startsWith("Ign:") ||
+            line.startsWith("Fetched ") ||
+            line.startsWith("Reading package") ||
+            line.startsWith("Building dependency") ||
+            line.startsWith("Reading state") ||
+            line.startsWith("The following") ||
+            line.startsWith("Suggested packages:") ||
+            line.startsWith("Recommended packages:") ||
+            line.startsWith("Need to get") ||
+            line.startsWith("After this") ||
+            line.startsWith("Selecting previously") ||
+            line.startsWith("Preparing to unpack") ||
+            line.startsWith("Unpacking ") ||
+            line.startsWith("Setting up ") ||
+            line.startsWith("Processing triggers")) {
+            return false
+        }
+        if (line.contains(" kB]") || line.contains(" MB]")) {
+            return false
+        }
+        return true
     }
 
     private fun emitInstallLog(line: String) {

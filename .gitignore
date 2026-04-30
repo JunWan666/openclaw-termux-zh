@@ -6,6 +6,7 @@ node_modules/
 *.tgz
 coverage/
 .nyc_output/
+.tmp/
 
 
 # Android signing

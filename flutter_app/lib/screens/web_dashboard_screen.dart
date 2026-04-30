@@ -10,6 +10,7 @@ import '../l10n/app_localizations.dart';
 import '../constants.dart';
 import '../services/dashboard_url_resolver.dart';
 import '../services/gateway_auth_config_service.dart';
+import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 
 class WebDashboardScreen extends StatefulWidget {
@@ -37,6 +38,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
   int _currentCandidateIndex = 0;
   int _navigationRevision = 0;
   double _pageScale = 1.0;
+  _WebViewPackageInfo? _webViewInfo;
 
   @override
   void initState() {
@@ -59,7 +61,26 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       });
     }
 
+    await _loadWebViewPackageInfo();
+
     await _loadUrl();
+  }
+
+  Future<void> _loadWebViewPackageInfo() async {
+    try {
+      final info = _WebViewPackageInfo.fromJson(
+        await NativeBridge.getWebViewPackageInfo(),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _webViewInfo = info;
+        if (info.isLikelyOutdated && _statusMessage == null) {
+          _statusMessage = info.outdatedMessage;
+        }
+      });
+    } catch (_) {}
   }
 
   WebViewController _createWebViewController() {
@@ -523,7 +544,8 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
 
     if (snapshot.looksBlank) {
       await _handleLoadProblem(
-        reason: 'The dashboard loaded but stayed blank.',
+        reason: _webViewInfo?.blankPageMessage ??
+            'The dashboard loaded but stayed blank.',
         allowFallback: true,
       );
       return;
@@ -662,6 +684,44 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
                 ),
               ),
             ),
+          if (_webViewInfo?.isLikelyOutdated == true && _error == null)
+            Material(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: SafeArea(
+                bottom: false,
+                top: false,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_outlined,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _webViewInfo!.outdatedMessage,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onErrorContainer,
+                                  ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _openInExternalBrowser,
+                        icon: const Icon(Icons.open_in_browser_outlined),
+                        label: Text(l10n.t('gatewayOpenDashboard')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: Stack(
               children: [
@@ -767,5 +827,54 @@ class _DashboardDomSnapshot {
       return value.toInt();
     }
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+}
+
+class _WebViewPackageInfo {
+  const _WebViewPackageInfo({
+    required this.packageName,
+    required this.versionName,
+    required this.majorVersion,
+  });
+
+  factory _WebViewPackageInfo.fromJson(Map<String, dynamic> json) {
+    return _WebViewPackageInfo(
+      packageName: json['packageName']?.toString(),
+      versionName: json['versionName']?.toString(),
+      majorVersion: _parseInt(json['majorVersion']),
+    );
+  }
+
+  final String? packageName;
+  final String? versionName;
+  final int? majorVersion;
+
+  bool get isLikelyOutdated {
+    final major = majorVersion;
+    return major != null && major > 0 && major < 100;
+  }
+
+  String get outdatedMessage {
+    final version = versionName == null || versionName!.trim().isEmpty
+        ? 'unknown'
+        : versionName!;
+    return 'Embedded WebView is old ($version). If the dashboard is blank or reports 4008, update Android System WebView/Chrome or open it in an external browser.';
+  }
+
+  String get blankPageMessage {
+    if (isLikelyOutdated) {
+      return 'The dashboard loaded but stayed blank. This device is using an old WebView (${versionName ?? 'unknown'}); update Android System WebView/Chrome or open the dashboard in an external browser.';
+    }
+    return 'The dashboard loaded but stayed blank.';
+  }
+
+  static int? _parseInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse(value?.toString() ?? '');
   }
 }

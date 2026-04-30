@@ -3,10 +3,10 @@
     "defaults": {
       "workspace": "/root/.openclaw/workspace",
       "model": {
-        "primary": "susu/英伟达/openai/gpt-oss-120b"
+        "primary": "7749api/gpt-5.5"
       },
       "models": {
-        "susu/英伟达/openai/gpt-oss-120b": {}
+        "7749api/gpt-5.5": {}
       }
     }
   },
@@ -63,14 +63,14 @@
   "models": {
     "mode": "merge",
     "providers": {
-      "susu": {
-        "baseUrl": "https://susuapi.nas.cpolar.cn/v1",
+      "7749api": {
+        "baseUrl": "https://api.774966.xyz/v1",
         "api": "openai-completions",
-        "apiKey": "sk-xquJQght3GTL4durjqiZNXQNxJ6R85d4O7artxMYLdqWbeLx",
+        "apiKey": "sk-IqEVL1qz8HxHBWMC9hOu6MtcfhGl5HAcqMAxrDtM0ayvwrDA",
         "models": [
           {
-            "id": "英伟达/openai/gpt-oss-120b",
-            "name": "英伟达/openai/gpt-oss-120b (Custom Provider)",
+            "id": "gpt-5.5",
+            "name": "gpt-5.5 (7749api)",
             "contextWindow": 128000,
             "maxTokens": 4096,
             "input": [
@@ -82,7 +82,7 @@
               "cacheRead": 1,
               "cacheWrite": 10
             },
-            "reasoning": false
+            "reasoning": true
           }
         ]
       }

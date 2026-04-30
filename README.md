@@ -114,14 +114,14 @@
 
 ## 当前正式发布版本
 
-- 版本：`v2.0.1`
-- 发布说明：[release/v2.0.1/Release.zh.md](release/v2.0.1/Release.zh.md)
+- 版本：`v2.0.2`
+- 发布说明：[release/v2.0.2/Release.zh.md](release/v2.0.2/Release.zh.md)
 - 改动日志：[CHANGELOG.md](CHANGELOG.md)
 - Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
 
 > 不确定版本该下哪个时，请优先以 GitHub Releases 页面为准。
 
-## v2.0.1 重点亮点
+## v2.0.2 重点亮点
 
 - 修复 AI 提供商里“自定义模型”串到其他渠道的问题，现在每个提供商的模型值都会独立保存。
 - 对话日志改为直接读取应用工作目录里的 `.jsonl` 会话文件，规避旧的 `resolv.conf` 缺失问题。
@@ -129,6 +129,7 @@
 - 内置 GGUF 模型列表、联网搜索和 Gemma 4 热门模型推荐，不再要求自己到处找链接。
 - 本地对话页支持切换本地模型、已保存 Provider 配置和手动接口，也支持流式、思考、Markdown 和停止生成。
 - 备份入口升级为“备份中心”，统一管理导入、保存、切换、恢复和导出备份。
+- 新增 arm64 预构建 Ubuntu rootfs，首次 setup 优先跳过现场 `apt-get update/install`；内置包失败会自动回退旧流程。
 
 ## 下载指南
 
@@ -136,11 +137,10 @@
 
 | 文件 | 适用设备 | 大小 | 下载 |
 | --- | --- | ---: | --- |
-| `OpenClaw-v2.0.1-universal.apk` | 不确定架构、想直接安装 | 102.06 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-universal.apk) |
-| `OpenClaw-v2.0.1-arm64-v8a.apk` | 大多数现代 Android 手机 | 83.80 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-arm64-v8a.apk) |
-| `OpenClaw-v2.0.1-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 83.53 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-armeabi-v7a.apk) |
-| `OpenClaw-v2.0.1-x86_64.apk` | 模拟器或 x86_64 设备 | 84.01 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-x86_64.apk) |
-| `OpenClaw-v2.0.1.aab` | 应用商店分发 | 108.84 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1.aab) |
+| `OpenClaw-v2.0.2-universal.apk` | 不确定架构、想直接安装 | 240.91 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-universal.apk) |
+| `OpenClaw-v2.0.2-arm64-v8a.apk` | 大多数现代 Android 手机 | 222.64 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-arm64-v8a.apk) |
+| `OpenClaw-v2.0.2-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 222.38 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-armeabi-v7a.apk) |
+| `OpenClaw-v2.0.2-x86_64.apk` | 模拟器或 x86_64 设备 | 222.85 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-x86_64.apk) |
 
 ## 快速开始
 
@@ -165,7 +165,7 @@ flutter build apk --release
 如需直接生成发布目录中的 APK / AAB，可使用仓库自带脚本：
 
 ```bash
-python scripts/build_release.py --version 2.0.1 --build-number 68
+python scripts/build_release.py --version 2.0.2 --build-number 69 --skip-aab
 ```
 
 ## 交流反馈
@@ -182,7 +182,7 @@ python scripts/build_release.py --version 2.0.1 --build-number 68
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/jsonl_format_guide.md](docs/jsonl_format_guide.md)
 - [docs/README_en.md](docs/README_en.md)
-- [release/v2.0.1/Release.zh.md](release/v2.0.1/Release.zh.md)
+- [release/v2.0.2/Release.zh.md](release/v2.0.2/Release.zh.md)
 
 ## Star History
 

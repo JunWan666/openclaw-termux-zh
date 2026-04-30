@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models/openclaw_install_options.dart';
 import 'native_bridge.dart';
+import 'proot_dns_service.dart';
 
 typedef OpenClawInstallProgressCallback = void Function(
   OpenClawInstallProgress progress,
@@ -245,6 +246,7 @@ class OpenClawVersionService {
 
   Future<InstalledNodeRuntime> readInstalledNodeRuntime() async {
     try {
+      await ProotDnsService.ensureReady();
       final output = await NativeBridge.runInProot(
         'node_path="\$(command -v node 2>/dev/null || true)"\n'
         'if [ -z "\$node_path" ] && [ -x /usr/local/bin/node ]; then\n'
@@ -410,12 +412,7 @@ class OpenClawVersionService {
     );
 
     try {
-      try {
-        await NativeBridge.setupDirs();
-      } catch (_) {}
-      try {
-        await NativeBridge.writeResolv();
-      } catch (_) {}
+      await ProotDnsService.ensureReady();
 
       final normalizedVersion = version.trim();
       if (normalizedVersion.isEmpty) {
@@ -522,6 +519,7 @@ class OpenClawVersionService {
     double progressStart = 0.0,
     double progressEnd = 1.0,
   }) async {
+    await ProotDnsService.ensureReady();
     _emitProgress(
       onProgress,
       progress: progressStart,
@@ -538,8 +536,11 @@ class OpenClawVersionService {
     }
 
     final minimumVersion = _minimumNodeVersion(requirement);
+    final arch = await NativeBridge.getArch();
     final targetVersion = _selectNodeVersionForRequirement(
-        minimumVersion ?? AppConstants.nodeVersion);
+      minimumVersion ?? AppConstants.getNodeVersionForArch(arch),
+      arch,
+    );
     await _installNodeRuntime(
       targetVersion,
       onProgress: onProgress,
@@ -562,6 +563,7 @@ class OpenClawVersionService {
     double progressStart = 0.0,
     double progressEnd = 1.0,
   }) async {
+    await ProotDnsService.ensureReady();
     final arch = await NativeBridge.getArch();
     final filesDir = await NativeBridge.getFilesDir();
     final tarPath = '$filesDir/tmp/nodejs-$version.tar.xz';
@@ -661,9 +663,17 @@ class OpenClawVersionService {
     );
   }
 
-  String _selectNodeVersionForRequirement(String minimumVersion) {
-    if (compareVersions(AppConstants.nodeVersion, minimumVersion) >= 0) {
-      return AppConstants.nodeVersion;
+  String _selectNodeVersionForRequirement(String minimumVersion, String arch) {
+    final preferredVersion = AppConstants.getNodeVersionForArch(arch);
+    if (compareVersions(preferredVersion, minimumVersion) >= 0) {
+      return preferredVersion;
+    }
+    if (AppConstants.isArmv7Arch(arch)) {
+      throw Exception(
+        'Node.js $minimumVersion or newer is required, but official '
+        'armv7l builds are configured to use Node.js '
+        '${AppConstants.nodeArmv7Version}.',
+      );
     }
     return minimumVersion;
   }

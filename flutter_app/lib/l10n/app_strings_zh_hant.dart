@@ -261,6 +261,9 @@ const Map<String, String> appStringsZhHant = {
   'setupWizardStatusSetupComplete': '安裝完成',
   'setupWizardStatusSetupRequired': '需要安裝環境',
   'setupWizardStatusSettingUpDirs': '正在準備目錄...',
+  'setupWizardStatusUsingPrebuiltRootfs': '正在使用預構建 Ubuntu rootfs...',
+  'setupWizardStatusPrebuiltRootfsFallback':
+      '預構建 rootfs 失敗，正在改用標準 Ubuntu rootfs...',
   'setupWizardStatusDownloadingUbuntuRootfs': '正在下載 Ubuntu rootfs...',
   'setupWizardStatusDownloadingProgress': '正在下載：{current} MB / {total} MB',
   'setupWizardStatusExtractingRootfs': '正在解壓 rootfs（這會花一點時間）...',
@@ -268,6 +271,7 @@ const Map<String, String> appStringsZhHant = {
   'setupWizardStatusFixingPermissions': '正在修復 rootfs 權限...',
   'setupWizardStatusUpdatingPackageLists': '正在更新軟體包列表...',
   'setupWizardStatusInstallingBasePackages': '正在安裝基礎軟體包...',
+  'setupWizardStatusBasePackagesReady': '基礎軟體包已就緒',
   'setupWizardStatusDownloadingNode': '正在下載 Node.js {version}...',
   'setupWizardStatusDownloadingNodeProgress':
       '正在下載 Node.js：{current} MB / {total} MB',

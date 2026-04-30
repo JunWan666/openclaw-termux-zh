@@ -28,6 +28,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.OpenableColumns
+import android.webkit.WebView
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -94,6 +95,9 @@ class MainActivity : FlutterActivity() {
                 }
                 "getNativeLibDir" -> {
                     result.success(nativeLibDir)
+                }
+                "getWebViewPackageInfo" -> {
+                    result.success(getWebViewPackageInfo())
                 }
                 "isBootstrapComplete" -> {
                     result.success(bootstrapManager.isBootstrapComplete())
@@ -890,6 +894,35 @@ class MainActivity : FlutterActivity() {
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
+    }
+
+    private fun getWebViewPackageInfo(): Map<String, Any?> {
+        return try {
+            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WebView.getCurrentWebViewPackage()
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo("com.google.android.webview", 0)
+            }
+            hashMapOf(
+                "packageName" to packageInfo?.packageName,
+                "versionName" to packageInfo?.versionName,
+                "majorVersion" to parseMajorVersion(packageInfo?.versionName)
+            )
+        } catch (_: Exception) {
+            hashMapOf(
+                "packageName" to null,
+                "versionName" to null,
+                "majorVersion" to null
+            )
+        }
+    }
+
+    private fun parseMajorVersion(versionName: String?): Int? {
+        if (versionName.isNullOrBlank()) {
+            return null
+        }
+        return versionName.substringBefore('.').toIntOrNull()
     }
 
     private var urlNotificationId = 100

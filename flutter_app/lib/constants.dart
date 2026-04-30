@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'OpenClaw';
-  static const String version = '2.0.1';
+  static const String version = '2.0.2';
   static const String packageName = 'com.junwan666.openclawzh';
 
   /// Matches ANSI escape sequences (e.g. color codes in terminal output).
@@ -36,16 +36,33 @@ class AppConstants {
   static const String rootfsArm64 = '${ubuntuRootfsUrl}arm64.tar.gz';
   static const String rootfsArmhf = '${ubuntuRootfsUrl}armhf.tar.gz';
   static const String rootfsAmd64 = '${ubuntuRootfsUrl}amd64.tar.gz';
+  static const String prebuiltRootfsPrefix = 'openclaw-rootfs-$ubuntuCodename';
 
   // Node.js binary tarball 閳?downloaded directly by Flutter, extracted by Java.
   // Bypasses curl/gpg/NodeSource which fail inside proot.
   static const String nodeVersion = '24.14.1';
+  static const String nodeArmv7Version = '22.22.2';
   static const String openClawEstimatedSize = '~95 MB';
   static const String nodeBaseUrl =
       'https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-linux-';
 
+  static bool isArmv7Arch(String arch) {
+    final normalized = arch.trim().toLowerCase();
+    return normalized == 'arm' ||
+        normalized == 'armv7l' ||
+        normalized == 'armeabi-v7a' ||
+        normalized == 'armhf';
+  }
+
+  static String getNodeVersionForArch(String arch) {
+    if (isArmv7Arch(arch)) {
+      return nodeArmv7Version;
+    }
+    return nodeVersion;
+  }
+
   static String getNodeTarballUrl(String arch) {
-    return getNodeTarballUrlForVersion(arch, nodeVersion);
+    return getNodeTarballUrlForVersion(arch, getNodeVersionForArch(arch));
   }
 
   static String getNodeTarballUrlForVersion(String arch, String version) {
@@ -68,6 +85,27 @@ class AppConstants {
     final uri = Uri.parse(url);
     final fileName = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
     return '$bundledBootstrapAssetDir/$fileName';
+  }
+
+  static String ubuntuRootfsArchiveArch(String arch) {
+    final normalized = arch.trim().toLowerCase();
+    if (normalized == 'aarch64' ||
+        normalized == 'arm64' ||
+        normalized == 'arm64-v8a') {
+      return 'arm64';
+    }
+    if (isArmv7Arch(normalized)) {
+      return 'armhf';
+    }
+    if (normalized == 'x86_64' || normalized == 'amd64') {
+      return 'amd64';
+    }
+    return 'arm64';
+  }
+
+  static String prebuiltRootfsAssetPathForArch(String arch) {
+    final rootfsArch = ubuntuRootfsArchiveArch(arch);
+    return '$bundledBootstrapAssetDir/$prebuiltRootfsPrefix-$rootfsArch.tar.gz';
   }
 
   static bool isUbuntuPortsArch(String arch) {

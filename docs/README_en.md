@@ -10,12 +10,12 @@
 
 ## Current Version
 
-- Version: `v2.0.1`
-- Release notes: [release/v2.0.1/Release.zh.md](../release/v2.0.1/Release.zh.md)
+- Version: `v2.0.2`
+- Release notes: [release/v2.0.2/Release.zh.md](../release/v2.0.2/Release.zh.md)
 - Change log: [CHANGELOG.md](../CHANGELOG.md)
 - Releases page: <https://github.com/JunWan666/openclaw-termux-zh/releases>
 
-## What's New In v2.0.1
+## What's New In v2.0.2
 
 - Fixed custom model names leaking across other providers. Each provider now keeps its own selected or typed model.
 - Fixed conversation log loading by reading `.jsonl` session files directly from the app workspace instead of going through an extra proot exec path that could retrigger the missing `resolv.conf` issue.
@@ -23,17 +23,17 @@
 - Added built-in Gemma 4 entries and more plain-language device-fit suggestions, so users no longer need to manually hunt for GGUF download links.
 - Upgraded the local chat page with stream output, thinking toggles, Markdown rendering, stop generation, collapsible runtime header, memory usage display, API endpoint copy, and the ability to switch between local, saved, or manually entered endpoints.
 - Replaced the old backup shortcut flow with a Backup Center that can import, store, switch, restore, and export backups in one place.
-- Release metadata is synced back to formal `v2.0.1`, and the Android build number is bumped to `68`.
+- v2.0.2 updates the Android build number to `69`, fixes armv7 Node.js downloads, and improves DNS/mirror fallback during setup.
+- Added an arm64 prebuilt Ubuntu rootfs so first setup can skip runtime `apt-get update/install`; if the bundled rootfs fails validation, setup falls back to the old online apt flow.
 
 ## Download Artifacts
 
 | File | Target Device | Size | Download |
 |---|---|---:|---|
-| `OpenClaw-v2.0.1-universal.apk` | Best default choice | 102.06 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-universal.apk) |
-| `OpenClaw-v2.0.1-arm64-v8a.apk` | Most modern Android phones | 83.80 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-arm64-v8a.apk) |
-| `OpenClaw-v2.0.1-armeabi-v7a.apk` | Older 32-bit ARM devices | 83.53 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-armeabi-v7a.apk) |
-| `OpenClaw-v2.0.1-x86_64.apk` | Emulator or x86_64 device | 84.01 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1-x86_64.apk) |
-| `OpenClaw-v2.0.1.aab` | Store distribution | 108.84 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.1/OpenClaw-v2.0.1.aab) |
+| `OpenClaw-v2.0.2-universal.apk` | Best default choice | 240.91 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-universal.apk) |
+| `OpenClaw-v2.0.2-arm64-v8a.apk` | Most modern Android phones | 222.64 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-arm64-v8a.apk) |
+| `OpenClaw-v2.0.2-armeabi-v7a.apk` | Older 32-bit ARM devices | 222.38 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-armeabi-v7a.apk) |
+| `OpenClaw-v2.0.2-x86_64.apk` | Emulator or x86_64 device | 222.85 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-x86_64.apk) |
 
 ## Quick Start
 
@@ -57,7 +57,7 @@ flutter build apk --release
 To generate the release directory with APKs and AAB:
 
 ```bash
-python scripts/build_release.py --version 2.0.1 --build-number 68
+python scripts/build_release.py --version 2.0.2 --build-number 69 --skip-aab
 ```
 
 ## Repository Structure

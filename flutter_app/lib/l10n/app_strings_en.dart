@@ -628,6 +628,9 @@ const Map<String, String> appStringsEn = {
   'setupWizardStatusSetupComplete': 'Setup complete',
   'setupWizardStatusSetupRequired': 'Setup required',
   'setupWizardStatusSettingUpDirs': 'Setting up directories...',
+  'setupWizardStatusUsingPrebuiltRootfs': 'Using prebuilt Ubuntu rootfs...',
+  'setupWizardStatusPrebuiltRootfsFallback':
+      'Prebuilt rootfs failed, using standard Ubuntu rootfs...',
   'setupWizardStatusDownloadingUbuntuRootfs': 'Downloading Ubuntu rootfs...',
   'setupWizardStatusDownloadingProgress':
       'Downloading: {current} MB / {total} MB',
@@ -637,6 +640,7 @@ const Map<String, String> appStringsEn = {
   'setupWizardStatusFixingPermissions': 'Fixing rootfs permissions...',
   'setupWizardStatusUpdatingPackageLists': 'Updating package lists...',
   'setupWizardStatusInstallingBasePackages': 'Installing base packages...',
+  'setupWizardStatusBasePackagesReady': 'Base packages ready',
   'setupWizardStatusDownloadingNode': 'Downloading Node.js {version}...',
   'setupWizardStatusDownloadingNodeProgress':
       'Downloading Node.js: {current} MB / {total} MB',

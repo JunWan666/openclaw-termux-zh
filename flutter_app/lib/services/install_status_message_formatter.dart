@@ -71,6 +71,11 @@ class InstallStatusMessageFormatter {
         return l10n.t('setupWizardStatusSetupRequired');
       case 'Setting up directories...':
         return l10n.t('setupWizardStatusSettingUpDirs');
+      case 'Using bundled prebuilt Ubuntu rootfs package...':
+      case 'Using cached prebuilt Ubuntu rootfs package...':
+        return l10n.t('setupWizardStatusUsingPrebuiltRootfs');
+      case 'Prebuilt rootfs failed, falling back to standard Ubuntu rootfs...':
+        return l10n.t('setupWizardStatusPrebuiltRootfsFallback');
       case 'Downloading Ubuntu rootfs...':
       case 'Using bundled Ubuntu rootfs package...':
       case 'Bundled rootfs failed, downloading online...':
@@ -85,6 +90,8 @@ class InstallStatusMessageFormatter {
         return l10n.t('setupWizardStatusUpdatingPackageLists');
       case 'Installing base packages...':
         return l10n.t('setupWizardStatusInstallingBasePackages');
+      case 'Base packages already available':
+        return l10n.t('setupWizardStatusBasePackagesReady');
       case 'Preparing OpenClaw package...':
         return _phrase(
           l10n,
@@ -151,6 +158,7 @@ class InstallStatusMessageFormatter {
     final trimmed = detail.trim();
     switch (trimmed) {
       case 'Using packaged Ubuntu rootfs archive.':
+      case 'Using packaged prebuilt Ubuntu rootfs archive.':
         return _phrase(
           l10n,
           en: 'Using the packaged Ubuntu rootfs archive.',
@@ -279,7 +287,8 @@ class InstallStatusMessageFormatter {
     if (downloadProgress != null) {
       final current = downloadProgress.group(1);
       final total = downloadProgress.group(2);
-      final suffix = _localizeTransferSuffix(l10n, downloadProgress.group(3) ?? '');
+      final suffix =
+          _localizeTransferSuffix(l10n, downloadProgress.group(3) ?? '');
       return '$current MB / $total MB | $suffix';
     }
 
@@ -287,7 +296,10 @@ class InstallStatusMessageFormatter {
     if (withEta != null) {
       final prefix = withEta.group(1)?.trim();
       final eta = withEta.group(2)?.trim();
-      if (prefix != null && prefix.isNotEmpty && eta != null && eta.isNotEmpty) {
+      if (prefix != null &&
+          prefix.isNotEmpty &&
+          eta != null &&
+          eta.isNotEmpty) {
         return '$prefix | ${_estimatedLabel(l10n)} $eta';
       }
     }

@@ -293,6 +293,9 @@ const Map<String, String> appStringsZhHans = {
   'setupWizardStatusSetupComplete': '安装完成',
   'setupWizardStatusSetupRequired': '需要安装环境',
   'setupWizardStatusSettingUpDirs': '正在准备目录...',
+  'setupWizardStatusUsingPrebuiltRootfs': '正在使用预构建 Ubuntu rootfs...',
+  'setupWizardStatusPrebuiltRootfsFallback':
+      '预构建 rootfs 失败，正在改用标准 Ubuntu rootfs...',
   'setupWizardStatusDownloadingUbuntuRootfs': '正在下载 Ubuntu rootfs...',
   'setupWizardStatusDownloadingProgress': '正在下载：{current} MB / {total} MB',
   'setupWizardStatusExtractingRootfs': '正在解压 rootfs（这会花一点时间）...',
@@ -300,6 +303,7 @@ const Map<String, String> appStringsZhHans = {
   'setupWizardStatusFixingPermissions': '正在修复 rootfs 权限...',
   'setupWizardStatusUpdatingPackageLists': '正在更新软件包列表...',
   'setupWizardStatusInstallingBasePackages': '正在安装基础软件包...',
+  'setupWizardStatusBasePackagesReady': '基础软件包已就绪',
   'setupWizardStatusDownloadingNode': '正在下载 Node.js {version}...',
   'setupWizardStatusDownloadingNodeProgress':
       '正在下载 Node.js：{current} MB / {total} MB',

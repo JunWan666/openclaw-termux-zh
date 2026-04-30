@@ -190,7 +190,7 @@ class BootstrapService {
     if (results.isNotEmpty) {
       return results.first.baseUrl;
     }
-    return candidates.last;
+    return candidates.first;
   }
 
   Future<void> _configureUbuntuMirror(String arch) async {
@@ -198,6 +198,28 @@ class BootstrapService {
     await NativeBridge.writeRootfsFile(
       'etc/apt/sources.list',
       AppConstants.buildUbuntuSourcesList(selectedMirror),
+    );
+  }
+
+  bool _rootfsReady(Map<String, dynamic> status) =>
+      _statusFlag(status, 'rootfsExists') &&
+      _statusFlag(status, 'binBashExists');
+
+  bool _basePackagesReady(Map<String, dynamic> status) =>
+      _statusFlag(status, 'basePackagesInstalled');
+
+  Future<void> _extractRootfsWithProgress({
+    required void Function(SetupState) onProgress,
+    required String tarPath,
+  }) async {
+    await _runEstimatedProgress(
+      onProgress: onProgress,
+      step: SetupStep.extractingRootfs,
+      startProgress: 0.02,
+      targetProgress: 0.92,
+      message: 'Extracting rootfs (this takes a while)...',
+      estimatedDuration: const Duration(minutes: 2),
+      task: () => NativeBridge.extractRootfs(tarPath),
     );
   }
 
@@ -359,7 +381,8 @@ class BootstrapService {
       final filesDir = await NativeBridge.getFilesDir();
 
       // Direct Dart fallback: ensure config dir + resolv.conf exist (#40).
-      const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
+      const resolvContent =
+          'nameserver 223.5.5.5\nnameserver 119.29.29.29\nnameserver 8.8.8.8\n';
       try {
         final configDir = '$filesDir/config';
         final resolvFile = File('$configDir/resolv.conf');
@@ -374,12 +397,14 @@ class BootstrapService {
           rootfsResolv.writeAsStringSync(resolvContent);
         }
       } catch (_) {}
-      final bootstrapStatus = await NativeBridge.getBootstrapStatus();
-      final rootfsReady = _statusFlag(bootstrapStatus, 'rootfsExists') &&
-          _statusFlag(bootstrapStatus, 'binBashExists');
+      var bootstrapStatus = await NativeBridge.getBootstrapStatus();
+      final rootfsReady = _rootfsReady(bootstrapStatus);
       final tarPath = '$filesDir/tmp/ubuntu-rootfs.tar.gz';
       final rootfsAssetPath =
           AppConstants.bundledBootstrapAssetPathForUrl(rootfsUrl);
+      final prebuiltTarPath = '$filesDir/tmp/openclaw-prebuilt-rootfs.tar.gz';
+      final prebuiltRootfsAssetPath =
+          AppConstants.prebuiltRootfsAssetPathForArch(arch);
 
       if (rootfsReady) {
         _emitProgress(
@@ -391,81 +416,133 @@ class BootstrapService {
           notificationText: 'Ubuntu rootfs ready 45.0%',
         );
       } else {
-        final rootfsSource = await _prepareBundledOrCachedArchive(
-          assetPath: rootfsAssetPath,
-          destinationPath: tarPath,
+        var extractedPrebuiltRootfs = false;
+        final prebuiltSource = await _prepareBundledOrCachedArchive(
+          assetPath: prebuiltRootfsAssetPath,
+          destinationPath: prebuiltTarPath,
         );
-        final rootfsFromLocal = rootfsSource != _PreparedArchiveSource.none;
-        if (rootfsSource == _PreparedArchiveSource.bundled) {
-          _emitProgress(
-            onProgress: onProgress,
-            step: SetupStep.downloadingRootfs,
-            progress: 1.0,
-            message: 'Using bundled Ubuntu rootfs package...',
-            detail: 'Using packaged Ubuntu rootfs archive.',
-            notificationText: 'Using bundled Ubuntu rootfs package... 30.0%',
-          );
-        } else if (rootfsSource == _PreparedArchiveSource.cached) {
-          _emitProgress(
-            onProgress: onProgress,
-            step: SetupStep.downloadingRootfs,
-            progress: 1.0,
-            message: 'Using cached Ubuntu rootfs package...',
-            detail: 'Reusing local Ubuntu rootfs archive cache.',
-            notificationText: 'Using cached Ubuntu rootfs package... 30.0%',
-          );
-        } else {
-          await _downloadStepArchive(
-            url: rootfsUrl,
-            destinationPath: tarPath,
-            onProgress: onProgress,
-            step: SetupStep.downloadingRootfs,
-            startProgress: 0.0,
-            endProgress: 1.0,
-            idleMessage: 'Downloading Ubuntu rootfs...',
-            detailBuilder: (currentMb, totalMb, details) =>
-                '$currentMb MB / $totalMb MB | $details',
-          );
+
+        if (prebuiltSource != _PreparedArchiveSource.none) {
+          if (prebuiltSource == _PreparedArchiveSource.bundled) {
+            _emitProgress(
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              progress: 1.0,
+              message: 'Using bundled prebuilt Ubuntu rootfs package...',
+              detail: 'Using packaged prebuilt Ubuntu rootfs archive.',
+              notificationText:
+                  'Using bundled prebuilt Ubuntu rootfs package... 30.0%',
+            );
+          } else {
+            _emitProgress(
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              progress: 1.0,
+              message: 'Using cached prebuilt Ubuntu rootfs package...',
+              detail: 'Reusing local prebuilt Ubuntu rootfs archive cache.',
+              notificationText:
+                  'Using cached prebuilt Ubuntu rootfs package... 30.0%',
+            );
+          }
+
+          try {
+            await _extractRootfsWithProgress(
+              onProgress: onProgress,
+              tarPath: prebuiltTarPath,
+            );
+            bootstrapStatus = await NativeBridge.getBootstrapStatus();
+            if (!_rootfsReady(bootstrapStatus) ||
+                !_basePackagesReady(bootstrapStatus)) {
+              throw StateError(
+                'Prebuilt rootfs is missing required base packages.',
+              );
+            }
+            extractedPrebuiltRootfs = true;
+          } catch (error) {
+            try {
+              File(prebuiltTarPath).deleteSync();
+            } catch (_) {}
+            _emitProgress(
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              progress: 1.0,
+              message:
+                  'Prebuilt rootfs failed, falling back to standard Ubuntu rootfs...',
+              detail: error.toString(),
+              notificationText:
+                  'Prebuilt rootfs failed, using standard Ubuntu rootfs... 30.0%',
+            );
+          }
         }
 
-        try {
-          await _runEstimatedProgress(
-            onProgress: onProgress,
-            step: SetupStep.extractingRootfs,
-            startProgress: 0.02,
-            targetProgress: 0.92,
-            message: 'Extracting rootfs (this takes a while)...',
-            estimatedDuration: const Duration(minutes: 2),
-            task: () => NativeBridge.extractRootfs(tarPath),
-          );
-        } catch (error) {
-          if (!rootfsFromLocal) {
-            rethrow;
-          }
-          try {
-            File(tarPath).deleteSync();
-          } catch (_) {}
-          await _downloadStepArchive(
-            url: rootfsUrl,
+        if (!extractedPrebuiltRootfs) {
+          final rootfsSource = await _prepareBundledOrCachedArchive(
+            assetPath: rootfsAssetPath,
             destinationPath: tarPath,
-            onProgress: onProgress,
-            step: SetupStep.downloadingRootfs,
-            startProgress: 0.0,
-            endProgress: 1.0,
-            idleMessage: 'Local rootfs cache failed, downloading online...',
-            detailBuilder: (currentMb, totalMb, details) =>
-                '$currentMb MB / $totalMb MB | $details',
           );
-          await _runEstimatedProgress(
-            onProgress: onProgress,
-            step: SetupStep.extractingRootfs,
-            startProgress: 0.02,
-            targetProgress: 0.92,
-            message: 'Extracting rootfs (this takes a while)...',
-            estimatedDuration: const Duration(minutes: 2),
-            task: () => NativeBridge.extractRootfs(tarPath),
-          );
+          final rootfsFromLocal = rootfsSource != _PreparedArchiveSource.none;
+          if (rootfsSource == _PreparedArchiveSource.bundled) {
+            _emitProgress(
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              progress: 1.0,
+              message: 'Using bundled Ubuntu rootfs package...',
+              detail: 'Using packaged Ubuntu rootfs archive.',
+              notificationText: 'Using bundled Ubuntu rootfs package... 30.0%',
+            );
+          } else if (rootfsSource == _PreparedArchiveSource.cached) {
+            _emitProgress(
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              progress: 1.0,
+              message: 'Using cached Ubuntu rootfs package...',
+              detail: 'Reusing local Ubuntu rootfs archive cache.',
+              notificationText: 'Using cached Ubuntu rootfs package... 30.0%',
+            );
+          } else {
+            await _downloadStepArchive(
+              url: rootfsUrl,
+              destinationPath: tarPath,
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              startProgress: 0.0,
+              endProgress: 1.0,
+              idleMessage: 'Downloading Ubuntu rootfs...',
+              detailBuilder: (currentMb, totalMb, details) =>
+                  '$currentMb MB / $totalMb MB | $details',
+            );
+          }
+
+          try {
+            await _extractRootfsWithProgress(
+              onProgress: onProgress,
+              tarPath: tarPath,
+            );
+          } catch (error) {
+            if (!rootfsFromLocal) {
+              rethrow;
+            }
+            try {
+              File(tarPath).deleteSync();
+            } catch (_) {}
+            await _downloadStepArchive(
+              url: rootfsUrl,
+              destinationPath: tarPath,
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              startProgress: 0.0,
+              endProgress: 1.0,
+              idleMessage: 'Local rootfs cache failed, downloading online...',
+              detailBuilder: (currentMb, totalMb, details) =>
+                  '$currentMb MB / $totalMb MB | $details',
+            );
+            await _extractRootfsWithProgress(
+              onProgress: onProgress,
+              tarPath: tarPath,
+            );
+          }
         }
+        bootstrapStatus = await NativeBridge.getBootstrapStatus();
         _emitProgress(
           onProgress: onProgress,
           step: SetupStep.extractingRootfs,
@@ -474,6 +551,7 @@ class BootstrapService {
           notificationText: 'Rootfs extracted 45.0%',
         );
       }
+      bootstrapStatus = await NativeBridge.getBootstrapStatus();
 
       // Install bionic bypass + cwd-fix + node-wrapper BEFORE using node.
       // The wrapper patches process.cwd() which returns ENOSYS in proot.
@@ -488,6 +566,7 @@ class BootstrapService {
         );
       } else {
         await NativeBridge.installBionicBypass();
+        bootstrapStatus = await NativeBridge.getBootstrapStatus();
       }
 
       final nodeReady = _statusFlag(bootstrapStatus, 'nodeInstalled') &&
@@ -532,57 +611,70 @@ class BootstrapService {
           notificationText: 'Fixing rootfs permissions... 47.8%',
         );
 
-        await _configureUbuntuMirror(arch);
+        bootstrapStatus = await NativeBridge.getBootstrapStatus();
+        if (_basePackagesReady(bootstrapStatus)) {
+          _emitProgress(
+            onProgress: onProgress,
+            step: SetupStep.installingNode,
+            progress: 0.42,
+            message: 'Base packages already available',
+            detail: 'Skipping apt-get update/install for prebuilt rootfs.',
+            notificationText: 'Base packages ready 59.7%',
+          );
+        } else {
+          await _configureUbuntuMirror(arch);
 
-        // --- Install base packages via apt-get (like Termux proot-distro) ---
-        // Now that our proot matches Termux exactly (env -i, clean host env,
-        // proper flags), dpkg works normally. No need for Java-side deb
-        // extraction — let dpkg+tar handle it inside proot like Termux does.
-        await _runEstimatedProgress(
-          onProgress: onProgress,
-          step: SetupStep.installingNode,
-          startProgress: 0.10,
-          targetProgress: 0.18,
-          message: 'Updating package lists...',
-          detail: 'Running apt-get update...',
-          estimatedDuration: const Duration(seconds: 25),
-          task: () => NativeBridge.runInProot('apt-get update -y'),
-        );
+          // --- Install base packages via apt-get (like Termux proot-distro) ---
+          // Now that our proot matches Termux exactly (env -i, clean host env,
+          // proper flags), dpkg works normally. No need for Java-side deb
+          // extraction — let dpkg+tar handle it inside proot like Termux does.
+          await _runEstimatedProgress(
+            onProgress: onProgress,
+            step: SetupStep.installingNode,
+            startProgress: 0.10,
+            targetProgress: 0.18,
+            message: 'Updating package lists...',
+            detail: 'Running apt-get update...',
+            estimatedDuration: const Duration(seconds: 25),
+            task: () => NativeBridge.runInProot('apt-get update -y'),
+          );
 
-        _emitProgress(
-          onProgress: onProgress,
-          step: SetupStep.installingNode,
-          progress: 0.20,
-          message: 'Installing base packages...',
-          notificationText: 'Installing base packages... 52.0%',
-        );
-        // ca-certificates: HTTPS for npm/git
-        // git: openclaw has git deps (@whiskeysockets/libsignal-node)
-        // python3, make, g++: node-gyp needs these to compile native addons
-        //   (npm's bundled node-gyp runs as a JS module, not a spawned process,
-        //    so proot-compat.js spawn mock can't intercept it)
-        // dpkg extracts via tar inside proot — permissions are correct.
-        // Post-install scripts (update-ca-certificates) run automatically.
-        // Pre-configure tzdata to avoid interactive continent/timezone prompt
-        // (tzdata is a dependency of python3 and ignores DEBIAN_FRONTEND on
-        // first install if no timezone is pre-set).
-        await NativeBridge.runInProot(
-          'ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime && '
-          'echo "Etc/UTC" > /etc/timezone',
-        );
-        await _runEstimatedProgress(
-          onProgress: onProgress,
-          step: SetupStep.installingNode,
-          startProgress: 0.22,
-          targetProgress: 0.42,
-          message: 'Installing base packages...',
-          detail: 'Running apt-get install for base packages...',
-          estimatedDuration: const Duration(minutes: 3),
-          task: () => NativeBridge.runInProot(
-            'apt-get install -y --no-install-recommends '
-            'ca-certificates git python3 make g++ curl wget',
-          ),
-        );
+          _emitProgress(
+            onProgress: onProgress,
+            step: SetupStep.installingNode,
+            progress: 0.20,
+            message: 'Installing base packages...',
+            notificationText: 'Installing base packages... 52.0%',
+          );
+          // ca-certificates: HTTPS for npm/git
+          // git: openclaw has git deps (@whiskeysockets/libsignal-node)
+          // python3, make, g++: node-gyp needs these to compile native addons
+          //   (npm's bundled node-gyp runs as a JS module, not a spawned process,
+          //    so proot-compat.js spawn mock can't intercept it)
+          // dpkg extracts via tar inside proot — permissions are correct.
+          // Post-install scripts (update-ca-certificates) run automatically.
+          // Pre-configure tzdata to avoid interactive continent/timezone prompt
+          // (tzdata is a dependency of python3 and ignores DEBIAN_FRONTEND on
+          // first install if no timezone is pre-set).
+          await NativeBridge.runInProot(
+            'ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime && '
+            'echo "Etc/UTC" > /etc/timezone',
+          );
+          await _runEstimatedProgress(
+            onProgress: onProgress,
+            step: SetupStep.installingNode,
+            startProgress: 0.22,
+            targetProgress: 0.42,
+            message: 'Installing base packages...',
+            detail: 'Running apt-get install for base packages...',
+            estimatedDuration: const Duration(minutes: 3),
+            task: () => NativeBridge.runInProot(
+              'apt-get install -y --no-install-recommends '
+              'ca-certificates git python3 make g++ curl wget',
+            ),
+          );
+          bootstrapStatus = await NativeBridge.getBootstrapStatus();
+        }
 
         // Git config (.gitconfig) is written by installBionicBypass() on the
         // Java side — directly to $rootfsDir/root/.gitconfig — rewrites
@@ -591,6 +683,7 @@ class BootstrapService {
         // --- Install Node.js via binary tarball ---
         // Download directly from nodejs.org (bypasses curl/gpg/NodeSource
         // which fail inside proot). Includes node + npm + corepack.
+        final nodeVersion = AppConstants.getNodeVersionForArch(arch);
         final nodeTarUrl = AppConstants.getNodeTarballUrl(arch);
         final nodeTarPath = '$filesDir/tmp/nodejs.tar.xz';
         final nodeAssetPath =
@@ -606,8 +699,7 @@ class BootstrapService {
             onProgress: onProgress,
             step: SetupStep.installingNode,
             progress: 0.80,
-            message:
-                'Using bundled Node.js ${AppConstants.nodeVersion} package...',
+            message: 'Using bundled Node.js $nodeVersion package...',
             detail: 'Using packaged Node.js archive.',
             notificationText: 'Using bundled Node.js package... 73.0%',
           );
@@ -616,8 +708,7 @@ class BootstrapService {
             onProgress: onProgress,
             step: SetupStep.installingNode,
             progress: 0.80,
-            message:
-                'Using cached Node.js ${AppConstants.nodeVersion} package...',
+            message: 'Using cached Node.js $nodeVersion package...',
             detail: 'Reusing local Node.js archive cache.',
             notificationText: 'Using cached Node.js package... 73.0%',
           );
@@ -629,7 +720,7 @@ class BootstrapService {
             step: SetupStep.installingNode,
             startProgress: 0.45,
             endProgress: 0.80,
-            idleMessage: 'Downloading Node.js ${AppConstants.nodeVersion}...',
+            idleMessage: 'Downloading Node.js $nodeVersion...',
             detailBuilder: (currentMb, totalMb, details) =>
                 '$currentMb MB / $totalMb MB | $details',
           );
@@ -700,6 +791,8 @@ class BootstrapService {
           notificationText: 'Node.js installed 80.0%',
         );
       }
+
+      bootstrapStatus = await NativeBridge.getBootstrapStatus();
 
       // Step 4: Install OpenClaw (80-98%)
       final installedOpenClawVersion =

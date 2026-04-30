@@ -272,6 +272,9 @@ const Map<String, String> appStringsJa = {
   'setupWizardStatusSetupComplete': 'セットアップ完了',
   'setupWizardStatusSetupRequired': 'セットアップが必要です',
   'setupWizardStatusSettingUpDirs': 'ディレクトリを準備中...',
+  'setupWizardStatusUsingPrebuiltRootfs': '事前構築済み Ubuntu rootfs を使用中...',
+  'setupWizardStatusPrebuiltRootfsFallback':
+      '事前構築済み rootfs に失敗したため標準 Ubuntu rootfs を使用中...',
   'setupWizardStatusDownloadingUbuntuRootfs': 'Ubuntu rootfs をダウンロード中...',
   'setupWizardStatusDownloadingProgress': 'ダウンロード中: {current} MB / {total} MB',
   'setupWizardStatusExtractingRootfs': 'rootfs を展開中（少し時間がかかります）...',
@@ -279,6 +282,7 @@ const Map<String, String> appStringsJa = {
   'setupWizardStatusFixingPermissions': 'rootfs の権限を修正中...',
   'setupWizardStatusUpdatingPackageLists': 'パッケージリストを更新中...',
   'setupWizardStatusInstallingBasePackages': '基本パッケージをインストール中...',
+  'setupWizardStatusBasePackagesReady': '基本パッケージは準備済みです',
   'setupWizardStatusDownloadingNode': 'Node.js {version} をダウンロード中...',
   'setupWizardStatusDownloadingNodeProgress':
       'Node.js をダウンロード中: {current} MB / {total} MB',

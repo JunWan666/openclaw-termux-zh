@@ -23,6 +23,11 @@ class NativeBridge {
     return await _channel.invokeMethod('getNativeLibDir');
   }
 
+  static Future<Map<String, dynamic>> getWebViewPackageInfo() async {
+    final result = await _channel.invokeMethod('getWebViewPackageInfo');
+    return Map<String, dynamic>.from(result);
+  }
+
   static Future<bool> isBootstrapComplete() async {
     return await _channel.invokeMethod('isBootstrapComplete');
   }
