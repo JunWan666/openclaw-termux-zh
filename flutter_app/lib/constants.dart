@@ -45,6 +45,14 @@ class AppConstants {
   static const String openClawEstimatedSize = '~95 MB';
   static const String nodeBaseUrl =
       'https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-linux-';
+  static const String basicResourceReleaseBaseUrl =
+      'https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource';
+  static const String basicResourcePrebuiltRootfsArm64 =
+      '$basicResourceReleaseBaseUrl/openclaw-rootfs-$ubuntuCodename-arm64.tar.gz';
+  static const String basicResourceUbuntuRootfsArm64 =
+      '$basicResourceReleaseBaseUrl/ubuntu-base-24.04.3-base-arm64.tar.gz';
+  static const String basicResourceNodeArm64 =
+      '$basicResourceReleaseBaseUrl/node-v$nodeVersion-linux-arm64.tar.xz';
 
   static bool isArmv7Arch(String arch) {
     final normalized = arch.trim().toLowerCase();

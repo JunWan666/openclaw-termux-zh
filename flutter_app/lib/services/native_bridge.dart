@@ -186,6 +186,12 @@ class NativeBridge {
     return Map<String, dynamic>.from(result);
   }
 
+  static Future<Map<String, dynamic>?> pickBootstrapArchiveFile() async {
+    final result = await _channel.invokeMethod('pickBootstrapArchiveFile');
+    if (result == null) return null;
+    return Map<String, dynamic>.from(result);
+  }
+
   static Future<Map<String, dynamic>?> exportWorkspaceBackup({
     required String suggestedName,
     required String appVersion,

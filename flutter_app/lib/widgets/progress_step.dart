@@ -9,6 +9,8 @@ class ProgressStep extends StatelessWidget {
   final bool hasError;
   final double? progress;
   final String? detail;
+  final bool compact;
+  final bool isLast;
 
   const ProgressStep({
     super.key,
@@ -19,13 +21,20 @@ class ProgressStep extends StatelessWidget {
     this.hasError = false,
     this.progress,
     this.detail,
+    this.compact = false,
+    this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final circleSize = compact ? 24.0 : 32.0;
+    final circleGap = compact ? 10.0 : 12.0;
+    final verticalPadding = compact ? 0.0 : 8.0;
+    final lineColor = theme.colorScheme.outlineVariant;
 
     Color circleColor;
+    Color? circleBorderColor;
     Widget circleChild;
 
     if (hasError) {
@@ -47,6 +56,7 @@ class ProgressStep extends StatelessWidget {
       );
     } else {
       circleColor = theme.colorScheme.surfaceContainerHighest;
+      circleBorderColor = theme.colorScheme.outlineVariant;
       circleChild = Text(
         '$stepNumber',
         style: TextStyle(
@@ -57,80 +67,195 @@ class ProgressStep extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: circleColor,
-              shape: BoxShape.circle,
+    if (!compact) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: circleColor,
+                shape: BoxShape.circle,
+                border: circleBorderColor == null
+                    ? null
+                    : Border.all(color: circleBorderColor),
+              ),
+              alignment: Alignment.center,
+              child: circleChild,
             ),
-            alignment: Alignment.center,
-            child: circleChild,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                          color: isActive
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.onSurfaceVariant,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight:
+                                isActive ? FontWeight.w600 : FontWeight.normal,
+                            color: isActive
+                                ? theme.colorScheme.onSurface
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
+                      if (isActive && progress != null) ...[
+                        const SizedBox(width: 12),
+                        Text(
+                          '${(progress!.clamp(0.0, 1.0) * 100).toStringAsFixed(1)}%',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (isActive && progress != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 6,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                     ),
-                    if (isActive && progress != null) ...[
-                      const SizedBox(width: 12),
+                  if (isActive &&
+                      detail != null &&
+                      detail!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      detail!,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontFamily: 'DejaVuSansMono',
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: verticalPadding),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: circleSize,
+              child: Column(
+                children: [
+                  Container(
+                    width: circleSize,
+                    height: circleSize,
+                    decoration: BoxDecoration(
+                      color: circleColor,
+                      shape: BoxShape.circle,
+                      border: circleBorderColor == null
+                          ? null
+                          : Border.all(color: circleBorderColor),
+                    ),
+                    alignment: Alignment.center,
+                    child: circleChild,
+                  ),
+                  if (!isLast)
+                    Expanded(
+                      child: Container(
+                        width: 1,
+                        margin: const EdgeInsets.only(top: 4, bottom: 4),
+                        color: lineColor,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(width: circleGap),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: compact ? 1 : 2,
+                  bottom: compact ? 10 : 14,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: (compact
+                                    ? theme.textTheme.bodySmall
+                                    : theme.textTheme.bodyMedium)
+                                ?.copyWith(
+                              fontWeight:
+                                  isActive ? FontWeight.w700 : FontWeight.w500,
+                              height: 1.25,
+                              color: isActive
+                                  ? theme.colorScheme.onSurface
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        if (isActive && progress != null) ...[
+                          const SizedBox(width: 12),
+                          Text(
+                            '${(progress!.clamp(0.0, 1.0) * 100).toStringAsFixed(1)}%',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (isActive && progress != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 5,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    if (isActive &&
+                        detail != null &&
+                        detail!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
                       Text(
-                        '${(progress!.clamp(0.0, 1.0) * 100).toStringAsFixed(1)}%',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w700,
+                        detail!,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontFamily: 'DejaVuSansMono',
+                          fontSize: 11,
+                          height: 1.35,
                         ),
                       ),
                     ],
                   ],
                 ),
-                if (isActive && progress != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 6,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                if (isActive &&
-                    detail != null &&
-                    detail!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    detail!,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontFamily: 'DejaVuSansMono',
-                      fontSize: 11,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

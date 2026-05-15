@@ -833,6 +833,8 @@ class _LocalModelScreenState extends State<LocalModelScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                _buildRuntimeInstallNotice(theme),
+                const SizedBox(height: 12),
                 _buildOverviewCard(theme, l10n),
                 const SizedBox(height: 12),
                 _buildQuickActionsCard(theme, l10n),
@@ -866,6 +868,57 @@ class _LocalModelScreenState extends State<LocalModelScreen> {
                 ],
               ],
             ),
+    );
+  }
+
+  Widget _buildRuntimeInstallNotice(ThemeData theme) {
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.priority_high_rounded,
+            color: theme.colorScheme.error,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isZh
+                      ? '本地模型运行时会额外下载大文件'
+                      : 'Local model runtime downloads large files',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.onErrorContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isZh
+                      ? '当前链路使用 PRoot 内的 llama.cpp + GGUF，主要走 CPU，不是 Google AI Edge Gallery 那种原生 GPU 运行时。安装运行时和模型可能占用数百 MB 到数 GB，并带来发热和耗电。'
+                      : 'This path uses llama.cpp + GGUF inside PRoot and primarily runs on CPU, not the native GPU runtime used by Google AI Edge Gallery. Runtime/model downloads can take hundreds of MB to several GB and may cause heat and battery drain.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onErrorContainer,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

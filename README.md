@@ -5,9 +5,9 @@
     <a href="README.md">简体中文</a> | <a href="docs/README_en.md">English</a>
   </p>
   <p>面向中文用户维护与分发的 OpenClaw Android 独立整合版本</p>
-  <p>内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、移动端配置体验与 Android 原生集成。</p>
+  <p>内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、移动端配置体验与 Android 原生集成；大体积运行时资源改为安装时下载或手动导入。</p>
   <p>
-    <img src="https://img.shields.io/github/v/release/JunWan666/openclaw-termux-zh?display_name=tag&style=for-the-badge" alt="Release" />
+    <img src="https://img.shields.io/badge/Release-v2.0.2-2563EB?style=for-the-badge" alt="Release v2.0.2" />
     <img src="https://img.shields.io/github/stars/JunWan666/openclaw-termux-zh?style=for-the-badge&logo=github" alt="GitHub stars" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
@@ -42,15 +42,16 @@
 
 > [!IMPORTANT]
 > - **本仓库不是 OpenClaw 官方 Android 发布渠道，升级前请自行评估兼容性与风险**。
-> - 首次安装会下载并解压 Ubuntu RootFS、Node.js 与 OpenClaw，务必保证网络、存储空间和前台运行时间足够。
+> - APK 不再内置大体积 RootFS / Node.js 运行时包；首次安装会在线下载并解压 Ubuntu RootFS、Node.js 与 OpenClaw，也可以在“预构建资源配置”页填写 GitHub 资源链接或选择本地压缩包。
 > - 导入配置或工作目录备份时，会覆盖当前 `/root/.openclaw` 下的核心数据；恢复前请先确认自己是否需要另做备份。
 > - 节点能力中的 `Canvas` 目前仍是未实现状态，README 会展示能力规划，但这项功能现在不能当成已可用能力使用。
 > - 如果要长时间运行 Gateway、做局域网访问或后台保持会话，建议**关闭系统电池优化**，并正确授予存储等必要权限。
 
 ## 功能亮点
 
-- 一键安装 Android 独立运行环境：Ubuntu RootFS、Node.js、OpenClaw。
+- 一键安装 Android 独立运行环境：Ubuntu RootFS、Node.js、OpenClaw；大体积运行时资源默认从外部下载，显著降低 APK 体积。
 - 中文首页与安装向导，可直接选择 OpenClaw 版本并完成初始化。
+- 新增独立的“预构建资源配置”页，可分别填写预构建 RootFS、Ubuntu base RootFS、Node.js 三个资源链接，或分别选择本地压缩包。
 - AI 提供商管理、消息平台接入、可选组件安装、节点能力配置。
 - 首页快捷操作新增“本地模型和对话”与“备份中心”，更适合手机上直接操作。
 - 支持在手机上安装 `llama.cpp`、下载和管理 GGUF 模型、写入本地 Provider 预设，并直接进入本地对话页测试。
@@ -114,20 +115,26 @@
 
 ## 当前正式发布版本
 
-- 版本：`v2.0.3`
-- 发布说明：[release/v2.0.3/Release.zh.md](release/v2.0.3/Release.zh.md)
+- 版本：`v2.0.2`
+- 发布说明：[release/v2.0.2/Release.zh.md](release/v2.0.2/Release.zh.md)
 - 改动日志：[CHANGELOG.md](CHANGELOG.md)
-- Releases 页面：<https://github.com/JunWan666/openclaw-termux-zh/releases>
+- v2.0.2 发布页：<https://github.com/JunWan666/openclaw-termux-zh/releases/tag/v2.0.2>
 
-> 不确定版本该下哪个时，请优先以 GitHub Releases 页面为准。
+> 不确定版本该下哪个时，请优先下载上方 v2.0.2 发布页中标注的文件；本 README 当前锁定 v2.0.2。
 
-## v2.0.3 重点亮点
+## v2.0.2 重点亮点
 
+- 将初始化稳定性修复、上一轮终端性能优化与当前未发布改动合并到本次 v2.0.2 打包版本，Android 构建号提升到 `77`。
+- APK 不再打包 `assets/bootstrap/` 下的大体积 RootFS / Node.js 资源，安装包体积从 200 MB 级回落到通用包约 45.96 MB、分 ABI 包约 27 MB。
+- 预构建资源配置移到独立页面，可一键使用 GitHub `basic-resource` 资源，也可分别填写或选择预构建 RootFS、Ubuntu base RootFS、Node.js 三个资源。
+- 首次安装向导改为小图标标题、步骤时间线和更紧凑的设置区，并补齐预构建资源页与示例配置弹窗的多语言文案。
 - 终端输出改为 16ms 批量刷新，减少配置向导、Onboarding 和普通终端大量日志输出时的卡顿。
 - 终端历史从 10000 行收敛到 3000 行，降低长时间输出后的内存和渲染压力。
 - 交互终端默认使用更轻的 PRoot fast 模式，减少 `--sysvipc` 等兼容参数带来的运行开销。
 - DNS 初始化统一收口到 `ProotDnsService.ensureReady()`，终端页面不再重复写 `resolv.conf`。
-- 继续保留 arm64 预构建 Ubuntu rootfs，首次 setup 可优先跳过现场 apt 安装，失败再回退旧流程。
+- 保留 32 位 ARM Node.js 22.22.2 兼容、国内 DNS / Ubuntu 镜像兜底、apt/dpkg 目录补齐和 PRoot 失败摘要优化。
+- 示例配置默认使用测试体验用的 OpenAI 兼容提供商，方便新用户安装后快速验证链路。
+- 本地模型页顶部补充强提醒：当前本地模型路径是 PRoot + llama.cpp + GGUF CPU 方案，不是 Google AI Edge 原生 GPU 方案。
 
 ## 下载指南
 
@@ -135,11 +142,11 @@
 
 | 文件 | 适用设备 | 大小 | 下载 |
 | --- | --- | ---: | --- |
-| `OpenClaw-v2.0.3-universal.apk` | 不确定架构、想直接安装 | 240.91 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-universal.apk) |
-| `OpenClaw-v2.0.3-arm64-v8a.apk` | 大多数现代 Android 手机 | 222.64 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-arm64-v8a.apk) |
-| `OpenClaw-v2.0.3-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 222.38 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-armeabi-v7a.apk) |
-| `OpenClaw-v2.0.3-x86_64.apk` | 模拟器或 x86_64 设备 | 222.85 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-x86_64.apk) |
-| `OpenClaw-v2.0.3.aab` | 应用商店分发 | 247.69 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3.aab) |
+| `OpenClaw-v2.0.2-universal.apk` | 不确定架构、想直接安装 | 45.96 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-universal.apk) |
+| `OpenClaw-v2.0.2-arm64-v8a.apk` | 大多数现代 Android 手机 | 27.66 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-arm64-v8a.apk) |
+| `OpenClaw-v2.0.2-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 27.40 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-armeabi-v7a.apk) |
+| `OpenClaw-v2.0.2-x86_64.apk` | 模拟器或 x86_64 设备 | 27.87 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-x86_64.apk) |
+| `OpenClaw-v2.0.2.aab` | 应用商店分发 | 52.74 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2.aab) |
 
 ## 快速开始
 
@@ -164,7 +171,7 @@ flutter build apk --release
 如需直接生成发布目录中的 APK / AAB，可使用仓库自带脚本：
 
 ```bash
-python scripts/build_release.py --version 2.0.3 --build-number 70
+python scripts/build_release.py --version 2.0.2 --build-number 77
 ```
 
 ## 交流反馈
@@ -181,7 +188,7 @@ python scripts/build_release.py --version 2.0.3 --build-number 70
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/jsonl_format_guide.md](docs/jsonl_format_guide.md)
 - [docs/README_en.md](docs/README_en.md)
-- [release/v2.0.3/Release.zh.md](release/v2.0.3/Release.zh.md)
+- [release/v2.0.2/Release.zh.md](release/v2.0.2/Release.zh.md)
 
 ## Star History
 

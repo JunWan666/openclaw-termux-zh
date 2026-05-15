@@ -50,6 +50,7 @@ class MainActivity : FlutterActivity() {
     private var pendingSnapshotContent: String? = null
     private var pendingSnapshotName: String? = null
     private var backupPickResult: MethodChannel.Result? = null
+    private var bootstrapArchivePickResult: MethodChannel.Result? = null
     private var workspaceBackupSaveResult: MethodChannel.Result? = null
     private var pendingWorkspaceBackupName: String? = null
     private var pendingWorkspaceBackupAppVersion: String? = null
@@ -559,6 +560,25 @@ class MainActivity : FlutterActivity() {
                         )
                     }
                     startActivityForResult(intent, BACKUP_PICK_REQUEST)
+                }
+                "pickBootstrapArchiveFile" -> {
+                    bootstrapArchivePickResult = result
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(
+                            Intent.EXTRA_MIME_TYPES,
+                            arrayOf(
+                                "application/gzip",
+                                "application/x-gzip",
+                                "application/x-gtar",
+                                "application/x-tar",
+                                "application/x-xz",
+                                "application/octet-stream"
+                            )
+                        )
+                    }
+                    startActivityForResult(intent, BOOTSTRAP_ARCHIVE_PICK_REQUEST)
                 }
                 "exportWorkspaceBackup" -> {
                     val suggestedName = call.argument<String>("suggestedName")
@@ -1171,6 +1191,44 @@ class MainActivity : FlutterActivity() {
             return
         }
 
+        if (requestCode == BOOTSTRAP_ARCHIVE_PICK_REQUEST) {
+            val pendingResult = bootstrapArchivePickResult
+            if (pendingResult == null) {
+                return
+            }
+
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                val uri = data.data!!
+                Thread {
+                    try {
+                        val fallbackName =
+                            uri.lastPathSegment?.substringAfterLast('/')
+                                ?: "openclaw-prebuilt-rootfs.tar.gz"
+                        val name = queryDisplayName(uri, fallbackName)
+                        val cached = copyBootstrapArchiveToCache(uri, name)
+                        runOnUiThread {
+                            pendingResult.success(
+                                hashMapOf(
+                                    "name" to name,
+                                    "path" to cached.absolutePath
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            pendingResult.error("BOOTSTRAP_ARCHIVE_PICK_ERROR", e.message, null)
+                        }
+                    } finally {
+                        bootstrapArchivePickResult = null
+                    }
+                }.start()
+            } else {
+                pendingResult.success(null)
+                bootstrapArchivePickResult = null
+            }
+            return
+        }
+
         if (requestCode == WORKSPACE_BACKUP_SAVE_REQUEST) {
             val pendingResult = workspaceBackupSaveResult
             val pendingName = pendingWorkspaceBackupName
@@ -1238,6 +1296,20 @@ class MainActivity : FlutterActivity() {
         return cacheFile
     }
 
+    private fun copyBootstrapArchiveToCache(uri: Uri, fileName: String): File {
+        val sanitizedName = sanitizeDocumentFileName(fileName)
+        val cacheFile = File(
+            cacheDir,
+            "bootstrap-archive-${System.currentTimeMillis()}-$sanitizedName"
+        )
+        contentResolver.openInputStream(uri)?.use { input ->
+            cacheFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        } ?: throw IllegalStateException("Unable to open source file")
+        return cacheFile
+    }
+
     private fun sanitizeDocumentFileName(fileName: String): String {
         val normalized = fileName.trim().ifEmpty { "backup" }
         val sanitized = normalized
@@ -1277,5 +1349,6 @@ class MainActivity : FlutterActivity() {
         const val SNAPSHOT_SAVE_REQUEST = 1006
         const val BACKUP_PICK_REQUEST = 1007
         const val WORKSPACE_BACKUP_SAVE_REQUEST = 1008
+        const val BOOTSTRAP_ARCHIVE_PICK_REQUEST = 1009
     }
 }

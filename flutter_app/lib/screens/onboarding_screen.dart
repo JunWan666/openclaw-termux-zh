@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
@@ -10,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
 import '../services/dashboard_url_resolver.dart';
+import '../services/terminal_output_buffer.dart';
 import '../services/terminal_service.dart';
 import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
@@ -36,6 +36,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   late final Terminal _terminal;
   late final TerminalController _controller;
+  late final TerminalOutputBuffer _terminalOutputBuffer;
   Pty? _pty;
   bool _loading = true;
   bool _finished = false;
@@ -52,7 +53,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     r'onboard(ing)?\s+(is\s+)?complete|successfully\s+onboarded|setup\s+complete',
     caseSensitive: false,
   );
-  String _outputBuffer = '';
+  String _urlScanBuffer = '';
 
   static const _fontFallback = [
     'monospace',
@@ -79,7 +80,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 10000);
+    _terminal = Terminal(maxLines: terminalScrollbackLines);
+    _terminalOutputBuffer = TerminalOutputBuffer(_terminal);
     _controller = TerminalController();
     NativeBridge.startTerminalService();
     // Defer PTY start until after the first frame so TerminalView has been
@@ -92,32 +94,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _startOnboarding() async {
+    _terminalOutputBuffer.flush();
     _pty?.kill();
     _pty = null;
     try {
       final l10n = context.l10n;
-      // Ensure dirs + resolv.conf exist before proot starts (#40).
-      try {
-        await NativeBridge.setupDirs();
-      } catch (_) {}
-      try {
-        await NativeBridge.writeResolv();
-      } catch (_) {}
-      try {
-        final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-        final resolvFile = File('$filesDir/config/resolv.conf');
-        if (!resolvFile.existsSync()) {
-          Directory('$filesDir/config').createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
-        }
-        // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-        if (!rootfsResolv.existsSync()) {
-          rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
-        }
-      } catch (_) {}
       final config = await TerminalService.getProotShellConfig();
       final args = TerminalService.buildProotArgs(
         config,
@@ -168,15 +149,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       _pty!.output.cast<List<int>>().listen((data) {
         final text = utf8.decode(data, allowMalformed: true);
-        _terminal.write(text);
+        _terminalOutputBuffer.write(text);
         // Scan output for token URL (e.g. http://localhost:18789/#token=...)
-        _outputBuffer += text;
+        _urlScanBuffer += text;
         // Keep buffer manageable
-        if (_outputBuffer.length > 4096) {
-          _outputBuffer = _outputBuffer.substring(_outputBuffer.length - 2048);
+        if (_urlScanBuffer.length > 4096) {
+          _urlScanBuffer =
+              _urlScanBuffer.substring(_urlScanBuffer.length - 2048);
         }
         // Strip ANSI escape codes for text analysis
-        final cleanText = _outputBuffer.replaceAll(_ansiEscape, '');
+        final cleanText = _urlScanBuffer.replaceAll(_ansiEscape, '');
         // For URL matching, strip terminal-only noise but keep whitespace
         // boundaries so later log labels do not get glued onto the token.
         final cleanForUrl = cleanText.replaceAll(_boxDrawing, '');
@@ -197,7 +179,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       });
 
       _pty!.exitCode.then((code) {
-        _terminal.write('\r\n[Onboarding exited with code $code]\r\n');
+        _terminalOutputBuffer.write(
+          '\r\n[Onboarding exited with code $code]\r\n',
+        );
+        _terminalOutputBuffer.flush();
         if (mounted) {
           setState(() => _finished = true);
         }
@@ -247,6 +232,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _ctrlNotifier.dispose();
     _altNotifier.dispose();
     _controller.dispose();
+    _terminalOutputBuffer.dispose();
     _pty?.kill();
     NativeBridge.stopTerminalService();
     super.dispose();

@@ -592,6 +592,42 @@ const Map<String, String> appStringsEn = {
   'setupWizardSelectVersion': 'OpenClaw Version',
   'setupWizardSelectedVersionHint': 'Will install {version} · {size}',
   'setupWizardRecommended': 'Recommended',
+  'setupWizardBootstrapResourcesTitle': 'Bootstrap resources',
+  'setupWizardBootstrapResourcesConfigured': 'Custom resources configured',
+  'setupWizardBootstrapResourcesOptional': 'Optional: URLs or local files',
+  'setupWizardBootstrapResourcesIntro':
+      'This is optional. If left empty, setup uses the default online flow.',
+  'setupWizardBootstrapUseGithub': 'Use GitHub assets',
+  'setupWizardBootstrapUseDefault': 'Use default flow',
+  'setupWizardBootstrapSave': 'Save configuration',
+  'setupWizardBootstrapPrebuiltRootfsTitle': 'Prebuilt RootFS',
+  'setupWizardBootstrapPrebuiltRootfsSubtitle':
+      'Recommended first; reduces first-setup apt work.',
+  'setupWizardBootstrapUbuntuRootfsTitle': 'Ubuntu base RootFS',
+  'setupWizardBootstrapUbuntuRootfsSubtitle':
+      'Fallback for the standard setup path.',
+  'setupWizardBootstrapNodeTitle': 'Node.js runtime',
+  'setupWizardBootstrapNodeSubtitle': 'Node.js runtime archive used by setup.',
+  'setupWizardBootstrapDownloadUrl': 'Download URL',
+  'setupWizardBootstrapLocalFile': 'Local file',
+  'setupWizardBootstrapNoFile': 'None selected',
+  'setupWizardBootstrapPickFile': 'Pick file',
+  'setupWizardBootstrapRemoveFile': 'Remove file',
+  'setupWizardBootstrapClearUrl': 'Clear URL',
+  'setupWizardBootstrapPickFailed': 'Failed to pick file: {error}',
+  'setupWizardBootstrapInvalidUrl':
+      'Enter a valid http/https {label} download URL',
+  'setupWizardSampleConfigDialogTitle': 'Built-in sample config available',
+  'setupWizardSampleConfigDialogBody':
+      'A built-in sample config is available for the installed OpenClaw version {version}.\n\nIf you use it, you can skip terminal onboarding and go straight to the dashboard. Afterwards, just update the Base URL, API key, and model from the AI Providers page.',
+  'setupWizardSampleConfigTerminalOnboarding': 'Use terminal onboarding',
+  'setupWizardSampleConfigUseSample': 'Use sample config',
+  'setupWizardSampleConfigAppliedTitle': 'Sample config applied',
+  'setupWizardSampleConfigAppliedBody':
+      'The built-in sample config for OpenClaw {version} has been applied.\n\nYou will go straight to the dashboard next. Open AI Providers there and replace the Base URL, API key, and model with your own values before starting the gateway.',
+  'setupWizardSampleConfigGoDashboard': 'Go to dashboard',
+  'setupWizardSampleConfigApplyFailed':
+      'Failed to apply the built-in sample config. Falling back to terminal onboarding: {error}',
   'openClawInstallOptionsSummaryTitle':
       'Recommended install optimizations are enabled',
   'openClawInstallOptionsAdvanced': 'Advanced',

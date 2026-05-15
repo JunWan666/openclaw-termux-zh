@@ -3,10 +3,10 @@
     "defaults": {
       "workspace": "/root/.openclaw/workspace",
       "model": {
-        "primary": "7749api/gpt-5.5"
+        "primary": "7749api/英伟达/openai/gpt-oss-120b"
       },
       "models": {
-        "7749api/gpt-5.5": {}
+        "7749api/英伟达/openai/gpt-oss-120b": {}
       }
     }
   },
@@ -66,11 +66,11 @@
       "7749api": {
         "baseUrl": "https://api.774966.xyz/v1",
         "api": "openai-completions",
-        "apiKey": "sk-IqEVL1qz8HxHBWMC9hOu6MtcfhGl5HAcqMAxrDtM0ayvwrDA",
+        "apiKey": "sk-OKKVZAdA1Njckk7T48FWJbSK6WkAma8KT68M2SFqeToJ7tt7",
         "models": [
           {
-            "id": "gpt-5.5",
-            "name": "gpt-5.5 (7749api)",
+            "id": "英伟达/openai/gpt-oss-120b",
+            "name": "英伟达/openai/gpt-oss-120b (7749api)",
             "contextWindow": 128000,
             "maxTokens": 4096,
             "input": [

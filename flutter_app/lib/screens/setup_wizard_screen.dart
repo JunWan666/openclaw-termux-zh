@@ -8,6 +8,7 @@ import '../providers/setup_provider.dart';
 import '../services/backup_service.dart';
 import '../services/bundled_sample_config_service.dart';
 import '../services/install_status_message_formatter.dart';
+import '../services/native_bridge.dart';
 import '../services/openclaw_version_service.dart';
 import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
@@ -39,6 +40,18 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   OpenClawReleaseInfo? _selectedRelease;
   bool _loadingReleaseOptions = false;
   String? _releaseOptionsError;
+  final TextEditingController _prebuiltRootfsUrlController =
+      TextEditingController();
+  final TextEditingController _ubuntuRootfsUrlController =
+      TextEditingController();
+  final TextEditingController _nodeArchiveUrlController =
+      TextEditingController();
+  String? _selectedPrebuiltRootfsArchivePath;
+  String? _selectedPrebuiltRootfsArchiveName;
+  String? _selectedUbuntuRootfsArchivePath;
+  String? _selectedUbuntuRootfsArchiveName;
+  String? _selectedNodeArchivePath;
+  String? _selectedNodeArchiveName;
 
   @override
   void initState() {
@@ -50,6 +63,14 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         _restoreCompletedSetupState();
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _prebuiltRootfsUrlController.dispose();
+    _ubuntuRootfsUrlController.dispose();
+    _nodeArchiveUrlController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadOpenClawReleaseOptions() async {
@@ -149,11 +170,50 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   Future<void> _beginSetup(SetupProvider provider) async {
+    final l10n = context.l10n;
+    final prebuiltRootfsUrl = _prebuiltRootfsUrlController.text.trim();
+    final ubuntuRootfsUrl = _ubuntuRootfsUrlController.text.trim();
+    final nodeArchiveUrl = _nodeArchiveUrlController.text.trim();
+
+    if (!_validateOptionalBootstrapUrl(
+      url: prebuiltRootfsUrl,
+      localPath: _selectedPrebuiltRootfsArchivePath,
+      label: l10n.t('setupWizardBootstrapPrebuiltRootfsTitle'),
+    )) {
+      return;
+    }
+    if (!_validateOptionalBootstrapUrl(
+      url: ubuntuRootfsUrl,
+      localPath: _selectedUbuntuRootfsArchivePath,
+      label: l10n.t('setupWizardBootstrapUbuntuRootfsTitle'),
+    )) {
+      return;
+    }
+    if (!_validateOptionalBootstrapUrl(
+      url: nodeArchiveUrl,
+      localPath: _selectedNodeArchivePath,
+      label: l10n.t('setupWizardBootstrapNodeTitle'),
+    )) {
+      return;
+    }
+
     setState(() {
       _started = true;
     });
     await provider.runSetup(
       selectedOpenClawRelease: _selectedRelease ?? _latestRelease,
+      installOptions: OpenClawInstallOptions(
+        prebuiltRootfsUrl: _selectedPrebuiltRootfsArchivePath == null
+            ? prebuiltRootfsUrl
+            : null,
+        prebuiltRootfsArchivePath: _selectedPrebuiltRootfsArchivePath,
+        ubuntuRootfsUrl:
+            _selectedUbuntuRootfsArchivePath == null ? ubuntuRootfsUrl : null,
+        ubuntuRootfsArchivePath: _selectedUbuntuRootfsArchivePath,
+        nodeArchiveUrl:
+            _selectedNodeArchivePath == null ? nodeArchiveUrl : null,
+        nodeArchivePath: _selectedNodeArchivePath,
+      ),
     );
 
     if (!mounted || !provider.state.isComplete) {
@@ -161,6 +221,83 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     }
 
     await _setPendingSetupChoice(true);
+  }
+
+  bool _validateOptionalBootstrapUrl({
+    required String url,
+    required String? localPath,
+    required String label,
+  }) {
+    if (localPath != null || url.isEmpty || _isValidHttpUrl(url)) {
+      return true;
+    }
+
+    final l10n = context.l10n;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          l10n.t('setupWizardBootstrapInvalidUrl', {'label': label}),
+        ),
+      ),
+    );
+    return false;
+  }
+
+  bool _isValidHttpUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+      return false;
+    }
+    final scheme = uri.scheme.toLowerCase();
+    return scheme == 'http' || scheme == 'https';
+  }
+
+  _BootstrapResourceConfig _currentBootstrapResourceConfig() {
+    return _BootstrapResourceConfig(
+      prebuiltRootfsUrl: _prebuiltRootfsUrlController.text.trim(),
+      prebuiltRootfsArchivePath: _selectedPrebuiltRootfsArchivePath,
+      prebuiltRootfsArchiveName: _selectedPrebuiltRootfsArchiveName,
+      ubuntuRootfsUrl: _ubuntuRootfsUrlController.text.trim(),
+      ubuntuRootfsArchivePath: _selectedUbuntuRootfsArchivePath,
+      ubuntuRootfsArchiveName: _selectedUbuntuRootfsArchiveName,
+      nodeArchiveUrl: _nodeArchiveUrlController.text.trim(),
+      nodeArchivePath: _selectedNodeArchivePath,
+      nodeArchiveName: _selectedNodeArchiveName,
+    );
+  }
+
+  void _applyBootstrapResourceConfig(_BootstrapResourceConfig config) {
+    _prebuiltRootfsUrlController.text = config.prebuiltRootfsUrl;
+    _ubuntuRootfsUrlController.text = config.ubuntuRootfsUrl;
+    _nodeArchiveUrlController.text = config.nodeArchiveUrl;
+    _selectedPrebuiltRootfsArchivePath = config.prebuiltRootfsArchivePath;
+    _selectedPrebuiltRootfsArchiveName = config.prebuiltRootfsArchiveName;
+    _selectedUbuntuRootfsArchivePath = config.ubuntuRootfsArchivePath;
+    _selectedUbuntuRootfsArchiveName = config.ubuntuRootfsArchiveName;
+    _selectedNodeArchivePath = config.nodeArchivePath;
+    _selectedNodeArchiveName = config.nodeArchiveName;
+  }
+
+  bool get _hasBootstrapResourceConfig =>
+      _prebuiltRootfsUrlController.text.trim().isNotEmpty ||
+      _ubuntuRootfsUrlController.text.trim().isNotEmpty ||
+      _nodeArchiveUrlController.text.trim().isNotEmpty ||
+      (_selectedPrebuiltRootfsArchivePath ?? '').trim().isNotEmpty ||
+      (_selectedUbuntuRootfsArchivePath ?? '').trim().isNotEmpty ||
+      (_selectedNodeArchivePath ?? '').trim().isNotEmpty;
+
+  Future<void> _openBootstrapResourceConfig() async {
+    final result = await Navigator.of(context).push<_BootstrapResourceConfig>(
+      MaterialPageRoute(
+        builder: (_) => _BootstrapResourceConfigScreen(
+          initialConfig: _currentBootstrapResourceConfig(),
+        ),
+      ),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    setState(() => _applyBootstrapResourceConfig(result));
   }
 
   Future<void> _importSnapshotAndContinue() async {
@@ -373,32 +510,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                 _resolvingExistingSetupState && !state.isComplete;
 
             return Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 32),
-                  Image.asset(
-                    'assets/ic_launcher.png',
-                    width: 64,
-                    height: 64,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.t('setupWizardTitle'),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _started
-                        ? l10n.t('setupWizardIntroRunning')
-                        : l10n.t('setupWizardIntroIdle'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                  _buildSetupHeader(theme, l10n, isRunning: _started),
                   const SizedBox(height: 24),
                   Expanded(
                     child: _buildSteps(state, l10n),
@@ -411,6 +527,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                       ),
                     ),
                   if (state.hasError) ...[
+                    const SizedBox(height: 10),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 160),
                       child: Container(
@@ -422,16 +539,18 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.error_outline,
-                                color: theme.colorScheme.error),
+                            Icon(
+                              Icons.error_outline,
+                              color: theme.colorScheme.error,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: SingleChildScrollView(
                                 child: Text(
-                                  state.error ?? 'Unknown error',
+                                  state.error ?? l10n.t('commonUnknown'),
                                   style: TextStyle(
-                                      color:
-                                          theme.colorScheme.onErrorContainer),
+                                    color: theme.colorScheme.onErrorContainer,
+                                  ),
                                 ),
                               ),
                             ),
@@ -439,63 +558,60 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
                   ],
-                  if (state.isComplete)
-                    Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _handleConfigureApi,
-                            icon: const Icon(Icons.arrow_forward),
-                            label: Text(l10n.t('setupWizardConfigureApiKeys')),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _importSnapshotAndContinue,
-                            icon: const Icon(Icons.download_done_outlined),
-                            label: Text(l10n.t('settingsImportSnapshot')),
-                          ),
-                        ),
-                      ],
-                    )
-                  else if (isResolvingCompletionChoice)
-                    const SizedBox.shrink()
-                  else if (!_started || state.hasError)
-                    Column(
-                      children: [
-                        _buildVersionSelector(theme, l10n, provider.isRunning),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: provider.isRunning
-                                ? null
-                                : () => _beginSetup(provider),
-                            icon: const Icon(Icons.download),
-                            label: Text(
-                              _started
-                                  ? l10n.t('setupWizardRetry')
-                                  : l10n.t('setupWizardBegin'),
-                            ),
-                          ),
-                        ),
-                      ],
+                  if (state.isComplete) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _handleConfigureApi,
+                        icon: const Icon(Icons.arrow_forward),
+                        label: Text(l10n.t('setupWizardConfigureApiKeys')),
+                      ),
                     ),
-                  if (!_started && !state.isComplete) ...[
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        l10n.t('setupWizardRequirements'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _importSnapshotAndContinue,
+                        icon: const Icon(Icons.download_done_outlined),
+                        label: Text(l10n.t('settingsImportSnapshot')),
+                      ),
+                    ),
+                  ] else if (!isResolvingCompletionChoice &&
+                      (!_started || state.hasError)) ...[
+                    _buildVersionSelector(theme, l10n, provider.isRunning),
+                    const SizedBox(height: 12),
+                    _buildBootstrapResourceConfigButton(
+                      theme,
+                      l10n,
+                      provider.isRunning,
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          textStyle: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        onPressed: provider.isRunning
+                            ? null
+                            : () => _beginSetup(provider),
+                        icon: const Icon(Icons.download),
+                        label: Text(
+                          _started
+                              ? l10n.t('setupWizardRetry')
+                              : l10n.t('setupWizardBegin'),
                         ),
                       ),
                     ),
+                  ],
+                  if (!_started && !state.isComplete) ...[
+                    const SizedBox(height: 10),
+                    _buildSetupRequirement(theme, l10n),
                   ],
                   if (!_started &&
                       !state.isComplete &&
@@ -513,7 +629,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   Center(
                     child: Text(
                       'by ${AppConstants.authorName}',
@@ -528,6 +644,81 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildSetupHeader(
+    ThemeData theme,
+    AppLocalizations l10n, {
+    required bool isRunning,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: theme.inputDecorationTheme.fillColor,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Image.asset('assets/ic_launcher.png'),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.t('setupWizardTitle'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                isRunning
+                    ? l10n.t('setupWizardIntroRunning')
+                    : l10n.t('setupWizardIntroIdle'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSetupRequirement(ThemeData theme, AppLocalizations l10n) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.storage_outlined,
+          size: 15,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            l10n.t('setupWizardRequirements'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.25,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -555,30 +746,137 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ),
     ];
 
-    return ListView(
-      children: [
-        for (final (num, label, step) in steps)
-          ProgressStep(
-            stepNumber: num,
-            label: state.step == step
-                ? _localizedSetupMessage(l10n, state.message)
-                : label,
-            detail: state.step == step
-                ? _localizedSetupDetail(l10n, state.detail)
-                : null,
-            isActive: state.step == step,
-            isComplete: state.stepNumber > step.index + 1 || state.isComplete,
-            hasError: state.hasError && state.step == step,
-            progress: state.step == step ? state.progress : null,
+    final stepWidgets = <Widget>[
+      for (final (num, label, step) in steps)
+        ProgressStep(
+          stepNumber: num,
+          label: state.step == step
+              ? _localizedSetupMessage(l10n, state.message)
+              : label,
+          detail: state.step == step
+              ? _localizedSetupDetail(l10n, state.detail)
+              : null,
+          isActive: state.step == step,
+          isComplete: state.stepNumber > num || state.isComplete,
+          hasError: state.hasError && state.step == step,
+          progress: state.step == step ? state.progress : null,
+        ),
+    ];
+
+    if (state.isComplete) {
+      stepWidgets.add(
+        ProgressStep(
+          stepNumber: 6,
+          label: l10n.t('setupWizardComplete'),
+          isComplete: true,
+        ),
+      );
+    }
+
+    if (_started || state.isComplete || state.hasError) {
+      return ListView(
+        padding: EdgeInsets.zero,
+        children: stepWidgets,
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: stepWidgets,
+            ),
           ),
-        if (state.isComplete) ...[
-          ProgressStep(
-            stepNumber: 6,
-            label: l10n.t('setupWizardComplete'),
-            isComplete: true,
+        );
+      },
+    );
+  }
+
+  Widget _buildBootstrapResourceConfigButton(
+    ThemeData theme,
+    AppLocalizations l10n,
+    bool disableSelection,
+  ) {
+    final hasConfig = _hasBootstrapResourceConfig;
+    final subtitle = hasConfig
+        ? l10n.t('setupWizardBootstrapResourcesConfigured')
+        : l10n.t('setupWizardBootstrapResourcesOptional');
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ?? theme.colorScheme.surface;
+    final titleColor =
+        disableSelection ? theme.disabledColor : theme.colorScheme.onSurface;
+    final subtitleColor = disableSelection
+        ? theme.disabledColor
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Material(
+      color: fillColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: disableSelection ? null : _openBootstrapResourceConfig,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withAlpha(18),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  hasConfig ? Icons.inventory_2 : Icons.inventory_2_outlined,
+                  color: disableSelection
+                      ? theme.disabledColor
+                      : theme.colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      l10n.t('setupWizardBootstrapResourcesTitle'),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: titleColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: subtitleColor,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: subtitleColor,
+              ),
+            ],
           ),
-        ],
-      ],
+        ),
+      ),
     );
   }
 
@@ -596,17 +894,29 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          l10n.t('setupWizardSelectVersion'),
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           isExpanded: true,
           initialValue: canSelectVersions ? selectedRelease.version : null,
           decoration: InputDecoration(
-            labelText: l10n.t('setupWizardSelectVersion'),
+            isDense: true,
             border: const OutlineInputBorder(),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 42,
+              minHeight: 42,
+            ),
             suffixIcon: _loadingReleaseOptions
                 ? const Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: EdgeInsets.all(11),
                     child: SizedBox(
                       width: 18,
                       height: 18,
@@ -726,9 +1036,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     return InstallStatusMessageFormatter.localizeDetail(l10n, detail);
   }
 
-  bool get _isChineseLocale =>
-      Localizations.localeOf(context).languageCode == 'zh';
-
   Future<void> _handleConfigureApi() async {
     final installedVersion = await _versionService.readInstalledVersion();
     final sample = await BundledSampleConfigService.loadForVersion(
@@ -758,36 +1065,28 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   Future<_BundledConfigChoice?> _showBundledSampleConfigDialog(
     String version,
   ) async {
-    final isZh = _isChineseLocale;
+    final l10n = context.l10n;
     return showDialog<_BundledConfigChoice>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(
-          isZh ? '发现内置示例配置' : 'Built-in sample config available',
-        ),
+        title: Text(l10n.t('setupWizardSampleConfigDialogTitle')),
         content: Text(
-          isZh
-              ? '检测到当前已安装的 OpenClaw 版本为 $version，并且应用内置了对应示例配置。\n\n使用示例配置后，可以跳过终端引导，直接进入首页；之后只需要去“AI 提供商”里把 Base URL、API Key 和模型改成你自己的即可。'
-              : 'A built-in sample config is available for the installed OpenClaw version $version.\n\nIf you use it, you can skip terminal onboarding and go straight to the dashboard. Afterwards, just update the Base URL, API key, and model from the AI Providers page.',
+          l10n.t('setupWizardSampleConfigDialogBody', {'version': version}),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(context.l10n.t('commonCancel')),
+            child: Text(l10n.t('commonCancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext)
                 .pop(_BundledConfigChoice.useTerminalOnboarding),
-            child: Text(
-              isZh ? '继续终端引导' : 'Use terminal onboarding',
-            ),
+            child: Text(l10n.t('setupWizardSampleConfigTerminalOnboarding')),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(_BundledConfigChoice.useSample),
-            child: Text(
-              isZh ? '使用示例配置' : 'Use sample config',
-            ),
+            child: Text(l10n.t('setupWizardSampleConfigUseSample')),
           ),
         ],
       ),
@@ -795,7 +1094,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   Future<void> _applyBundledSampleConfig(BundledSampleConfig sample) async {
-    final isZh = _isChineseLocale;
+    final l10n = context.l10n;
 
     try {
       await BundledSampleConfigService.apply(sample);
@@ -806,20 +1105,17 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       final acknowledged = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text(
-            isZh ? '示例配置已套用' : 'Sample config applied',
-          ),
+          title: Text(l10n.t('setupWizardSampleConfigAppliedTitle')),
           content: Text(
-            isZh
-                ? '已为 OpenClaw ${sample.version} 套用内置示例配置。\n\n接下来会直接进入首页。进入后请打开“AI 提供商”，把 Base URL、API Key、模型改成你自己的，再启动 Gateway。'
-                : 'The built-in sample config for OpenClaw ${sample.version} has been applied.\n\nYou will go straight to the dashboard next. Open AI Providers there and replace the Base URL, API key, and model with your own values before starting the gateway.',
+            l10n.t(
+              'setupWizardSampleConfigAppliedBody',
+              {'version': sample.version},
+            ),
           ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                isZh ? '前往首页' : 'Go to dashboard',
-              ),
+              child: Text(l10n.t('setupWizardSampleConfigGoDashboard')),
             ),
           ],
         ),
@@ -833,9 +1129,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isZh
-                ? '套用内置示例配置失败，已回退到终端引导：$e'
-                : 'Failed to apply the built-in sample config. Falling back to terminal onboarding: $e',
+            l10n.t('setupWizardSampleConfigApplyFailed', {'error': e}),
           ),
         ),
       );
@@ -852,6 +1146,390 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
     if (!mounted) return;
     await _completeIfGatewayConfigured();
+  }
+}
+
+class _BootstrapResourceConfig {
+  final String prebuiltRootfsUrl;
+  final String? prebuiltRootfsArchivePath;
+  final String? prebuiltRootfsArchiveName;
+  final String ubuntuRootfsUrl;
+  final String? ubuntuRootfsArchivePath;
+  final String? ubuntuRootfsArchiveName;
+  final String nodeArchiveUrl;
+  final String? nodeArchivePath;
+  final String? nodeArchiveName;
+
+  const _BootstrapResourceConfig({
+    this.prebuiltRootfsUrl = '',
+    this.prebuiltRootfsArchivePath,
+    this.prebuiltRootfsArchiveName,
+    this.ubuntuRootfsUrl = '',
+    this.ubuntuRootfsArchivePath,
+    this.ubuntuRootfsArchiveName,
+    this.nodeArchiveUrl = '',
+    this.nodeArchivePath,
+    this.nodeArchiveName,
+  });
+}
+
+class _BootstrapResourceConfigScreen extends StatefulWidget {
+  final _BootstrapResourceConfig initialConfig;
+
+  const _BootstrapResourceConfigScreen({
+    required this.initialConfig,
+  });
+
+  @override
+  State<_BootstrapResourceConfigScreen> createState() =>
+      _BootstrapResourceConfigScreenState();
+}
+
+class _BootstrapResourceConfigScreenState
+    extends State<_BootstrapResourceConfigScreen> {
+  late final TextEditingController _prebuiltRootfsUrlController;
+  late final TextEditingController _ubuntuRootfsUrlController;
+  late final TextEditingController _nodeArchiveUrlController;
+  late final TextEditingController _prebuiltRootfsFileController;
+  late final TextEditingController _ubuntuRootfsFileController;
+  late final TextEditingController _nodeArchiveFileController;
+
+  String? _prebuiltRootfsArchivePath;
+  String? _prebuiltRootfsArchiveName;
+  String? _ubuntuRootfsArchivePath;
+  String? _ubuntuRootfsArchiveName;
+  String? _nodeArchivePath;
+  String? _nodeArchiveName;
+  String? _pickingResourceKey;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialConfig;
+    _prebuiltRootfsUrlController =
+        TextEditingController(text: initial.prebuiltRootfsUrl);
+    _ubuntuRootfsUrlController =
+        TextEditingController(text: initial.ubuntuRootfsUrl);
+    _nodeArchiveUrlController =
+        TextEditingController(text: initial.nodeArchiveUrl);
+    _prebuiltRootfsArchivePath = initial.prebuiltRootfsArchivePath;
+    _prebuiltRootfsArchiveName = initial.prebuiltRootfsArchiveName;
+    _ubuntuRootfsArchivePath = initial.ubuntuRootfsArchivePath;
+    _ubuntuRootfsArchiveName = initial.ubuntuRootfsArchiveName;
+    _nodeArchivePath = initial.nodeArchivePath;
+    _nodeArchiveName = initial.nodeArchiveName;
+    _prebuiltRootfsFileController = TextEditingController(
+      text: _displayArchive(
+          initial.prebuiltRootfsArchiveName, initial.prebuiltRootfsArchivePath),
+    );
+    _ubuntuRootfsFileController = TextEditingController(
+      text: _displayArchive(
+          initial.ubuntuRootfsArchiveName, initial.ubuntuRootfsArchivePath),
+    );
+    _nodeArchiveFileController = TextEditingController(
+      text: _displayArchive(initial.nodeArchiveName, initial.nodeArchivePath),
+    );
+  }
+
+  @override
+  void dispose() {
+    _prebuiltRootfsUrlController.dispose();
+    _ubuntuRootfsUrlController.dispose();
+    _nodeArchiveUrlController.dispose();
+    _prebuiltRootfsFileController.dispose();
+    _ubuntuRootfsFileController.dispose();
+    _nodeArchiveFileController.dispose();
+    super.dispose();
+  }
+
+  static String _displayArchive(String? name, String? path) {
+    final value = name?.trim().isNotEmpty == true ? name : path;
+    return value?.trim() ?? '';
+  }
+
+  _BootstrapResourceConfig _result() {
+    return _BootstrapResourceConfig(
+      prebuiltRootfsUrl: _prebuiltRootfsUrlController.text.trim(),
+      prebuiltRootfsArchivePath: _prebuiltRootfsArchivePath,
+      prebuiltRootfsArchiveName: _prebuiltRootfsArchiveName,
+      ubuntuRootfsUrl: _ubuntuRootfsUrlController.text.trim(),
+      ubuntuRootfsArchivePath: _ubuntuRootfsArchivePath,
+      ubuntuRootfsArchiveName: _ubuntuRootfsArchiveName,
+      nodeArchiveUrl: _nodeArchiveUrlController.text.trim(),
+      nodeArchivePath: _nodeArchivePath,
+      nodeArchiveName: _nodeArchiveName,
+    );
+  }
+
+  void _save() {
+    Navigator.of(context).pop(_result());
+  }
+
+  void _useDefaultFlow() {
+    Navigator.of(context).pop(const _BootstrapResourceConfig());
+  }
+
+  void _useGitHubDefaults() {
+    setState(() {
+      _prebuiltRootfsUrlController.text =
+          AppConstants.basicResourcePrebuiltRootfsArm64;
+      _ubuntuRootfsUrlController.text =
+          AppConstants.basicResourceUbuntuRootfsArm64;
+      _nodeArchiveUrlController.text = AppConstants.basicResourceNodeArm64;
+      _setArchive('prebuilt', null, null);
+      _setArchive('ubuntu', null, null);
+      _setArchive('node', null, null);
+    });
+  }
+
+  void _setArchive(String key, String? path, String? name) {
+    final text = _displayArchive(name, path);
+    switch (key) {
+      case 'prebuilt':
+        _prebuiltRootfsArchivePath = path;
+        _prebuiltRootfsArchiveName = name;
+        _prebuiltRootfsFileController.text = text;
+        if (path != null) {
+          _prebuiltRootfsUrlController.clear();
+        }
+        break;
+      case 'ubuntu':
+        _ubuntuRootfsArchivePath = path;
+        _ubuntuRootfsArchiveName = name;
+        _ubuntuRootfsFileController.text = text;
+        if (path != null) {
+          _ubuntuRootfsUrlController.clear();
+        }
+        break;
+      case 'node':
+        _nodeArchivePath = path;
+        _nodeArchiveName = name;
+        _nodeArchiveFileController.text = text;
+        if (path != null) {
+          _nodeArchiveUrlController.clear();
+        }
+        break;
+    }
+  }
+
+  Future<void> _pickArchive(String key) async {
+    if (_pickingResourceKey != null) {
+      return;
+    }
+
+    setState(() => _pickingResourceKey = key);
+    try {
+      final picked = await NativeBridge.pickBootstrapArchiveFile();
+      if (!mounted || picked == null) {
+        return;
+      }
+      setState(() {
+        _setArchive(
+          key,
+          picked['path'] as String?,
+          picked['name'] as String?,
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final l10n = context.l10n;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t('setupWizardBootstrapPickFailed', {'error': e}),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _pickingResourceKey = null);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.t('setupWizardBootstrapResourcesTitle')),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: Text(l10n.t('setupWizardBootstrapSave')),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              l10n.t('setupWizardBootstrapResourcesIntro'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: _useGitHubDefaults,
+                  icon: const Icon(Icons.cloud_download_outlined),
+                  label: Text(l10n.t('setupWizardBootstrapUseGithub')),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _useDefaultFlow,
+                  icon: const Icon(Icons.cleaning_services_outlined),
+                  label: Text(l10n.t('setupWizardBootstrapUseDefault')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildResourceEditor(
+              theme: theme,
+              keyName: 'prebuilt',
+              title: l10n.t('setupWizardBootstrapPrebuiltRootfsTitle'),
+              subtitle: l10n.t('setupWizardBootstrapPrebuiltRootfsSubtitle'),
+              urlController: _prebuiltRootfsUrlController,
+              fileController: _prebuiltRootfsFileController,
+              localPath: _prebuiltRootfsArchivePath,
+              urlHint: 'openclaw-rootfs-noble-arm64.tar.gz',
+            ),
+            const SizedBox(height: 12),
+            _buildResourceEditor(
+              theme: theme,
+              keyName: 'ubuntu',
+              title: l10n.t('setupWizardBootstrapUbuntuRootfsTitle'),
+              subtitle: l10n.t('setupWizardBootstrapUbuntuRootfsSubtitle'),
+              urlController: _ubuntuRootfsUrlController,
+              fileController: _ubuntuRootfsFileController,
+              localPath: _ubuntuRootfsArchivePath,
+              urlHint: 'ubuntu-base-24.04.3-base-arm64.tar.gz',
+            ),
+            const SizedBox(height: 12),
+            _buildResourceEditor(
+              theme: theme,
+              keyName: 'node',
+              title: l10n.t('setupWizardBootstrapNodeTitle'),
+              subtitle: l10n.t('setupWizardBootstrapNodeSubtitle'),
+              urlController: _nodeArchiveUrlController,
+              fileController: _nodeArchiveFileController,
+              localPath: _nodeArchivePath,
+              urlHint: 'node-v24.14.1-linux-arm64.tar.xz',
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.check),
+              label: Text(l10n.t('setupWizardBootstrapSave')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResourceEditor({
+    required ThemeData theme,
+    required String keyName,
+    required String title,
+    required String subtitle,
+    required TextEditingController urlController,
+    required TextEditingController fileController,
+    required String? localPath,
+    required String urlHint,
+  }) {
+    final l10n = context.l10n;
+    final hasLocalFile = (localPath ?? '').trim().isNotEmpty;
+    final isPicking = _pickingResourceKey == keyName;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: urlController,
+            enabled: !hasLocalFile,
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.next,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: l10n.t('setupWizardBootstrapDownloadUrl'),
+              hintText: urlHint,
+              border: const OutlineInputBorder(),
+              suffixIcon: urlController.text.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: l10n.t('setupWizardBootstrapClearUrl'),
+                      onPressed: () {
+                        urlController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.clear),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: fileController,
+            readOnly: true,
+            decoration: InputDecoration(
+              labelText: l10n.t('setupWizardBootstrapLocalFile'),
+              hintText: l10n.t('setupWizardBootstrapNoFile'),
+              border: const OutlineInputBorder(),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: l10n.t('setupWizardBootstrapPickFile'),
+                    onPressed: isPicking ? null : () => _pickArchive(keyName),
+                    icon: isPicking
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload_file),
+                  ),
+                  if (hasLocalFile)
+                    IconButton(
+                      tooltip: l10n.t('setupWizardBootstrapRemoveFile'),
+                      onPressed: () => setState(
+                        () => _setArchive(keyName, null, null),
+                      ),
+                      icon: const Icon(Icons.close),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -114,6 +114,41 @@ class BootstrapService {
     return _PreparedArchiveSource.none;
   }
 
+  Future<_PreparedArchiveSource> _prepareLocalArchive({
+    required String sourcePath,
+    required String destinationPath,
+  }) async {
+    final source = File(sourcePath);
+    if (!source.existsSync() || source.lengthSync() <= 0) {
+      return _PreparedArchiveSource.none;
+    }
+
+    final destination = File(destinationPath);
+    if (source.absolute.path == destination.absolute.path) {
+      return _PreparedArchiveSource.localFile;
+    }
+
+    if (destination.existsSync()) {
+      try {
+        destination.deleteSync();
+      } catch (_) {}
+    }
+    destination.parent.createSync(recursive: true);
+    await source.copy(destinationPath);
+    return destination.existsSync() && destination.lengthSync() > 0
+        ? _PreparedArchiveSource.localFile
+        : _PreparedArchiveSource.none;
+  }
+
+  void _deleteArchiveIfExists(String path) {
+    try {
+      final file = File(path);
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    } catch (_) {}
+  }
+
   Future<void> _downloadStepArchive({
     required String url,
     required String destinationPath,
@@ -417,35 +452,90 @@ class BootstrapService {
         );
       } else {
         var extractedPrebuiltRootfs = false;
-        final prebuiltSource = await _prepareBundledOrCachedArchive(
-          assetPath: prebuiltRootfsAssetPath,
-          destinationPath: prebuiltTarPath,
-        );
+        try {
+          var prebuiltSource = _PreparedArchiveSource.none;
+          final customPrebuiltPath =
+              installOptions.normalizedPrebuiltRootfsArchivePath;
+          final customPrebuiltUrl = installOptions.normalizedPrebuiltRootfsUrl;
 
-        if (prebuiltSource != _PreparedArchiveSource.none) {
-          if (prebuiltSource == _PreparedArchiveSource.bundled) {
-            _emitProgress(
-              onProgress: onProgress,
-              step: SetupStep.downloadingRootfs,
-              progress: 1.0,
-              message: 'Using bundled prebuilt Ubuntu rootfs package...',
-              detail: 'Using packaged prebuilt Ubuntu rootfs archive.',
-              notificationText:
-                  'Using bundled prebuilt Ubuntu rootfs package... 30.0%',
+          if (customPrebuiltPath != null) {
+            prebuiltSource = await _prepareLocalArchive(
+              sourcePath: customPrebuiltPath,
+              destinationPath: prebuiltTarPath,
             );
-          } else {
-            _emitProgress(
+          } else if (customPrebuiltUrl != null) {
+            _deleteArchiveIfExists(prebuiltTarPath);
+            await _downloadStepArchive(
+              url: customPrebuiltUrl,
+              destinationPath: prebuiltTarPath,
               onProgress: onProgress,
               step: SetupStep.downloadingRootfs,
-              progress: 1.0,
-              message: 'Using cached prebuilt Ubuntu rootfs package...',
-              detail: 'Reusing local prebuilt Ubuntu rootfs archive cache.',
-              notificationText:
-                  'Using cached prebuilt Ubuntu rootfs package... 30.0%',
+              startProgress: 0.0,
+              endProgress: 1.0,
+              idleMessage: 'Downloading external prebuilt Ubuntu rootfs...',
+              detailBuilder: (currentMb, totalMb, details) =>
+                  '$currentMb MB / $totalMb MB | $details',
+            );
+            prebuiltSource = File(prebuiltTarPath).existsSync()
+                ? _PreparedArchiveSource.externalUrl
+                : _PreparedArchiveSource.none;
+          } else {
+            prebuiltSource = await _prepareBundledOrCachedArchive(
+              assetPath: prebuiltRootfsAssetPath,
+              destinationPath: prebuiltTarPath,
             );
           }
 
-          try {
+          if (prebuiltSource != _PreparedArchiveSource.none) {
+            switch (prebuiltSource) {
+              case _PreparedArchiveSource.bundled:
+                _emitProgress(
+                  onProgress: onProgress,
+                  step: SetupStep.downloadingRootfs,
+                  progress: 1.0,
+                  message: 'Using bundled prebuilt Ubuntu rootfs package...',
+                  detail: 'Using packaged prebuilt Ubuntu rootfs archive.',
+                  notificationText:
+                      'Using bundled prebuilt Ubuntu rootfs package... 30.0%',
+                );
+                break;
+              case _PreparedArchiveSource.cached:
+                _emitProgress(
+                  onProgress: onProgress,
+                  step: SetupStep.downloadingRootfs,
+                  progress: 1.0,
+                  message: 'Using cached prebuilt Ubuntu rootfs package...',
+                  detail: 'Reusing local prebuilt Ubuntu rootfs archive cache.',
+                  notificationText:
+                      'Using cached prebuilt Ubuntu rootfs package... 30.0%',
+                );
+                break;
+              case _PreparedArchiveSource.localFile:
+                _emitProgress(
+                  onProgress: onProgress,
+                  step: SetupStep.downloadingRootfs,
+                  progress: 1.0,
+                  message: 'Using selected prebuilt Ubuntu rootfs package...',
+                  detail: 'Using the archive selected from local storage.',
+                  notificationText:
+                      'Using selected prebuilt Ubuntu rootfs package... 30.0%',
+                );
+                break;
+              case _PreparedArchiveSource.externalUrl:
+                _emitProgress(
+                  onProgress: onProgress,
+                  step: SetupStep.downloadingRootfs,
+                  progress: 1.0,
+                  message: 'Using downloaded prebuilt Ubuntu rootfs package...',
+                  detail: 'Using the archive downloaded from the custom URL.',
+                  notificationText:
+                      'Using downloaded prebuilt Ubuntu rootfs package... 30.0%',
+                );
+                break;
+              case _PreparedArchiveSource.none:
+                break;
+            }
+
             await _extractRootfsWithProgress(
               onProgress: onProgress,
               tarPath: prebuiltTarPath,
@@ -458,28 +548,55 @@ class BootstrapService {
               );
             }
             extractedPrebuiltRootfs = true;
-          } catch (error) {
-            try {
-              File(prebuiltTarPath).deleteSync();
-            } catch (_) {}
-            _emitProgress(
-              onProgress: onProgress,
-              step: SetupStep.downloadingRootfs,
-              progress: 1.0,
-              message:
-                  'Prebuilt rootfs failed, falling back to standard Ubuntu rootfs...',
-              detail: error.toString(),
-              notificationText:
-                  'Prebuilt rootfs failed, using standard Ubuntu rootfs... 30.0%',
-            );
           }
+        } catch (error) {
+          _deleteArchiveIfExists(prebuiltTarPath);
+          _emitProgress(
+            onProgress: onProgress,
+            step: SetupStep.downloadingRootfs,
+            progress: 1.0,
+            message:
+                'Prebuilt rootfs failed, falling back to standard Ubuntu rootfs...',
+            detail: error.toString(),
+            notificationText:
+                'Prebuilt rootfs failed, using standard Ubuntu rootfs... 30.0%',
+          );
         }
 
         if (!extractedPrebuiltRootfs) {
-          final rootfsSource = await _prepareBundledOrCachedArchive(
-            assetPath: rootfsAssetPath,
-            destinationPath: tarPath,
-          );
+          var rootfsSource = _PreparedArchiveSource.none;
+          final customRootfsPath =
+              installOptions.normalizedUbuntuRootfsArchivePath;
+          final customRootfsUrl = installOptions.normalizedUbuntuRootfsUrl;
+
+          if (customRootfsPath != null) {
+            rootfsSource = await _prepareLocalArchive(
+              sourcePath: customRootfsPath,
+              destinationPath: tarPath,
+            );
+          } else if (customRootfsUrl != null) {
+            _deleteArchiveIfExists(tarPath);
+            await _downloadStepArchive(
+              url: customRootfsUrl,
+              destinationPath: tarPath,
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              startProgress: 0.0,
+              endProgress: 1.0,
+              idleMessage: 'Downloading selected Ubuntu rootfs...',
+              detailBuilder: (currentMb, totalMb, details) =>
+                  '$currentMb MB / $totalMb MB | $details',
+            );
+            rootfsSource = File(tarPath).existsSync()
+                ? _PreparedArchiveSource.externalUrl
+                : _PreparedArchiveSource.none;
+          } else {
+            rootfsSource = await _prepareBundledOrCachedArchive(
+              assetPath: rootfsAssetPath,
+              destinationPath: tarPath,
+            );
+          }
+
           final rootfsFromLocal = rootfsSource != _PreparedArchiveSource.none;
           if (rootfsSource == _PreparedArchiveSource.bundled) {
             _emitProgress(
@@ -498,6 +615,25 @@ class BootstrapService {
               message: 'Using cached Ubuntu rootfs package...',
               detail: 'Reusing local Ubuntu rootfs archive cache.',
               notificationText: 'Using cached Ubuntu rootfs package... 30.0%',
+            );
+          } else if (rootfsSource == _PreparedArchiveSource.localFile) {
+            _emitProgress(
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              progress: 1.0,
+              message: 'Using selected Ubuntu rootfs package...',
+              detail: 'Using the Ubuntu rootfs archive selected from storage.',
+              notificationText: 'Using selected Ubuntu rootfs package... 30.0%',
+            );
+          } else if (rootfsSource == _PreparedArchiveSource.externalUrl) {
+            _emitProgress(
+              onProgress: onProgress,
+              step: SetupStep.downloadingRootfs,
+              progress: 1.0,
+              message: 'Using downloaded Ubuntu rootfs package...',
+              detail: 'Using the Ubuntu rootfs archive downloaded from URL.',
+              notificationText:
+                  'Using downloaded Ubuntu rootfs package... 30.0%',
             );
           } else {
             await _downloadStepArchive(
@@ -689,10 +825,36 @@ class BootstrapService {
         final nodeAssetPath =
             AppConstants.bundledBootstrapAssetPathForUrl(nodeTarUrl);
 
-        final nodeSource = await _prepareBundledOrCachedArchive(
-          assetPath: nodeAssetPath,
-          destinationPath: nodeTarPath,
-        );
+        var nodeSource = _PreparedArchiveSource.none;
+        final customNodePath = installOptions.normalizedNodeArchivePath;
+        final customNodeUrl = installOptions.normalizedNodeArchiveUrl;
+        if (customNodePath != null) {
+          nodeSource = await _prepareLocalArchive(
+            sourcePath: customNodePath,
+            destinationPath: nodeTarPath,
+          );
+        } else if (customNodeUrl != null) {
+          _deleteArchiveIfExists(nodeTarPath);
+          await _downloadStepArchive(
+            url: customNodeUrl,
+            destinationPath: nodeTarPath,
+            onProgress: onProgress,
+            step: SetupStep.installingNode,
+            startProgress: 0.45,
+            endProgress: 0.80,
+            idleMessage: 'Downloading selected Node.js package...',
+            detailBuilder: (currentMb, totalMb, details) =>
+                '$currentMb MB / $totalMb MB | $details',
+          );
+          nodeSource = File(nodeTarPath).existsSync()
+              ? _PreparedArchiveSource.externalUrl
+              : _PreparedArchiveSource.none;
+        } else {
+          nodeSource = await _prepareBundledOrCachedArchive(
+            assetPath: nodeAssetPath,
+            destinationPath: nodeTarPath,
+          );
+        }
         final nodeFromLocal = nodeSource != _PreparedArchiveSource.none;
         if (nodeSource == _PreparedArchiveSource.bundled) {
           _emitProgress(
@@ -711,6 +873,24 @@ class BootstrapService {
             message: 'Using cached Node.js $nodeVersion package...',
             detail: 'Reusing local Node.js archive cache.',
             notificationText: 'Using cached Node.js package... 73.0%',
+          );
+        } else if (nodeSource == _PreparedArchiveSource.localFile) {
+          _emitProgress(
+            onProgress: onProgress,
+            step: SetupStep.installingNode,
+            progress: 0.80,
+            message: 'Using selected Node.js package...',
+            detail: 'Using the Node.js archive selected from storage.',
+            notificationText: 'Using selected Node.js package... 73.0%',
+          );
+        } else if (nodeSource == _PreparedArchiveSource.externalUrl) {
+          _emitProgress(
+            onProgress: onProgress,
+            step: SetupStep.installingNode,
+            progress: 0.80,
+            message: 'Using downloaded Node.js package...',
+            detail: 'Using the Node.js archive downloaded from URL.',
+            notificationText: 'Using downloaded Node.js package... 73.0%',
           );
         } else {
           await _downloadStepArchive(
@@ -908,4 +1088,6 @@ enum _PreparedArchiveSource {
   none,
   bundled,
   cached,
+  localFile,
+  externalUrl,
 }

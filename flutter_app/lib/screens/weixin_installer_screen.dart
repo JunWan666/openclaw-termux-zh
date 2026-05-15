@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +10,7 @@ import '../l10n/app_localizations.dart';
 import '../services/message_platform_config_service.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
+import '../services/terminal_output_buffer.dart';
 import '../services/terminal_service.dart';
 import '../widgets/terminal_toolbar.dart';
 
@@ -26,6 +26,7 @@ class WeixinInstallerScreen extends StatefulWidget {
 class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
   late final Terminal _terminal;
   late final TerminalController _controller;
+  late final TerminalOutputBuffer _outputBuffer;
   Pty? _pty;
   bool _loading = true;
   bool _finished = false;
@@ -51,7 +52,8 @@ class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 10000);
+    _terminal = Terminal(maxLines: terminalScrollbackLines);
+    _outputBuffer = TerminalOutputBuffer(_terminal);
     _controller = TerminalController();
     NativeBridge.startTerminalService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,30 +62,10 @@ class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
   }
 
   Future<void> _startInstaller() async {
+    _outputBuffer.flush();
     _pty?.kill();
     _pty = null;
     try {
-      try {
-        await NativeBridge.setupDirs();
-      } catch (_) {}
-      try {
-        await NativeBridge.writeResolv();
-      } catch (_) {}
-      try {
-        final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-        final resolvFile = File('$filesDir/config/resolv.conf');
-        if (!resolvFile.existsSync()) {
-          Directory('$filesDir/config').createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
-        }
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-        if (!rootfsResolv.existsSync()) {
-          rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
-        }
-      } catch (_) {}
-
       final config = await TerminalService.getProotShellConfig();
       final args = TerminalService.buildProotArgs(
         config,
@@ -115,11 +97,12 @@ class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
 
       _pty!.output.cast<List<int>>().listen((data) {
         final text = utf8.decode(data, allowMalformed: true);
-        _terminal.write(text);
+        _outputBuffer.write(text);
       });
 
       _pty!.exitCode.then((code) {
-        _terminal.write('\r\n[Process exited with code $code]\r\n');
+        _outputBuffer.write('\r\n[Process exited with code $code]\r\n');
+        _outputBuffer.flush();
         if (mounted) {
           setState(() => _finished = true);
         }
@@ -165,6 +148,7 @@ class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
     _ctrlNotifier.dispose();
     _altNotifier.dispose();
     _controller.dispose();
+    _outputBuffer.dispose();
     _pty?.kill();
     NativeBridge.stopTerminalService();
     super.dispose();

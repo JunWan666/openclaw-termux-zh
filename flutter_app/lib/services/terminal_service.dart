@@ -2,9 +2,14 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import '../constants.dart';
 import 'native_bridge.dart';
+import 'proot_dns_service.dart';
 
-/// Provides proot shell configuration for the terminal and onboarding screens.
-/// Must match ProcessManager.kt's gateway mode (command_login) exactly.
+enum TerminalProotMode {
+  fast,
+  compatibility,
+}
+
+/// Provides proot shell configuration for interactive terminal screens.
 class TerminalService {
   static const _channel = MethodChannel(AppConstants.channelName);
 
@@ -20,17 +25,15 @@ class TerminalService {
   /// them during an app update (#40). Every screen that uses proot calls
   /// this method, so it's the single place to guarantee the files exist.
   static Future<Map<String, String>> getProotShellConfig() async {
-    // Ensure dirs + resolv.conf exist before any proot operation (#40).
-    try {
-      await NativeBridge.setupDirs();
-    } catch (_) {}
-    try {
-      await NativeBridge.writeResolv();
-    } catch (_) {}
+    await ProotDnsService.ensureReady();
 
     final filesDir = await _channel.invokeMethod<String>('getFilesDir') ?? '';
     final nativeLibDir =
         await _channel.invokeMethod<String>('getNativeLibDir') ?? '';
+    var arch = 'aarch64';
+    try {
+      arch = await NativeBridge.getArch();
+    } catch (_) {}
 
     final rootfsDir = '$filesDir/rootfs/ubuntu';
     final tmpDir = '$filesDir/tmp';
@@ -51,25 +54,6 @@ class TerminalService {
         .where((path) => path.isNotEmpty)
         .join(':');
 
-    // Direct Dart fallback: create resolv.conf if it still doesn't exist
-    // after the native method channel calls (#40).
-    const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-    try {
-      final resolvFile = File('$configDir/resolv.conf');
-      if (!resolvFile.existsSync()) {
-        Directory(configDir).createSync(recursive: true);
-        resolvFile.writeAsStringSync(resolvContent);
-      }
-    } catch (_) {}
-    // Also write into rootfs /etc/ so DNS works even if bind-mount fails.
-    try {
-      final rootfsResolv = File('$rootfsDir/etc/resolv.conf');
-      if (!rootfsResolv.existsSync()) {
-        rootfsResolv.parent.createSync(recursive: true);
-        rootfsResolv.writeAsStringSync(resolvContent);
-      }
-    } catch (_) {}
-
     final storageGranted = await NativeBridge.hasStoragePermission();
 
     return {
@@ -81,6 +65,7 @@ class TerminalService {
       'libDir': libDir,
       'nativeLibDir': nativeLibDir,
       'storageGranted': storageGranted.toString(),
+      'arch': arch,
       // Host-side proot env; ONLY proot-specific vars.
       // Do NOT set PROOT_NO_SECCOMP (proot-distro doesn't set it).
       // Do NOT set HOME/TERM/LANG here (those go in guest env via env -i).
@@ -100,33 +85,31 @@ class TerminalService {
     return candidates.firstWhere((path) => path.isNotEmpty, orElse: () => '');
   }
 
-  /// Build proot arguments matching ProcessManager.kt's gateway mode
-  /// (proot-distro command_login). Uses `env -i` for a clean guest
-  /// environment; prevents Android JVM vars from leaking into proot.
+  /// Build proot arguments for interactive terminals.
+  /// Fast mode follows ProcessManager.kt's install mode root identity and
+  /// avoids SysV IPC overhead. Compatibility mode keeps the older
+  /// proot-distro command_login-style flags for fragile workloads.
   static List<String> buildProotArgs(Map<String, String> config,
-      {int columns = 80, int rows = 24}) {
+      {int columns = 80,
+      int rows = 24,
+      TerminalProotMode mode = TerminalProotMode.fast}) {
     final procFakes = '${config['configDir']}/proc_fakes';
     final sysFakes = '${config['configDir']}/sys_fakes';
     final rootfsDir = config['rootfsDir']!;
 
-    // Detect architecture for uname struct.
-    // flutter_pty runs on the same device, so we can use Dart's Platform.
-    String machine = 'aarch64';
-    try {
-      if (Platform.version.contains('arm')) {
-        machine = 'armv7l';
-      }
-    } catch (_) {}
-
-    // Full uname struct matching proot-distro command_login.
-    final kernelRelease = '\\Linux\\localhost\\$_fakeKernelRelease'
-        '\\$_fakeKernelVersion\\$machine\\localdomain\\-1\\';
+    final identityFlags = mode == TerminalProotMode.compatibility
+        ? [
+            '--change-id=0:0',
+            '--sysvipc',
+            '--kernel-release=${_fullKernelRelease(config['arch'])}',
+          ]
+        : [
+            '--root-id',
+            '--kernel-release=$_fakeKernelRelease',
+          ];
 
     final args = <String>[
-      // proot-distro command_login style
-      '--change-id=0:0',
-      '--sysvipc',
-      '--kernel-release=$kernelRelease',
+      ...identityFlags,
       '--link2symlink',
       '-L',
       '--kill-on-exit',
@@ -182,11 +165,23 @@ class TerminalService {
       'COLUMNS=$columns',
       'LINES=$rows',
       'NODE_OPTIONS=--require /root/.openclaw/bionic-bypass.js',
+      'NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt',
+      'UV_USE_IO_URING=0',
       '/bin/bash',
       '-l',
     ]);
 
     return args;
+  }
+
+  static String _fullKernelRelease(String? arch) {
+    final machine = switch (arch) {
+      'arm' => 'armv7l',
+      'aarch64' || 'x86_64' || 'x86' => arch!,
+      _ => 'aarch64',
+    };
+    return '\\Linux\\localhost\\$_fakeKernelRelease'
+        '\\$_fakeKernelVersion\\$machine\\localdomain\\-1\\';
   }
 
   /// Host-side environment map for Pty.start().

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_pty/flutter_pty.dart';
 import '../models/optional_package.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
+import '../services/terminal_output_buffer.dart';
 import '../services/terminal_service.dart';
 import '../widgets/terminal_toolbar.dart';
 
@@ -29,6 +29,7 @@ class PackageInstallScreen extends StatefulWidget {
 class _PackageInstallScreenState extends State<PackageInstallScreen> {
   late final Terminal _terminal;
   late final TerminalController _controller;
+  late final TerminalOutputBuffer _outputBuffer;
   Pty? _pty;
   bool _loading = true;
   bool _finished = false;
@@ -52,7 +53,8 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 10000);
+    _terminal = Terminal(maxLines: terminalScrollbackLines);
+    _outputBuffer = TerminalOutputBuffer(_terminal);
     _controller = TerminalController();
     NativeBridge.startTerminalService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -61,27 +63,10 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
   }
 
   Future<void> _startProcess() async {
+    _outputBuffer.flush();
     _pty?.kill();
     _pty = null;
     try {
-      // Ensure dirs + resolv.conf exist before proot starts (#40).
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
-      try {
-        final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-        final resolvFile = File('$filesDir/config/resolv.conf');
-        if (!resolvFile.existsSync()) {
-          Directory('$filesDir/config').createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
-        }
-        // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-        if (!rootfsResolv.existsSync()) {
-          rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
-        }
-      } catch (_) {}
       final config = await TerminalService.getProotShellConfig();
       final args = TerminalService.buildProotArgs(
         config,
@@ -113,7 +98,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
 
       _pty!.output.cast<List<int>>().listen((data) {
         final text = utf8.decode(data, allowMalformed: true);
-        _terminal.write(text);
+        _outputBuffer.write(text);
 
         if (!_finished && text.contains(sentinel)) {
           if (mounted) setState(() => _finished = true);
@@ -121,7 +106,8 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
       });
 
       _pty!.exitCode.then((code) {
-        _terminal.write('\r\n[Process exited with code $code]\r\n');
+        _outputBuffer.write('\r\n[Process exited with code $code]\r\n');
+        _outputBuffer.flush();
         if (mounted && !_finished) {
           setState(() => _finished = true);
         }
@@ -165,7 +151,8 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
   }
 
   Future<void> _takeScreenshot() async {
-    final path = await ScreenshotService.capture(_screenshotKey, prefix: 'package');
+    final path =
+        await ScreenshotService.capture(_screenshotKey, prefix: 'package');
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -181,6 +168,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
     _ctrlNotifier.dispose();
     _altNotifier.dispose();
     _controller.dispose();
+    _outputBuffer.dispose();
     _pty?.kill();
     NativeBridge.stopTerminalService();
     super.dispose();

@@ -17,23 +17,27 @@
 
 ## What's New In v2.0.2
 
-- Fixed custom model names leaking across other providers. Each provider now keeps its own selected or typed model.
-- Fixed conversation log loading by reading `.jsonl` session files directly from the app workspace instead of going through an extra proot exec path that could retrigger the missing `resolv.conf` issue.
-- Added a dedicated "Local Model & Chat" home shortcut. From there you can install the official `llama.cpp` runtime, browse built-in GGUF recommendations, search public GGUF files online, manage installed models, and jump straight into a local chat page.
-- Added built-in Gemma 4 entries and more plain-language device-fit suggestions, so users no longer need to manually hunt for GGUF download links.
-- Upgraded the local chat page with stream output, thinking toggles, Markdown rendering, stop generation, collapsible runtime header, memory usage display, API endpoint copy, and the ability to switch between local, saved, or manually entered endpoints.
-- Replaced the old backup shortcut flow with a Backup Center that can import, store, switch, restore, and export backups in one place.
-- v2.0.2 updates the Android build number to `69`, fixes armv7 Node.js downloads, and improves DNS/mirror fallback during setup.
-- Added an arm64 prebuilt Ubuntu rootfs so first setup can skip runtime `apt-get update/install`; if the bundled rootfs fails validation, setup falls back to the old online apt flow.
+- Merges the setup stability fixes, the previous terminal-performance work, and current unpublished changes into this v2.0.2 package. Android build number is now `77`.
+- Large RootFS / Node.js runtime archives are no longer bundled in the APK, bringing the universal APK down to about 45.96 MB and split APKs to about 27 MB.
+- Bootstrap resource settings now live on a separate page, with GitHub `basic-resource` defaults plus separate URL/local-file fields for prebuilt RootFS, Ubuntu base RootFS, and Node.js.
+- The first-run setup wizard now uses a small-icon header, a step timeline, and a tighter settings area, with localized bootstrap-resource and sample-config copy.
+- Buffered terminal output refreshes across configure, onboarding, package install, Weixin install, and the regular terminal, reducing UI jank during verbose OpenClaw output.
+- Reduced terminal scrollback from 10000 to 3000 lines to lower memory and rendering pressure.
+- Interactive terminals now default to a lighter PRoot fast mode without the heavier SysV IPC compatibility flag.
+- DNS preparation is centralized through `ProotDnsService.ensureReady()` instead of repeated per-screen fallback writes.
+- Keeps armv7 Node.js compatibility, domestic DNS / Ubuntu mirror fallbacks, apt/dpkg directory preparation, and clearer PRoot failure summaries.
+- Bundled sample configs now point to a test-friendly OpenAI-compatible provider so new users can verify the flow quickly.
+- The local model page now explicitly warns that the current path is PRoot + llama.cpp + GGUF CPU, not Google AI Edge native GPU.
 
 ## Download Artifacts
 
 | File | Target Device | Size | Download |
 |---|---|---:|---|
-| `OpenClaw-v2.0.2-universal.apk` | Best default choice | 240.91 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-universal.apk) |
-| `OpenClaw-v2.0.2-arm64-v8a.apk` | Most modern Android phones | 222.64 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-arm64-v8a.apk) |
-| `OpenClaw-v2.0.2-armeabi-v7a.apk` | Older 32-bit ARM devices | 222.38 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-armeabi-v7a.apk) |
-| `OpenClaw-v2.0.2-x86_64.apk` | Emulator or x86_64 device | 222.85 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-x86_64.apk) |
+| `OpenClaw-v2.0.2-universal.apk` | Best default choice | 45.96 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-universal.apk) |
+| `OpenClaw-v2.0.2-arm64-v8a.apk` | Most modern Android phones | 27.66 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-arm64-v8a.apk) |
+| `OpenClaw-v2.0.2-armeabi-v7a.apk` | Older 32-bit ARM devices | 27.40 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-armeabi-v7a.apk) |
+| `OpenClaw-v2.0.2-x86_64.apk` | Emulator or x86_64 device | 27.87 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-x86_64.apk) |
+| `OpenClaw-v2.0.2.aab` | Store distribution | 52.74 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2.aab) |
 
 ## Quick Start
 
@@ -57,7 +61,7 @@ flutter build apk --release
 To generate the release directory with APKs and AAB:
 
 ```bash
-python scripts/build_release.py --version 2.0.2 --build-number 69 --skip-aab
+python scripts/build_release.py --version 2.0.2 --build-number 77
 ```
 
 ## Repository Structure

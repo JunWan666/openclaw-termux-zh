@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.0.2 - 合并运行时瘦身、初始化稳定性与终端性能优化
+
+### 关键改动
+
+- **APK 运行时资源瘦身**：不再把 `assets/bootstrap/` 下的大体积 RootFS / Node.js 资源打进 APK，通用包约 45.96 MB，分 ABI 包约 27 MB。
+- **运行时资源支持独立页面配置**：预构建资源配置从安装页挪到独立页面，可一键使用 GitHub `basic-resource` 资源，也可分别填写或选择预构建 RootFS、Ubuntu base RootFS、Node.js 三个资源。
+- **保留预构建 rootfs 失败兜底**：如果外部或本地预构建包缺失、解压失败，或基础包校验不通过，会自动回退到标准 Ubuntu base rootfs + 在线 apt 流程，避免初始化卡死。
+- **修复 32 位 ARM Node.js 下载 404**：`armeabi-v7a` 设备初始化时不再尝试不存在的 Node.js 24 `linux-armv7l` 包；armv7 单独使用官方仍提供的 Node.js 22.22.2，arm64 和 x86_64 继续使用 Node.js 24.14.1。
+- **国内网络 DNS 与镜像兜底优化**：修复部分国内网络下初始化失败并提示 `Temporary failure resolving 'ports.ubuntu.com'` 的问题；DNS 兜底改为 `223.5.5.5`、`119.29.29.29`、`8.8.8.8`，Ubuntu 镜像探测失败时优先留在国内镜像候选。
+- **初始化前补齐 apt/dpkg 运行目录**：自动创建 `/var/cache/apt/archives/partial` 和 `/var/lib/apt/lists/partial` 等目录，减少 apt `exit code 100`。
+- **PRoot 失败摘要更可诊断**：命令失败时优先展示真正的 `E:`、`Err:`、`dpkg:` 和 DNS 解析错误，不再只显示一串依赖包名。
+- **终端输出改为批量刷新**：配置向导、Onboarding、普通终端、包安装和微信安装终端现在会把 PTY 输出合并后再写入 UI，减少 OpenClaw 新版本大量日志输出时的卡顿。
+- **安装向导布局与 i18n 补齐**：首次安装页改为小图标标题、步骤时间线和更紧凑的设置区；预构建资源页与示例配置弹窗补齐简体、繁体、英文、日文本地化。
+- **终端历史收敛到 3000 行**：降低长时间输出后的内存和渲染压力，提升移动端滚动和输入响应。
+- **交互终端默认使用 fast PRoot 模式**：普通终端入口默认避开 `--sysvipc` 等较重兼容参数，减少进入终端后的运行开销，同时保留兼容模式入口方便后续兜底。
+- **DNS 初始化统一收口**：终端页面不再各自重复 `setupDirs/writeResolv` 和 DNS fallback，统一走 `ProotDnsService.ensureReady()`，减少进入终端前的重复准备工作。
+- **示例配置更新为测试体验链路**：内置 `2026.3.13`、`2026.3.23`、`2026.4.9` 示例配置默认指向 OpenAI 兼容测试提供商，方便新用户快速验证。
+- **本地模型路径补充强提醒**：本地模型页明确当前方案是 PRoot + llama.cpp + GGUF CPU，不是 Google AI Edge 原生 GPU。
+- **版本元数据同步到 `v2.0.2`**：Android 构建号提升到 `77`，可覆盖安装 v2.0.1 及此前测试包。
+
 ## v2.0.1 - 本地模型与对话中心、备份中心和发布整理
 
 ### 关键改动
