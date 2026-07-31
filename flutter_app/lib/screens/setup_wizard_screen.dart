@@ -3,10 +3,10 @@ import 'package:provider/provider.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/openclaw_install_options.dart';
+import '../models/openclaw_version_policy.dart';
 import '../models/setup_state.dart';
 import '../providers/setup_provider.dart';
 import '../services/backup_service.dart';
-import '../services/bundled_sample_config_service.dart';
 import '../services/install_status_message_formatter.dart';
 import '../services/native_bridge.dart';
 import '../services/openclaw_version_service.dart';
@@ -15,7 +15,6 @@ import '../services/provider_config_service.dart';
 import '../services/snapshot_service.dart';
 import '../widgets/progress_step.dart';
 import 'dashboard_screen.dart';
-import 'onboarding_screen.dart';
 
 class SetupWizardScreen extends StatefulWidget {
   final bool resumeCompletionChoice;
@@ -28,11 +27,11 @@ class SetupWizardScreen extends StatefulWidget {
   @override
   State<SetupWizardScreen> createState() => _SetupWizardScreenState();
 }
-
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
   final OpenClawVersionService _versionService = OpenClawVersionService();
 
   bool _started = false;
+  bool _finalizingSetup = false;
   bool _resolvingExistingSetupState = false;
   bool _didRestoreCompletedSetupState = false;
   List<OpenClawReleaseInfo> _availableReleases = const [];
@@ -79,37 +78,48 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     }
 
     try {
-      final latestRelease = await _versionService.fetchLatestRelease();
-      List<OpenClawReleaseInfo> availableReleases;
-      String? releaseOptionsError;
-      try {
-        availableReleases = await _versionService.fetchAvailableReleases();
-      } catch (e) {
-        availableReleases = [latestRelease];
-        releaseOptionsError = '$e';
-      }
-      final mergedReleases =
-          _mergeAvailableReleases(availableReleases, latestRelease);
+      final prefs = await _loadPrefs();
+      final catalog = await _versionService.loadReleaseCatalog();
+      final showPrereleases = prefs.showPrereleaseVersions;
+      final availableReleases = catalog.releases
+          .where(
+            (release) => OpenClawReleasePolicy.isVisibleInPicker(
+              release.version,
+              showPrereleases: showPrereleases,
+            ),
+          )
+          .toList(growable: false);
       final preferredVersion = _selectedRelease?.version;
       final selectedRelease =
-          _findReleaseByVersion(mergedReleases, preferredVersion) ??
-              _findReleaseByVersion(
-                mergedReleases,
-                defaultRecommendedOpenClawReleaseVersion,
-              ) ??
-              _findReleaseByVersion(mergedReleases, latestRelease.version) ??
-              latestRelease;
+          _findReleaseByVersion(availableReleases, preferredVersion) ??
+              catalog.stableRelease;
 
       if (!mounted) return;
       setState(() {
-        _latestRelease = latestRelease;
-        _availableReleases = mergedReleases;
+        _latestRelease = showPrereleases ||
+                catalog.experimentalRelease == null ||
+                !OpenClawReleasePolicy.isPrerelease(
+                  catalog.experimentalRelease!.version,
+                )
+            ? catalog.experimentalRelease
+            : null;
+        _availableReleases = availableReleases;
         _selectedRelease = selectedRelease;
-        _releaseOptionsError = releaseOptionsError;
+        _releaseOptionsError = catalog.warning;
       });
     } catch (e) {
       if (!mounted) return;
+      final fallbackCatalog = OpenClawVersionService.buildReleaseCatalog(
+        availableReleases: const [],
+        latestRelease: null,
+        arch: 'aarch64',
+        warning: '$e',
+        hasOnlineMetadata: false,
+      );
       setState(() {
+        _latestRelease = null;
+        _availableReleases = fallbackCatalog.releases;
+        _selectedRelease = fallbackCatalog.stableRelease;
         _releaseOptionsError = '$e';
       });
     } finally {
@@ -132,7 +142,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     _didRestoreCompletedSetupState = true;
 
     try {
-      await context.read<SetupProvider>().checkIfSetupNeeded();
+      final setupNeeded =
+          await context.read<SetupProvider>().checkIfSetupNeeded();
+      if (!setupNeeded && mounted) {
+        await _completeSetupWithAppDefaults();
+      }
     } finally {
       if (mounted) {
         setState(() => _resolvingExistingSetupState = false);
@@ -159,18 +173,41 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
-  Future<void> _completeIfGatewayConfigured() async {
-    final gatewayConfigured =
-        await ProviderConfigService.hasRequiredGatewayConfig();
-    if (!mounted || !gatewayConfigured) {
-      return;
-    }
+  Future<void> _completeSetupWithAppDefaults() async {
+    if (_finalizingSetup) return;
 
-    await _finishSetupFlow();
+    setState(() => _finalizingSetup = true);
+    try {
+      await ProviderConfigService.ensureInitialAppConfig();
+      await _finishSetupFlow();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.t(
+              'setupWizardBaseConfigFailed',
+              {'error': '$error'},
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _finalizingSetup = false);
+      }
+    }
   }
 
   Future<void> _beginSetup(SetupProvider provider) async {
     final l10n = context.l10n;
+    if (_selectedRelease?.nodeValidationStatus ==
+        OpenClawNodeValidationStatus.unsupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.t('openClawNodeRuntimeUnsupported'))),
+      );
+      return;
+    }
     final prebuiltRootfsUrl = _prebuiltRootfsUrlController.text.trim();
     final ubuntuRootfsUrl = _ubuntuRootfsUrlController.text.trim();
     final nodeArchiveUrl = _nodeArchiveUrlController.text.trim();
@@ -221,6 +258,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     }
 
     await _setPendingSetupChoice(true);
+    if (!mounted) return;
+    await _completeSetupWithAppDefaults();
   }
 
   bool _validateOptionalBootstrapUrl({
@@ -332,9 +371,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       }
 
       await picked.restore(restoreNodeEnabled: false);
-
-      final gatewayConfigured =
-          await ProviderConfigService.hasRequiredGatewayConfig();
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -345,12 +381,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ),
       );
 
-      if (gatewayConfigured) {
-        await _finishSetupFlow();
-        return;
-      }
-
-      await _goToOnboarding();
+      await _completeSetupWithAppDefaults();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -508,17 +539,30 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             final state = provider.state;
             final isResolvingCompletionChoice =
                 _resolvingExistingSetupState && !state.isComplete;
+            final showIdleLayout = !_started &&
+                !state.isComplete &&
+                !state.hasError &&
+                !isResolvingCompletionChoice;
+
+            if (showIdleLayout) {
+              return _buildIdleSetupLayout(theme, l10n, provider);
+            }
+
+            if (_started && provider.isRunning && !state.hasError) {
+              return _buildRunningSetupLayout(theme, l10n, state, provider);
+            }
 
             return Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSetupHeader(theme, l10n, isRunning: _started),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: _buildSteps(state, l10n),
-                  ),
+                  const SizedBox(height: 18),
+                  if (_started || state.isComplete || state.hasError)
+                    Expanded(child: _buildSteps(state, l10n))
+                  else
+                    _buildSteps(state, l10n),
                   if (isResolvingCompletionChoice)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
@@ -563,9 +607,21 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: _handleConfigureApi,
-                        icon: const Icon(Icons.arrow_forward),
-                        label: Text(l10n.t('setupWizardConfigureApiKeys')),
+                        onPressed: _finalizingSetup
+                            ? null
+                            : _completeSetupWithAppDefaults,
+                        icon: _finalizingSetup
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.home_outlined),
+                        label: Text(
+                          l10n.t('setupWizardSampleConfigGoDashboard'),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -580,56 +636,28 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   ] else if (!isResolvingCompletionChoice &&
                       (!_started || state.hasError)) ...[
                     _buildVersionSelector(theme, l10n, provider.isRunning),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     _buildBootstrapResourceConfigButton(
                       theme,
                       l10n,
                       provider.isRunning,
                     ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          textStyle: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        onPressed: provider.isRunning
-                            ? null
-                            : () => _beginSetup(provider),
-                        icon: const Icon(Icons.download),
-                        label: Text(
-                          _started
-                              ? l10n.t('setupWizardRetry')
-                              : l10n.t('setupWizardBegin'),
-                        ),
-                      ),
+                    const SizedBox(height: 12),
+                    _buildInstallButton(
+                      theme,
+                      label: _started
+                          ? l10n.t('setupWizardRetry')
+                          : l10n.t('setupWizardBegin'),
+                      onPressed: provider.isRunning
+                          ? null
+                          : () => _beginSetup(provider),
                     ),
                   ],
                   if (!_started && !state.isComplete) ...[
                     const SizedBox(height: 10),
                     _buildSetupRequirement(theme, l10n),
                   ],
-                  if (!_started &&
-                      !state.isComplete &&
-                      _releaseOptionsError != null) ...[
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        l10n.t('gatewayVersionListFailed', {
-                          'error': _releaseOptionsError,
-                        }),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   Center(
                     child: Text(
                       'by ${AppConstants.authorName}',
@@ -647,26 +675,350 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
+  Widget _buildRunningSetupLayout(
+    ThemeData theme,
+    AppLocalizations l10n,
+    SetupState state,
+    SetupProvider provider,
+  ) {
+    final completedSteps = (state.stepNumber - 1).clamp(0, 5);
+    final overallProgress =
+        ((completedSteps + state.progress.clamp(0.0, 1.0)) / 5).clamp(0.0, 1.0);
+    final version = _selectedRelease?.version ??
+        _latestRelease?.version ??
+        l10n.t('commonUnknown');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSetupHeader(theme, l10n, isRunning: true),
+          const SizedBox(height: 18),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  _buildRunningSummaryCard(
+                    theme,
+                    l10n,
+                    state,
+                    overallProgress,
+                    version,
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: theme.brightness == Brightness.light
+                          ? const [
+                              BoxShadow(
+                                color: Color(0x0B000000),
+                                blurRadius: 18,
+                                offset: Offset(0, 6),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: _buildSteps(state, l10n, embedded: true),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildRunningTip(theme, l10n),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmStopSetup(l10n, provider),
+                  icon: const Icon(Icons.stop_circle_outlined, size: 19),
+                  label: Text(l10n.t('setupWizardStop')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showSetupRunningHelp(l10n),
+                  icon: const Icon(Icons.help_outline_rounded, size: 19),
+                  label: Text(l10n.t('setupWizardInstallHelp')),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: Text(
+              'by ${AppConstants.authorName}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRunningSummaryCard(
+    ThemeData theme,
+    AppLocalizations l10n,
+    SetupState state,
+    double overallProgress,
+    String version,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withAlpha(12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.t('setupWizardOverallProgress'),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                '${(overallProgress * 100).toStringAsFixed(0)}%',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: overallProgress,
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildRunningMetric(
+                  theme,
+                  Icons.layers_outlined,
+                  l10n.t('setupWizardCurrentStage'),
+                  '${state.stepNumber.clamp(1, 5)} / 5',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildRunningMetric(
+                  theme,
+                  Icons.smart_toy_outlined,
+                  l10n.t('setupWizardInstallingVersion'),
+                  version,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRunningMetric(
+    ThemeData theme,
+    IconData icon,
+    String label,
+    String value,
+  ) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRunningTip(ThemeData theme, AppLocalizations l10n) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha(110),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.lightbulb_outline_rounded,
+            color: theme.colorScheme.primary,
+            size: 21,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              l10n.t('setupWizardRunningTip'),
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showSetupRunningHelp(AppLocalizations l10n) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('setupWizardInstallHelpTitle')),
+        content: Text(l10n.t('setupWizardInstallHelpBody')),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.t('commonDone')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmStopSetup(
+    AppLocalizations l10n,
+    SetupProvider provider,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.t('setupWizardStopConfirmTitle')),
+        content: Text(l10n.t('setupWizardStopConfirmBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.t('commonCancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(l10n.t('setupWizardStopAction')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await provider.cancelSetup();
+    if (mounted) {
+      setState(() => _started = false);
+    }
+  }
+
+  Widget _buildIdleSetupLayout(
+    ThemeData theme,
+    AppLocalizations l10n,
+    SetupProvider provider,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSetupHeader(theme, l10n, isRunning: false),
+          const SizedBox(height: 18),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  _buildSteps(provider.state, l10n),
+                  const SizedBox(height: 12),
+                  _buildVersionSelector(theme, l10n, provider.isRunning),
+                  const SizedBox(height: 12),
+                  _buildBootstrapResourceConfigButton(
+                    theme,
+                    l10n,
+                    provider.isRunning,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+          _buildInstallButton(
+            theme,
+            label: l10n.t('setupWizardBegin'),
+            onPressed: provider.isRunning ? null : () => _beginSetup(provider),
+          ),
+          const SizedBox(height: 10),
+          _buildSetupRequirement(theme, l10n),
+          const SizedBox(height: 10),
+          Center(
+            child: Text(
+              'by ${AppConstants.authorName}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSetupHeader(
     ThemeData theme,
     AppLocalizations l10n, {
     required bool isRunning,
   }) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
           width: 52,
           height: 52,
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: theme.inputDecorationTheme.fillColor,
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(8),
+            color: theme.colorScheme.primary.withAlpha(16),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Image.asset('assets/ic_launcher.png'),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -676,16 +1028,18 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                   height: 1.15,
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 7),
               Text(
                 isRunning
                     ? l10n.t('setupWizardIntroRunning')
                     : l10n.t('setupWizardIntroIdle'),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.45,
@@ -724,8 +1078,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
   Widget _buildSteps(
     SetupState state,
-    AppLocalizations l10n,
-  ) {
+    AppLocalizations l10n, {
+    bool embedded = false,
+  }) {
     final steps = [
       (1, l10n.t('setupWizardStepDownloadRootfs'), SetupStep.downloadingRootfs),
       (2, l10n.t('setupWizardStepExtractRootfs'), SetupStep.extractingRootfs),
@@ -747,19 +1102,21 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     ];
 
     final stepWidgets = <Widget>[
-      for (final (num, label, step) in steps)
+      for (final (index, stepData) in steps.indexed)
         ProgressStep(
-          stepNumber: num,
-          label: state.step == step
+          stepNumber: stepData.$1,
+          label: state.step == stepData.$3
               ? _localizedSetupMessage(l10n, state.message)
-              : label,
-          detail: state.step == step
+              : stepData.$2,
+          detail: state.step == stepData.$3
               ? _localizedSetupDetail(l10n, state.detail)
               : null,
-          isActive: state.step == step,
-          isComplete: state.stepNumber > num || state.isComplete,
-          hasError: state.hasError && state.step == step,
-          progress: state.step == step ? state.progress : null,
+          isActive: state.step == stepData.$3,
+          isComplete: state.stepNumber > stepData.$1 || state.isComplete,
+          hasError: state.hasError && state.step == stepData.$3,
+          progress: state.step == stepData.$3 ? state.progress : null,
+          compact: !_started && !state.isComplete && !state.hasError,
+          isLast: index == steps.length - 1,
         ),
     ];
 
@@ -774,26 +1131,153 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     }
 
     if (_started || state.isComplete || state.hasError) {
+      if (embedded) {
+        return Column(children: stepWidgets);
+      }
       return ListView(
         padding: EdgeInsets.zero,
         children: stepWidgets,
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.zero,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: stepWidgets,
+    final theme = Theme.of(context);
+    final openClawSize = _selectedRelease?.unpackedSizeLabel ??
+        _latestRelease?.unpackedSizeLabel ??
+        AppConstants.openClawEstimatedSize;
+    final cards = [
+      _SetupStepCardData(
+        number: 1,
+        icon: Icons.download_rounded,
+        action: l10n.t('setupWizardStepActionDownload'),
+        target: 'Ubuntu rootfs',
+      ),
+      _SetupStepCardData(
+        number: 2,
+        icon: Icons.folder_open_rounded,
+        action: l10n.t('setupWizardStepActionExtract'),
+        target: 'rootfs',
+      ),
+      _SetupStepCardData(
+        number: 3,
+        icon: Icons.code_rounded,
+        action: l10n.t('setupWizardStepActionInstall'),
+        target: 'Node.js',
+      ),
+      _SetupStepCardData(
+        number: 4,
+        icon: Icons.smart_toy_outlined,
+        action: l10n.t('setupWizardStepActionInstall'),
+        target: 'OpenClaw\n($openClawSize)',
+      ),
+      _SetupStepCardData(
+        number: 5,
+        icon: Icons.shield_outlined,
+        action: l10n.t('setupWizardStepActionConfigure'),
+        target: 'Bionic Bypass',
+      ),
+    ];
+
+    final panelColor = theme.brightness == Brightness.light
+        ? Colors.white
+        : const Color(0xFF1A1A1A);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: theme.brightness == Brightness.light
+            ? const [
+                BoxShadow(
+                  color: Color(0x0B000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.format_list_bulleted_rounded,
+                color: theme.colorScheme.primary,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                l10n.t('setupWizardStepsTitle'),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final card in cards)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _SetupStepRow(data: card),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstallButton(
+    ThemeData theme, {
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    final enabled = onPressed != null;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: enabled
+            ? LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  const Color(0xFFEF2028),
+                ],
+              )
+            : null,
+        color: enabled ? null : theme.disabledColor.withAlpha(60),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: enabled
+            ? [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withAlpha(42),
+                  blurRadius: 16,
+                  offset: const Offset(0, 7),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(14),
+          child: SizedBox(
+            height: 54,
+            width: double.infinity,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.download_rounded, color: Colors.white),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -806,8 +1290,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     final subtitle = hasConfig
         ? l10n.t('setupWizardBootstrapResourcesConfigured')
         : l10n.t('setupWizardBootstrapResourcesOptional');
-    final fillColor =
-        theme.inputDecorationTheme.fillColor ?? theme.colorScheme.surface;
+    final fillColor = theme.brightness == Brightness.light
+        ? const Color(0xFFF7F8FA)
+        : const Color(0xFF1A1A1A);
     final titleColor =
         disableSelection ? theme.disabledColor : theme.colorScheme.onSurface;
     final subtitleColor = disableSelection
@@ -817,14 +1302,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     return Material(
       color: fillColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(14),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: disableSelection ? null : _openBootstrapResourceConfig,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
           child: Row(
             children: [
               Container(
@@ -890,114 +1374,224 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     final availableReleases = _availableReleases;
     final canSelectVersions =
         availableReleases.isNotEmpty && selectedRelease != null;
+    final panelColor = theme.brightness == Brightness.light
+        ? Colors.white
+        : const Color(0xFF1A1A1A);
+    final fieldColor = theme.brightness == Brightness.light
+        ? Colors.white
+        : theme.colorScheme.surface;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.t('setupWizardSelectVersion'),
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: theme.brightness == Brightness.light
+            ? const [
+                BoxShadow(
+                  color: Color(0x08000000),
+                  blurRadius: 14,
+                  offset: Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.new_releases_outlined,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                l10n.t('setupWizardSelectVersion'),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          initialValue: canSelectVersions ? selectedRelease.version : null,
-          decoration: InputDecoration(
-            isDense: true,
-            border: const OutlineInputBorder(),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            suffixIconConstraints: const BoxConstraints(
-              minWidth: 42,
-              minHeight: 42,
-            ),
-            suffixIcon: _loadingReleaseOptions
-                ? const Padding(
-                    padding: EdgeInsets.all(11),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue:
+                      canSelectVersions ? selectedRelease.version : null,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: l10n.t('setupWizardVersionLoading'),
+                    filled: true,
+                    fillColor: fieldColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.primary.withAlpha(150),
+                      ),
                     ),
-                  )
-                : IconButton(
-                    tooltip: l10n.t('gatewayCheckUpdate'),
-                    onPressed:
-                        disableSelection ? null : _loadOpenClawReleaseOptions,
-                    icon: const Icon(Icons.refresh),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.primary.withAlpha(120),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
                   ),
-          ),
-          items: availableReleases
-              .map(
-                (release) => DropdownMenuItem(
-                  value: release.version,
-                  child: Text(
-                    _formatSetupReleaseLabel(
-                      l10n,
-                      release,
-                      latestRelease,
+                  items: availableReleases
+                      .map(
+                        (release) => DropdownMenuItem(
+                          value: release.version,
+                          child: Text(
+                            _formatSetupReleaseLabel(
+                              l10n,
+                              release,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: disableSelection || !canSelectVersions
+                      ? null
+                      : (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedRelease = _findReleaseByVersion(
+                              availableReleases,
+                              value,
+                            );
+                          });
+                        },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Material(
+                color: fieldColor,
+                borderRadius: BorderRadius.circular(13),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(13),
+                  onTap: disableSelection || _loadingReleaseOptions
+                      ? null
+                      : _loadOpenClawReleaseOptions,
+                  child: SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: Center(
+                      child: _loadingReleaseOptions
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              Icons.refresh_rounded,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              )
-              .toList(),
-          onChanged: disableSelection || !canSelectVersions
-              ? null
-              : (value) {
-                  if (value == null) return;
-                  setState(() {
-                    _selectedRelease =
-                        _findReleaseByVersion(availableReleases, value);
-                  });
-                },
-        ),
-        if (selectedRelease != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            l10n.t('setupWizardSelectedVersionHint', {
-              'version': selectedRelease.version,
-              'size': selectedRelease.unpackedSizeLabel ??
-                  AppConstants.openClawEstimatedSize,
-            }),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+              ),
+            ],
           ),
-          if (selectedRelease.nodeRequirement != null) ...[
-            const SizedBox(height: 4),
+          if (selectedRelease != null) ...[
+            const SizedBox(height: 8),
             Text(
-              l10n.t('gatewayNodeRequirementHint', {
-                'requirement': selectedRelease.nodeRequirement,
+              l10n.t('setupWizardSelectedVersionHint', {
+                'version': selectedRelease.version,
+                'size': selectedRelease.unpackedSizeLabel ??
+                    AppConstants.openClawEstimatedSize,
               }),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            if (selectedRelease.nodeRequirement != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                l10n.t('gatewayNodeRequirementHint', {
+                  'requirement': selectedRelease.nodeRequirement,
+                }),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (selectedRelease.channel ==
+                OpenClawReleaseChannel.experimental) ...[
+              const SizedBox(height: 6),
+              Text(
+                l10n.t('setupWizardExperimentalWarning'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.tertiary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (selectedRelease.nodeValidationStatus ==
+                OpenClawNodeValidationStatus.unsupported) ...[
+              const SizedBox(height: 6),
+              Text(
+                l10n.t('openClawNodeRuntimeUnsupported'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
+          if (_releaseOptionsError != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.tertiaryContainer.withAlpha(120),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.cloud_off_outlined,
+                    size: 18,
+                    color: theme.colorScheme.onTertiaryContainer,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.t('setupWizardVersionOffline'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadingReleaseOptions || disableSelection
+                        ? null
+                        : _loadOpenClawReleaseOptions,
+                    child: Text(l10n.t('commonRetry')),
+                  ),
+                ],
+              ),
+            ),
           ],
         ],
-      ],
+      ),
     );
-  }
-
-  List<OpenClawReleaseInfo> _mergeAvailableReleases(
-    List<OpenClawReleaseInfo> releases,
-    OpenClawReleaseInfo latestRelease,
-  ) {
-    final releasesByVersion = <String, OpenClawReleaseInfo>{
-      for (final release in releases) release.version: release,
-      latestRelease.version: latestRelease,
-    };
-
-    final merged = releasesByVersion.values.toList()
-      ..sort((a, b) => OpenClawVersionService.compareVersions(
-            b.version,
-            a.version,
-          ));
-    return merged;
   }
 
   OpenClawReleaseInfo? _findReleaseByVersion(
@@ -1019,12 +1613,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   String _formatSetupReleaseLabel(
     AppLocalizations l10n,
     OpenClawReleaseInfo release,
-    OpenClawReleaseInfo? latestRelease,
   ) {
     return formatOpenClawReleaseLabel(
       l10n,
       release.version,
-      latestVersion: latestRelease?.version,
+      channel: release.channel,
     );
   }
 
@@ -1036,119 +1629,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     return InstallStatusMessageFormatter.localizeDetail(l10n, detail);
   }
 
-  Future<void> _handleConfigureApi() async {
-    final installedVersion = await _versionService.readInstalledVersion();
-    final sample = await BundledSampleConfigService.loadForVersion(
-      installedVersion,
-    );
-
-    if (!mounted || sample == null) {
-      await _goToOnboarding();
-      return;
-    }
-
-    final choice = await _showBundledSampleConfigDialog(sample.version);
-    if (!mounted || choice == null) {
-      return;
-    }
-
-    switch (choice) {
-      case _BundledConfigChoice.useSample:
-        await _applyBundledSampleConfig(sample);
-        break;
-      case _BundledConfigChoice.useTerminalOnboarding:
-        await _goToOnboarding();
-        break;
-    }
-  }
-
-  Future<_BundledConfigChoice?> _showBundledSampleConfigDialog(
-    String version,
-  ) async {
-    final l10n = context.l10n;
-    return showDialog<_BundledConfigChoice>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.t('setupWizardSampleConfigDialogTitle')),
-        content: Text(
-          l10n.t('setupWizardSampleConfigDialogBody', {'version': version}),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l10n.t('commonCancel')),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext)
-                .pop(_BundledConfigChoice.useTerminalOnboarding),
-            child: Text(l10n.t('setupWizardSampleConfigTerminalOnboarding')),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(_BundledConfigChoice.useSample),
-            child: Text(l10n.t('setupWizardSampleConfigUseSample')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _applyBundledSampleConfig(BundledSampleConfig sample) async {
-    final l10n = context.l10n;
-
-    try {
-      await BundledSampleConfigService.apply(sample);
-      await ProviderConfigService.ensureGatewayDefaults();
-
-      if (!mounted) return;
-
-      final acknowledged = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(l10n.t('setupWizardSampleConfigAppliedTitle')),
-          content: Text(
-            l10n.t(
-              'setupWizardSampleConfigAppliedBody',
-              {'version': sample.version},
-            ),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(l10n.t('setupWizardSampleConfigGoDashboard')),
-            ),
-          ],
-        ),
-      );
-
-      if (acknowledged == true) {
-        await _finishSetupFlow();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.t('setupWizardSampleConfigApplyFailed', {'error': e}),
-          ),
-        ),
-      );
-      await _goToOnboarding();
-    }
-  }
-
-  Future<void> _goToOnboarding() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const OnboardingScreen(),
-      ),
-    );
-
-    if (!mounted) return;
-    await _completeIfGatewayConfigured();
-  }
 }
-
 class _BootstrapResourceConfig {
   final String prebuiltRootfsUrl;
   final String? prebuiltRootfsArchivePath;
@@ -1420,7 +1901,7 @@ class _BootstrapResourceConfigScreenState
               urlController: _nodeArchiveUrlController,
               fileController: _nodeArchiveFileController,
               localPath: _nodeArchivePath,
-              urlHint: 'node-v24.14.1-linux-arm64.tar.xz',
+              urlHint: 'node-v24.18.1-linux-arm64.tar.xz',
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
@@ -1532,8 +2013,73 @@ class _BootstrapResourceConfigScreenState
     );
   }
 }
+class _SetupStepCardData {
+  final int number;
+  final IconData icon;
+  final String action;
+  final String target;
 
-enum _BundledConfigChoice {
-  useSample,
-  useTerminalOnboarding,
+  const _SetupStepCardData({
+    required this.number,
+    required this.icon,
+    required this.action,
+    required this.target,
+  });
+}
+
+class _SetupStepRow extends StatelessWidget {
+  final _SetupStepCardData data;
+
+  const _SetupStepRow({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: theme.brightness == Brightness.light
+            ? const Color(0xFFFDFDFD)
+            : const Color(0xFF202020),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outline.withAlpha(35)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: theme.brightness == Brightness.light
+                  ? const Color(0xFFFFECEC)
+                  : theme.colorScheme.primary.withAlpha(35),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '${data.number}',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Icon(data.icon, color: theme.colorScheme.primary, size: 22),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              '${data.action} ${data.target.replaceAll('\n', ' ')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

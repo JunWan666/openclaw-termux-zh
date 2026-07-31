@@ -31,7 +31,7 @@ class ProgressStep extends StatelessWidget {
     final circleSize = compact ? 24.0 : 32.0;
     final circleGap = compact ? 10.0 : 12.0;
     final verticalPadding = compact ? 0.0 : 8.0;
-    final lineColor = theme.colorScheme.outlineVariant;
+    final lineColor = theme.colorScheme.outline.withAlpha(70);
 
     Color circleColor;
     Color? circleBorderColor;
@@ -55,12 +55,12 @@ class ProgressStep extends StatelessWidget {
         ),
       );
     } else {
-      circleColor = theme.colorScheme.surfaceContainerHighest;
-      circleBorderColor = theme.colorScheme.outlineVariant;
+      circleColor = theme.colorScheme.primary.withAlpha(18);
+      circleBorderColor = null;
       circleChild = Text(
         '$stepNumber',
         style: TextStyle(
-          color: theme.colorScheme.onSurfaceVariant,
+          color: theme.colorScheme.primary,
           fontSize: 12,
           fontWeight: FontWeight.bold,
         ),

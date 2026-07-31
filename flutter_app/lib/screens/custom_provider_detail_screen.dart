@@ -8,6 +8,7 @@ import '../models/custom_provider_preset.dart';
 import '../providers/gateway_provider.dart';
 import '../services/custom_provider_connection_test_service.dart';
 import '../services/provider_config_service.dart';
+import '../services/provider_model_catalog_service.dart';
 
 class CustomProviderDetailScreen extends StatefulWidget {
   const CustomProviderDetailScreen({super.key});
@@ -22,11 +23,13 @@ class _CustomProviderDetailScreenState
   static const _newPresetValue = '__new_preset__';
 
   final _connectionTestService = CustomProviderConnectionTestService();
+  final _modelCatalogService = ProviderModelCatalogService();
   late final TextEditingController _baseUrlController;
   late final TextEditingController _apiKeyController;
   late final TextEditingController _modelIdController;
   late final TextEditingController _providerIdController;
   late final TextEditingController _aliasController;
+  late final FocusNode _apiKeyFocusNode;
 
   List<CustomProviderPreset> _presets = const [];
   String? _activeModel;
@@ -37,8 +40,11 @@ class _CustomProviderDetailScreenState
   bool _saving = false;
   bool _removing = false;
   bool _testingConnection = false;
+  bool _fetchingModels = false;
   bool _obscureKey = true;
   bool _didChange = false;
+  List<String> _availableModels = const [];
+  String? _lastModelCatalogFingerprint;
   String? _lastTestFingerprint;
   CustomProviderConnectionTestResult? _lastConnectionTestResult;
 
@@ -75,6 +81,8 @@ class _CustomProviderDetailScreenState
     _modelIdController = TextEditingController();
     _providerIdController = TextEditingController();
     _aliasController = TextEditingController();
+    _apiKeyFocusNode = FocusNode();
+    _apiKeyFocusNode.addListener(_handleApiKeyFocusChanged);
     _baseUrlController.addListener(_handleConnectionFieldChanged);
     _apiKeyController.addListener(_handleConnectionFieldChanged);
     _modelIdController.addListener(_handleConnectionFieldChanged);
@@ -86,6 +94,8 @@ class _CustomProviderDetailScreenState
     _baseUrlController.removeListener(_handleConnectionFieldChanged);
     _apiKeyController.removeListener(_handleConnectionFieldChanged);
     _modelIdController.removeListener(_handleConnectionFieldChanged);
+    _apiKeyFocusNode.removeListener(_handleApiKeyFocusChanged);
+    _apiKeyFocusNode.dispose();
     _baseUrlController.dispose();
     _apiKeyController.dispose();
     _modelIdController.dispose();
@@ -104,6 +114,85 @@ class _CustomProviderDetailScreenState
       return;
     }
     setState(() {});
+  }
+
+  void _handleApiKeyFocusChanged() {
+    if (!_apiKeyFocusNode.hasFocus) {
+      _fetchModels(automatic: true);
+    }
+  }
+
+  bool get _supportsOpenAiModelCatalog =>
+      _compatibility == CustomProviderCompatibility.autoDetect ||
+      _compatibility == CustomProviderCompatibility.openaiChatCompletions ||
+      _compatibility == CustomProviderCompatibility.openaiResponses ||
+      _compatibility == CustomProviderCompatibility.zhipuChatCompletions;
+
+  String get _modelCatalogFingerprint => [
+        _baseUrlController.text.trim(),
+        _apiKeyController.text.trim(),
+      ].join('\u0000');
+
+  Future<void> _fetchModels({bool automatic = false}) async {
+    if (_fetchingModels || !_supportsOpenAiModelCatalog) {
+      return;
+    }
+
+    final l10n = context.l10n;
+    final baseUrl = _baseUrlController.text.trim();
+    final apiKey = _apiKeyController.text.trim();
+    if (!_isValidBaseUrl(baseUrl) || (automatic && apiKey.isEmpty)) {
+      if (!automatic && !_isValidBaseUrl(baseUrl)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.t('providerDetailEndpointInvalid'))),
+        );
+      }
+      return;
+    }
+
+    final fingerprint = _modelCatalogFingerprint;
+    if (automatic && fingerprint == _lastModelCatalogFingerprint) {
+      return;
+    }
+
+    setState(() => _fetchingModels = true);
+    try {
+      final models = await _modelCatalogService.fetchModels(
+        baseUrl: baseUrl,
+        apiKey: apiKey,
+      );
+      if (!mounted || fingerprint != _modelCatalogFingerprint) {
+        return;
+      }
+      setState(() {
+        _availableModels = models;
+        _lastModelCatalogFingerprint = fingerprint;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t('providerDetailModelsLoaded', {'count': models.length}),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      if (!automatic) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.t('providerDetailModelsLoadFailed', {'error': '$error'}),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _fetchingModels = false);
+      }
+    }
   }
 
   void _clearConnectionTestState() {
@@ -151,6 +240,8 @@ class _CustomProviderDetailScreenState
   void _applyPreset(CustomProviderPreset preset) {
     setState(() {
       _clearConnectionTestState();
+      _availableModels = const [];
+      _lastModelCatalogFingerprint = null;
       _selectedPresetValue = preset.providerId;
       _compatibility = preset.compatibility;
       _baseUrlController.text = preset.baseUrl;
@@ -164,6 +255,8 @@ class _CustomProviderDetailScreenState
   void _applyBlankPreset() {
     setState(() {
       _clearConnectionTestState();
+      _availableModels = const [];
+      _lastModelCatalogFingerprint = null;
       _selectedPresetValue = _newPresetValue;
       _compatibility = CustomProviderCompatibility.openaiChatCompletions;
       _baseUrlController.text = AiProvider.customOpenai.baseUrl;
@@ -472,10 +565,9 @@ class _CustomProviderDetailScreenState
         _hasFreshConnectionTest && _lastConnectionTestResult?.success == true
             ? _lastConnectionTestResult
             : null;
-    final saveCompatibility =
-        detectedResult?.autoDetected == true
-            ? detectedResult!.compatibility
-            : _compatibility;
+    final saveCompatibility = detectedResult?.autoDetected == true
+        ? detectedResult!.compatibility
+        : _compatibility;
     setState(() => _saving = true);
     try {
       final preset = await ProviderConfigService.saveCustomProviderPreset(
@@ -743,6 +835,8 @@ class _CustomProviderDetailScreenState
                       }
                       setState(() {
                         _compatibility = value;
+                        _availableModels = const [];
+                        _lastModelCatalogFingerprint = null;
                         if (_selectedPreset == null) {
                           final currentBaseUrl = _baseUrlController.text.trim();
                           if (value ==
@@ -759,14 +853,6 @@ class _CustomProviderDetailScreenState
                             _baseUrlController.text =
                                 AiProvider.customOpenai.baseUrl;
                           }
-                        }
-                        final normalized =
-                            ProviderConfigService.normalizeCustomBaseUrl(
-                          _baseUrlController.text,
-                          value,
-                        );
-                        if (normalized.isNotEmpty) {
-                          _baseUrlController.text = normalized;
                         }
                       });
                     },
@@ -787,6 +873,7 @@ class _CustomProviderDetailScreenState
                   const SizedBox(height: 8),
                   TextField(
                     controller: _apiKeyController,
+                    focusNode: _apiKeyFocusNode,
                     obscureText: _obscureKey,
                     decoration: InputDecoration(
                       hintText: AiProvider.customOpenai.apiKeyHint,
@@ -802,8 +889,59 @@ class _CustomProviderDetailScreenState
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _fieldTitle(theme, l10n.t('customProviderModelId')),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _fieldTitle(
+                          theme,
+                          l10n.t('customProviderModelId'),
+                        ),
+                      ),
+                      if (_supportsOpenAiModelCatalog)
+                        IconButton(
+                          onPressed:
+                              _fetchingModels || _saving ? null : _fetchModels,
+                          tooltip: l10n.t('providerDetailLoadModels'),
+                          icon: _fetchingModels
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.sync),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
+                  if (_availableModels.isNotEmpty) ...[
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(_availableModels.join('\u0000')),
+                      initialValue: _availableModels
+                              .contains(_modelIdController.text.trim())
+                          ? _modelIdController.text.trim()
+                          : null,
+                      isExpanded: true,
+                      hint: Text(l10n.t('providerDetailModel')),
+                      items: [
+                        for (final model in _availableModels)
+                          DropdownMenuItem(
+                            value: model,
+                            child: Text(
+                              model,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          _modelIdController.text = value;
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   TextField(
                     controller: _modelIdController,
                     decoration: InputDecoration(

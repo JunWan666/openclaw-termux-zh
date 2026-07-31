@@ -21,6 +21,12 @@ class NodeWsService {
   Stream<NodeFrame> get frameStream => _frameController.stream;
   bool get isConnected => _connected;
 
+  /// 确定性鉴权失败后暂停自动重连，等待用户更新 Token 或重新配对。
+  void pauseReconnect() {
+    _shouldReconnect = false;
+    _reconnectTimer?.cancel();
+  }
+
   /// Returns true if the WebSocket hasn't received any data for over 90s,
   /// indicating the connection is likely stale.
   bool get isStale =>

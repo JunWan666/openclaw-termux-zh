@@ -1,5 +1,18 @@
 # Changelog
 
+## 未发布 - OpenClaw 2026.7.x 兼容升级
+
+### 关键改动
+
+- **Stable / Experimental 通道**：固定 `2026.3.23` 为离线可用的默认 Stable；npm `latest` 作为 Experimental 显示，历史版本继续可选但不会误标通道。
+- **完整 Node.js engines 校验**：版本范围支持 `||`、上下界、caret、tilde、wildcard、hyphen、prerelease 和数字 revision；只会从已验证运行时中选择真正满足完整范围的 Node.js，arm64/x86_64 固定为 `24.18.1`。
+- **Gateway v3/v4 协议层**：新增 hello、auth、policy、features、session defaults 和结构化错误解析；鉴权失败不会误触发降级，deviceToken 重试和 `retryAfterMs` 受单次重试与总连接预算限制。
+- **安全恢复模式**：启动状态从单一 Boolean 扩展为 `fresh / complete / repairable / upgradeInterrupted / manualRecoveryRequired`；自动修复仅重建可恢复运行文件，不清理 RootFS 或 `/root/.openclaw`。
+- **受保护的升级事务**：升级/降级前备份 package、command、配置和 Session/Goal/Provider 等状态路径，执行 doctor lint/fix、结构化脱敏 diff 和健康验证；事务清单先于破坏性移动落盘，并持久化 package、doctor、配置和验证阶段，App 或设备中断后会在启动时自动回滚非终态事务。
+- **自定义 Base URL 保真**：保存、重新加载、连接测试和旧配置迁移均不再给自定义地址追加 `/v1`，内置 OpenAI/OpenRouter 地址继续保留官方路径。
+- **冷启动可取消与残留清理**：Gateway 冷启动期间新增“停止网关”操作；停止时按同 UID 的 `/proc` 命令行识别并清理 PRoot/OpenClaw 进程，避免进程重命名后留下残留。
+- **验证门禁**：106 项 Flutter 测试通过，`flutter analyze` 无 error/warning 且仅保留既有 12 条 info，x86_64 Debug APK 构建成功；API 35 模拟器完成版本通道、降级确认、Latest Gateway 启停和数据哈希保护回归。
+
 ## v2.0.2 - 合并运行时瘦身、初始化稳定性与终端性能优化
 
 ### 关键改动

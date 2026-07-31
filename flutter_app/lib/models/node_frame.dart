@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
 
-/// Gateway Protocol v3 frame.
+/// Gateway 通用帧。协议版本由握手协商层决定，未知字段会安全忽略。
 /// Types: "req", "res", "event"
 class NodeFrame {
   final String type;

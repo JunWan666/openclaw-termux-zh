@@ -6,8 +6,10 @@ import '../constants.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
+import '../services/environment_recovery_service.dart';
+import '../models/environment_recovery.dart';
+import 'environment_recovery_screen.dart';
 import 'setup_wizard_screen.dart';
-import 'onboarding_screen.dart';
 import 'dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -119,19 +121,37 @@ class _SplashScreenState extends State<SplashScreen>
       } catch (_) {}
 
       bool setupComplete;
+      EnvironmentAssessment? recoveryAssessment;
       try {
-        setupComplete = await NativeBridge.isBootstrapComplete();
+        setState(() => _status = 'Checking existing environment...');
+        final recoveryService = EnvironmentRecoveryService();
+        recoveryAssessment = await recoveryService.inspect();
+        if (recoveryAssessment.canAutoRepair) {
+          setState(() => _status = 'Repairing existing environment...');
+          recoveryAssessment = await recoveryService.repair();
+        }
+        setupComplete = recoveryAssessment.shouldEnterDashboard;
       } catch (_) {
-        setupComplete = false;
+        // 兼容原生检查异常场景，保留旧版完成标记作为兜底。
+        setupComplete = await NativeBridge.isBootstrapComplete();
       }
 
       if (!mounted) return;
 
       if (setupComplete) {
-        final gatewayConfigured =
+        var gatewayConfigured =
             await ProviderConfigService.hasRequiredGatewayConfig();
-        final pendingSetupCompletionChoice =
-            prefs.pendingSetupCompletionChoice;
+        if (!gatewayConfigured) {
+          try {
+            setState(() => _status = 'Preparing local configuration...');
+            await ProviderConfigService.ensureInitialAppConfig();
+            gatewayConfigured =
+                await ProviderConfigService.hasRequiredGatewayConfig();
+          } catch (_) {
+            // 保留完成页重试入口，不用终端 onboarding 覆盖异常配置。
+          }
+        }
+        final pendingSetupCompletionChoice = prefs.pendingSetupCompletionChoice;
         if (!mounted) return;
 
         if (gatewayConfigured) {
@@ -144,17 +164,25 @@ class _SplashScreenState extends State<SplashScreen>
           MaterialPageRoute(
             builder: (_) => gatewayConfigured
                 ? const DashboardScreen()
-                : pendingSetupCompletionChoice
-                    ? const SetupWizardScreen(
-                        resumeCompletionChoice: true,
-                      )
-                    : const OnboardingScreen(isFirstRun: true),
+                : SetupWizardScreen(
+                    resumeCompletionChoice:
+                        pendingSetupCompletionChoice || setupComplete,
+                  ),
           ),
         );
-      } else {
+      } else if (recoveryAssessment == null ||
+          recoveryAssessment.state == EnvironmentRecoveryState.fresh) {
         prefs.pendingSetupCompletionChoice = false;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => EnvironmentRecoveryScreen(
+              assessment: recoveryAssessment!,
+            ),
+          ),
         );
       }
     } catch (e) {

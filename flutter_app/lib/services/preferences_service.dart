@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dashboard_url_resolver.dart';
@@ -14,6 +15,10 @@ class PreferencesService {
   static const _keyBonjourEnabled = 'bonjour_enabled';
   static const _keyNodeEnabled = 'node_enabled';
   static const _keyNodeDeviceToken = 'node_device_token';
+  static const _keyNodeDeviceTokenEndpoint = 'node_device_token_endpoint';
+  static const _keyNodeDeviceTokenRole = 'node_device_token_role';
+  static const _keyNodeDeviceTokenScopes = 'node_device_token_scopes';
+  static const _keyNodeMainSessionKey = 'node_main_session_key';
   static const _keyNodeGatewayHost = 'node_gateway_host';
   static const _keyNodeGatewayPort = 'node_gateway_port';
   static const _keyNodePublicKey = 'node_ed25519_public';
@@ -24,6 +29,10 @@ class PreferencesService {
   static const _keyLocalModelMaxCpuCores = 'local_model_max_cpu_cores';
   static const _keyLocalModelMemoryLimitMiB = 'local_model_memory_limit_mib';
   static const _keyLocalModelPerformanceMode = 'local_model_performance_mode';
+  static const _keyShowPrereleaseVersions = 'show_prerelease_versions';
+
+  static final ValueNotifier<bool> showPrereleaseVersionsChanges =
+      ValueNotifier<bool>(false);
 
   late SharedPreferences _prefs;
 
@@ -33,6 +42,13 @@ class PreferencesService {
 
   bool get autoStartGateway => _prefs.getBool(_keyAutoStart) ?? false;
   set autoStartGateway(bool value) => _prefs.setBool(_keyAutoStart, value);
+
+  bool get showPrereleaseVersions =>
+      _prefs.getBool(_keyShowPrereleaseVersions) ?? false;
+  set showPrereleaseVersions(bool value) {
+    _prefs.setBool(_keyShowPrereleaseVersions, value);
+    showPrereleaseVersionsChanges.value = value;
+  }
 
   bool get setupComplete => _prefs.getBool(_keySetupComplete) ?? false;
   set setupComplete(bool value) => _prefs.setBool(_keySetupComplete, value);
@@ -104,6 +120,41 @@ class PreferencesService {
       _prefs.setString(_keyNodeDeviceToken, value);
     } else {
       _prefs.remove(_keyNodeDeviceToken);
+    }
+  }
+
+  String? get nodeDeviceTokenEndpoint =>
+      _prefs.getString(_keyNodeDeviceTokenEndpoint);
+  String? get nodeDeviceTokenRole => _prefs.getString(_keyNodeDeviceTokenRole);
+  List<String> get nodeDeviceTokenScopes =>
+      _prefs.getStringList(_keyNodeDeviceTokenScopes) ?? const [];
+  String? get nodeMainSessionKey => _prefs.getString(_keyNodeMainSessionKey);
+
+  /// 保存 Token 的授权上下文；旧版单字符串 Token 仍可直接读取。
+  void saveNodeDeviceToken({
+    required String token,
+    required String endpoint,
+    required String role,
+    required List<String> scopes,
+  }) {
+    _prefs.setString(_keyNodeDeviceToken, token);
+    _prefs.setString(_keyNodeDeviceTokenEndpoint, endpoint);
+    _prefs.setString(_keyNodeDeviceTokenRole, role);
+    _prefs.setStringList(_keyNodeDeviceTokenScopes, scopes);
+  }
+
+  void clearNodeDeviceToken() {
+    _prefs.remove(_keyNodeDeviceToken);
+    _prefs.remove(_keyNodeDeviceTokenEndpoint);
+    _prefs.remove(_keyNodeDeviceTokenRole);
+    _prefs.remove(_keyNodeDeviceTokenScopes);
+  }
+
+  set nodeMainSessionKey(String? value) {
+    if (value != null && value.isNotEmpty) {
+      _prefs.setString(_keyNodeMainSessionKey, value);
+    } else {
+      _prefs.remove(_keyNodeMainSessionKey);
     }
   }
 

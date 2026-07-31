@@ -151,13 +151,15 @@ const Map<String, String> appStringsEn = {
   'providersStatusConfigured': 'Configured',
   'providerDetailApiKey': 'API Key',
   'providerDetailApiKeyEmpty': 'API key cannot be empty',
+  'providerDetailGetApiKey': 'Get Key',
+  'providerDetailApiKeyLinkFailed': 'Could not open the API key page',
   'providerDetailEndpoint': 'API Base URL',
   'providerDetailEndpointHelper':
       'Override the default endpoint if your account uses a custom or regional API base URL.',
   'providerDetailEndpointHelperOpenaiCompatible':
-      'Enter the OpenAI-compatible base URL up to /v1. Paths such as /chat/completions are added automatically.',
+      'Enter the complete API base URL from your provider. Saving preserves its path; test requests only append the selected API endpoint.',
   'providerDetailEndpointHelperZhipu':
-      'Use the official base URL up to /api/paas/v4. Do not append /v1; paths such as /chat/completions are added automatically.',
+      'The official Zhipu base URL usually ends in /api/paas/v4. Saving preserves its path; test requests only append the API endpoint.',
   'providerDetailEndpointInvalid': 'Enter a valid absolute API base URL',
   'providerDetailModel': 'Model',
   'providerDetailModelEmpty': 'Model name cannot be empty',
@@ -167,6 +169,12 @@ const Map<String, String> appStringsEn = {
   'providerDetailModelHintOpenaiCompatible':
       'e.g. gpt-4o-mini, deepseek-chat, or your-provider/model',
   'providerDetailModelHintZhipu': 'e.g. glm-5, glm-4.7, glm-4.6, glm-4.5-air',
+  'providerDetailLoadModels': 'Fetch model list',
+  'providerDetailModelsLoaded': 'Loaded {count} models',
+  'providerDetailModelsLoadFailed': 'Failed to load models: {error}',
+  'providerDetailTestConnection': 'Test Connection',
+  'providerDetailConnectionTestSucceeded': 'Connection test succeeded',
+  'providerDetailConnectionTestFailed': 'Connection test failed: {error}',
   'providerDetailSaveAction': 'Save & Activate',
   'providerDetailSaved': '{provider} configured and activated',
   'providerDetailSaveFailed': 'Failed to save: {error}',
@@ -177,7 +185,7 @@ const Map<String, String> appStringsEn = {
   'providerDetailRemoveConfiguration': 'Remove Configuration',
   'providerDetailRemoved': '{provider} removed',
   'providerDetailRemoveFailed': 'Failed to remove: {error}',
-  'providerNameCustomOpenai': 'Custom Model Provider',
+  'providerNameCustomOpenai': 'Custom OpenAI-Compatible Model',
   'providerDescriptionCustomOpenai':
       'Create reusable custom provider presets with your own compatibility mode, base URL, and model',
   'providerDescriptionCustomOpenaiWithCount':
@@ -248,14 +256,14 @@ const Map<String, String> appStringsEn = {
       'Volcengine Ark / Doubao models with official Ark endpoint presets',
   'providerNameGoogle': 'Google Gemini',
   'providerDescriptionGoogle': 'Gemini family of multimodal models',
-  'providerNameOpenrouter': 'OpenRouter',
-  'providerDescriptionOpenrouter': 'Unified API for hundreds of models',
-  'providerNameNvidia': 'NVIDIA NIM',
-  'providerDescriptionNvidia': 'GPU-optimized inference endpoints',
+  'providerNameNvidia': 'NVIDIA Free',
+  'providerDescriptionNvidia':
+      'Free NVIDIA developer API with models from the live catalog',
+  'providerNoticeNvidiaFree':
+      'The free developer API is typically limited to 40 RPM per API key. Quotas, model availability, and rate limits may change; check NVIDIA for current terms and do not treat it as a production SLA.',
   'providerNameDeepseek': 'DeepSeek',
-  'providerDescriptionDeepseek': 'High-performance open models',
-  'providerNameXai': 'xAI',
-  'providerDescriptionXai': 'Grok models from xAI',
+  'providerDescriptionDeepseek':
+      'Official API for DeepSeek V4 Pro and V4 Flash',
   'dashboardPackagesTitle': 'Packages',
   'dashboardPackagesSubtitle':
       'Install optional tools (Local Model, Go, Homebrew, SSH, ADB, cpolar)',
@@ -299,6 +307,12 @@ const Map<String, String> appStringsEn = {
   'gatewayUpdate': 'Update',
   'gatewayUpdating': 'Updating...',
   'gatewayLatest': 'Latest',
+  'openClawChannelStable': 'Stable',
+  'openClawChannelExperimental': 'Experimental',
+  'openClawChannelHistorical': 'Historical',
+  'openClawVersionRecommended': 'Recommended',
+  'openClawNodeRuntimeUnsupported':
+      'No validated Node.js runtime on this device satisfies this release\'s engines requirement, so it cannot be installed.',
   'gatewayLatestVersionLabel': 'Latest Release',
   'gatewayPackageSizeLabel': 'Package Size',
   'gatewayNodeRequirementShortLabel': 'Node.js',
@@ -308,10 +322,17 @@ const Map<String, String> appStringsEn = {
   'gatewayVersionListFailed': 'Failed to load available versions: {error}',
   'gatewayAppliedVersion': 'OpenClaw switched to {version}',
   'gatewayApplyVersionFailed': 'Failed to install selected version: {error}',
-  'gatewayLatestReleaseHint': 'Latest available: {version} · {size}',
+  'gatewayLatestReleaseHint': 'Experimental latest: {version} · {size}',
   'gatewaySelectedReleaseHint': 'Selected: {version} · {size}',
   'gatewayVersionUpdatable': 'Update available',
   'gatewayVersionCurrent': 'Up to date',
+  'gatewayVersionStable': 'Stable channel',
+  'gatewayVersionExperimental': 'Experimental channel',
+  'gatewayVersionHistorical': 'Historical release',
+  'gatewayVersionOffline':
+      'The version service is unavailable. Stable and the installed release remain selectable.',
+  'gatewayExperimentalWarning':
+      'Experimental never replaces Stable automatically. Review protocol and state-migration risks before installing it.',
   'gatewayNodeRequirementHint': 'Requires Node.js {requirement}',
   'gatewaySelectVersion': 'Select Version',
   'gatewayInstallSelectedVersion': 'Install Selected',
@@ -582,6 +603,12 @@ const Map<String, String> appStringsEn = {
   'packageCpolarLocalAccessTitle': 'Local Access URLs',
   'packageCpolarRecentLogsTitle': 'Recent Logs',
   'setupWizardTitle': 'Setup OpenClaw',
+  'setupWizardTitlePrefix': 'Set up',
+  'setupWizardStepsTitle': 'Installation steps',
+  'setupWizardStepActionDownload': 'Download',
+  'setupWizardStepActionExtract': 'Extract',
+  'setupWizardStepActionInstall': 'Install',
+  'setupWizardStepActionConfigure': 'Configure',
   'setupWizardIntroIdle':
       'This will download Ubuntu, Node.js, and OpenClaw into a self-contained environment.',
   'setupWizardIntroRunning':
@@ -590,8 +617,13 @@ const Map<String, String> appStringsEn = {
   'setupWizardRetry': 'Retry Setup',
   'setupWizardBegin': 'Begin Setup',
   'setupWizardSelectVersion': 'OpenClaw Version',
+  'setupWizardVersionLoading': 'Loading versions…',
+  'setupWizardVersionOffline':
+      'The version service is unavailable. Built-in recommended versions are shown and installation can continue.',
   'setupWizardSelectedVersionHint': 'Will install {version} · {size}',
   'setupWizardRecommended': 'Recommended',
+  'setupWizardExperimentalWarning':
+      'This is the Experimental channel and will not replace Stable by default. Use it for compatibility testing and keep a backup of existing data.',
   'setupWizardBootstrapResourcesTitle': 'Bootstrap resources',
   'setupWizardBootstrapResourcesConfigured': 'Custom resources configured',
   'setupWizardBootstrapResourcesOptional': 'Optional: URLs or local files',
@@ -628,6 +660,8 @@ const Map<String, String> appStringsEn = {
   'setupWizardSampleConfigGoDashboard': 'Go to dashboard',
   'setupWizardSampleConfigApplyFailed':
       'Failed to apply the built-in sample config. Falling back to terminal onboarding: {error}',
+  'setupWizardBaseConfigFailed':
+      'Failed to write the base configuration. Please retry: {error}',
   'openClawInstallOptionsSummaryTitle':
       'Recommended install optimizations are enabled',
   'openClawInstallOptionsAdvanced': 'Advanced',
@@ -648,6 +682,23 @@ const Map<String, String> appStringsEn = {
       'Experimental. Some OpenClaw versions may skip plugin or runtime dependency setup after install.',
   'setupWizardRequirements':
       'Requires ~500MB of storage and an internet connection',
+  'setupWizardOverallProgress': 'Overall installation progress',
+  'setupWizardCurrentStage': 'Current stage',
+  'setupWizardInstallingVersion': 'Version',
+  'setupWizardRunningTip':
+      'Keep a stable connection and leave the app in the foreground. Some steps may take several minutes.',
+  'setupWizardViewDetails': 'Live details',
+  'setupWizardStop': 'Stop install',
+  'setupWizardStopConfirmTitle': 'Stop the current installation?',
+  'setupWizardStopConfirmBody':
+      'The current download or installation process will be terminated. Valid downloaded and extracted files will be kept for reuse next time.',
+  'setupWizardStopAction': 'Stop installation',
+  'setupWizardInstallHelp': 'Install tips',
+  'setupWizardProgressDetailsTitle': 'Current installation details',
+  'setupWizardProgressDetailsWaiting': 'Waiting for new installation output…',
+  'setupWizardInstallHelpTitle': 'What should I know during installation?',
+  'setupWizardInstallHelpBody':
+      'Keep the network connected and do not force-close the app or clear it from recent apps. Downloads and extraction may appear idle for a while. If installation fails, the error will remain visible and a retry action will be available.',
   'setupWizardStorageDialogTitle': 'Grant file access before setup',
   'setupWizardStorageDialogBody':
       'OpenClaw setup needs file management access before installation starts, so the Ubuntu environment can mount shared storage correctly inside proot. The Android permission page will open next.',
@@ -814,6 +865,9 @@ const Map<String, String> appStringsEn = {
   'settingsGeneral': 'General',
   'settingsAutoStart': 'Auto-start gateway',
   'settingsAutoStartSubtitle': 'Start the gateway when the app opens',
+  'settingsShowPrereleaseVersions': 'Show Beta / pre-release versions',
+  'settingsShowPrereleaseVersionsSubtitle':
+      'Include beta, rc, and numbered pre-release builds in version pickers',
   'settingsPersistentGatewayLogs': 'Persist gateway logs',
   'settingsPersistentGatewayLogsSubtitle':
       'Write logs to /root/openclaw.log, rotate at 5 MB, keep 3 files total',
@@ -925,7 +979,7 @@ const Map<String, String> appStringsEn = {
   'commonUnknown': 'Unknown',
   'gatewayInstallVersionConfirmTitle': 'Install selected version?',
   'gatewayInstallVersionConfirmBody':
-      'Current version: {current}\nSelected version: {selected}\n\nThis will temporarily stop the gateway and reinstall OpenClaw. Continue?',
+      'Current: {current} ({currentChannel})\nTarget: {selected} ({selectedChannel})\n\nThe gateway will stop and a protected upgrade snapshot will be created first. On failure, the package, command, and configuration are rolled back while the user-data snapshot is retained. Downgrading keeps state created by 7.x, but an older OpenClaw may ignore newer fields. Experimental never replaces Stable automatically. Continue?',
   'gatewaySelectedVersionAlreadyInstalled':
       'Selected version {version} is already installed.',
   'gatewaySelectedVersionCurrent': 'Already Installed',

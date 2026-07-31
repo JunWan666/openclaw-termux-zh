@@ -7,12 +7,14 @@ import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/gateway_state.dart';
 import '../models/openclaw_install_options.dart';
+import '../models/openclaw_version_policy.dart';
 import '../providers/gateway_provider.dart';
 import '../screens/logs_screen.dart';
 import '../screens/web_dashboard_screen.dart';
 import '../services/dashboard_url_resolver.dart';
 import '../services/install_status_message_formatter.dart';
 import '../services/openclaw_version_service.dart';
+import '../services/preferences_service.dart';
 
 class GatewayControls extends StatefulWidget {
   const GatewayControls({
@@ -37,6 +39,7 @@ class _GatewayControlsState extends State<GatewayControls> {
   List<OpenClawReleaseInfo> _availableReleases = const [];
   bool _loadingInstalledVersion = true;
   bool _loadingReleaseOptions = false;
+  String? _releaseOptionsWarning;
   bool _updating = false;
   double? _installProgress;
   String _installStatusMessage = '';
@@ -45,11 +48,23 @@ class _GatewayControlsState extends State<GatewayControls> {
   @override
   void initState() {
     super.initState();
+    PreferencesService.showPrereleaseVersionsChanges.addListener(
+      _handlePrereleaseVisibilityChanged,
+    );
     _initializeVersionCard();
   }
 
   @override
-  void dispose() => super.dispose();
+  void dispose() {
+    PreferencesService.showPrereleaseVersionsChanges.removeListener(
+      _handlePrereleaseVisibilityChanged,
+    );
+    super.dispose();
+  }
+
+  void _handlePrereleaseVisibilityChanged() {
+    _loadReleaseOptions();
+  }
 
   Future<void> _initializeVersionCard() async {
     await _refreshInstalledVersion();
@@ -79,40 +94,45 @@ class _GatewayControlsState extends State<GatewayControls> {
 
     setState(() => _loadingReleaseOptions = true);
     try {
-      final latestRelease = await _versionService.fetchLatestRelease();
-      List<OpenClawReleaseInfo> availableReleases;
-      Object? releaseOptionsError;
-      try {
-        availableReleases = await _versionService.fetchAvailableReleases();
-      } catch (e) {
-        availableReleases = [latestRelease];
-        releaseOptionsError = e;
-      }
-      final mergedReleases =
-          _mergeAvailableReleases(availableReleases, latestRelease);
+      final prefs = PreferencesService();
+      await prefs.init();
+      final showPrereleases = prefs.showPrereleaseVersions;
+      final catalog = await _versionService.loadReleaseCatalog(
+        pinnedVersions: [if (_installedVersion != null) _installedVersion!],
+      );
+      final availableReleases = catalog.releases
+          .where(
+            (release) => OpenClawReleasePolicy.isVisibleInPicker(
+              release.version,
+              showPrereleases: showPrereleases,
+            ),
+          )
+          .toList(growable: false);
       final preferredVersion = _selectedRelease?.version ?? _installedVersion;
       final selectedRelease =
-          _findReleaseByVersion(mergedReleases, preferredVersion) ??
-              _findReleaseByVersion(
-                mergedReleases,
-                defaultRecommendedOpenClawReleaseVersion,
-              ) ??
-              _findReleaseByVersion(mergedReleases, latestRelease.version) ??
-              latestRelease;
+          _findReleaseByVersion(availableReleases, preferredVersion) ??
+              catalog.stableRelease;
 
       if (!mounted) return;
       setState(() {
-        _latestRelease = latestRelease;
-        _availableReleases = mergedReleases;
+        _latestRelease = showPrereleases ||
+                catalog.experimentalRelease == null ||
+                !OpenClawReleasePolicy.isPrerelease(
+                  catalog.experimentalRelease!.version,
+                )
+            ? catalog.experimentalRelease
+            : null;
+        _availableReleases = availableReleases;
         _selectedRelease = selectedRelease;
+        _releaseOptionsWarning = catalog.warning;
       });
 
-      if (releaseOptionsError != null) {
+      if (catalog.warning != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               context.l10n.t('gatewayVersionListFailed', {
-                'error': releaseOptionsError,
+                'error': catalog.warning,
               }),
             ),
           ),
@@ -120,6 +140,24 @@ class _GatewayControlsState extends State<GatewayControls> {
       }
     } catch (e) {
       if (!mounted) return;
+      final fallbackCatalog = OpenClawVersionService.buildReleaseCatalog(
+        availableReleases: const [],
+        latestRelease: null,
+        arch: 'aarch64',
+        pinnedVersions: [if (_installedVersion != null) _installedVersion!],
+        warning: '$e',
+        hasOnlineMetadata: false,
+      );
+      setState(() {
+        _latestRelease = null;
+        _availableReleases = fallbackCatalog.releases;
+        _selectedRelease = _findReleaseByVersion(
+              fallbackCatalog.releases,
+              _installedVersion,
+            ) ??
+            fallbackCatalog.stableRelease;
+        _releaseOptionsWarning = '$e';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -138,6 +176,13 @@ class _GatewayControlsState extends State<GatewayControls> {
     final selectedRelease = _selectedRelease ?? _latestRelease;
     if (_updating || _loadingReleaseOptions || selectedRelease == null) return;
     final l10n = context.l10n;
+    if (selectedRelease.nodeValidationStatus ==
+        OpenClawNodeValidationStatus.unsupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.t('openClawNodeRuntimeUnsupported'))),
+      );
+      return;
+    }
 
     if (OpenClawVersionService.isSameVersion(
       installedVersion: _installedVersion,
@@ -248,6 +293,15 @@ class _GatewayControlsState extends State<GatewayControls> {
           l10n.t('gatewayInstallVersionConfirmBody', {
             'current': currentVersion,
             'selected': selectedRelease.version,
+            'currentChannel': _releaseChannelLabel(
+              l10n,
+              OpenClawReleasePolicy.channelFor(
+                currentVersion,
+                experimentalVersion: _latestRelease?.version,
+              ),
+            ),
+            'selectedChannel':
+                _releaseChannelLabel(l10n, selectedRelease.channel),
           }),
         ),
         actions: [
@@ -445,6 +499,7 @@ class _GatewayControlsState extends State<GatewayControls> {
                         label: Text(l10n.t('gatewayStarting')),
                       ),
                     if (state.isRunning ||
+                        state.status == GatewayStatus.starting ||
                         state.status == GatewayStatus.stopping)
                       OutlinedButton.icon(
                         onPressed: state.status == GatewayStatus.stopping
@@ -687,6 +742,30 @@ class _GatewayControlsState extends State<GatewayControls> {
                 ),
               ),
             ],
+            if (selectedRelease.channel ==
+                OpenClawReleaseChannel.experimental) ...[
+              const SizedBox(height: 6),
+              Text(
+                l10n.t('gatewayExperimentalWarning'),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.tertiary,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
+              ),
+            ],
+            if (selectedRelease.nodeValidationStatus ==
+                OpenClawNodeValidationStatus.unsupported) ...[
+              const SizedBox(height: 6),
+              Text(
+                l10n.t('openClawNodeRuntimeUnsupported'),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
+              ),
+            ],
             if (isSelectedVersionInstalled) ...[
               const SizedBox(height: 6),
               Text(
@@ -699,6 +778,16 @@ class _GatewayControlsState extends State<GatewayControls> {
                 ),
               ),
             ],
+          ],
+          if (_releaseOptionsWarning != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.t('gatewayVersionOffline'),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.3,
+              ),
+            ),
           ],
           const SizedBox(height: 10),
           Wrap(
@@ -763,24 +852,28 @@ class _GatewayControlsState extends State<GatewayControls> {
   }) {
     final latestVersion = latestRelease?.version;
     final normalizedInstalled = installedVersion?.trim();
-    if (latestVersion == null ||
-        normalizedInstalled == null ||
-        normalizedInstalled.isEmpty) {
+    if (normalizedInstalled == null || normalizedInstalled.isEmpty) {
       return null;
     }
 
-    late final Color color;
-    late final String label;
-    if (OpenClawVersionService.isUpdateAvailable(
-      installedVersion: normalizedInstalled,
-      latestVersion: latestVersion,
-    )) {
-      color = AppColors.statusAmber;
-      label = l10n.t('gatewayVersionUpdatable');
-    } else {
-      color = AppColors.statusGreen;
-      label = l10n.t('gatewayVersionCurrent');
-    }
+    final channel = OpenClawReleasePolicy.channelFor(
+      normalizedInstalled,
+      experimentalVersion: latestVersion,
+    );
+    final (color, label) = switch (channel) {
+      OpenClawReleaseChannel.stable => (
+          AppColors.statusGreen,
+          l10n.t('gatewayVersionStable'),
+        ),
+      OpenClawReleaseChannel.experimental => (
+          AppColors.statusAmber,
+          l10n.t('gatewayVersionExperimental'),
+        ),
+      OpenClawReleaseChannel.historical => (
+          AppColors.statusGrey,
+          l10n.t('gatewayVersionHistorical'),
+        ),
+    };
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -858,6 +951,8 @@ class _GatewayControlsState extends State<GatewayControls> {
       style: _buildCompactFilledButtonStyle(theme),
       onPressed: provider.state.status == GatewayStatus.stopping ||
               selectedRelease == null ||
+              selectedRelease.nodeValidationStatus ==
+                  OpenClawNodeValidationStatus.unsupported ||
               isSelectedVersionInstalled
           ? null
           : () => _installSelectedRelease(provider),
@@ -903,23 +998,6 @@ class _GatewayControlsState extends State<GatewayControls> {
     );
   }
 
-  List<OpenClawReleaseInfo> _mergeAvailableReleases(
-    List<OpenClawReleaseInfo> releases,
-    OpenClawReleaseInfo latestRelease,
-  ) {
-    final releasesByVersion = <String, OpenClawReleaseInfo>{
-      for (final release in releases) release.version: release,
-      latestRelease.version: latestRelease,
-    };
-
-    final merged = releasesByVersion.values.toList()
-      ..sort((a, b) => OpenClawVersionService.compareVersions(
-            b.version,
-            a.version,
-          ));
-    return merged;
-  }
-
   OpenClawReleaseInfo? _findReleaseByVersion(
     List<OpenClawReleaseInfo> releases,
     String? version,
@@ -943,8 +1021,20 @@ class _GatewayControlsState extends State<GatewayControls> {
     return formatOpenClawReleaseLabel(
       l10n,
       release.version,
-      latestVersion: _latestRelease?.version,
+      channel: release.channel,
     );
+  }
+
+  String _releaseChannelLabel(
+    AppLocalizations l10n,
+    OpenClawReleaseChannel channel,
+  ) {
+    return switch (channel) {
+      OpenClawReleaseChannel.stable => l10n.t('openClawChannelStable'),
+      OpenClawReleaseChannel.experimental =>
+        l10n.t('openClawChannelExperimental'),
+      OpenClawReleaseChannel.historical => l10n.t('openClawChannelHistorical'),
+    };
   }
 
   Widget _statusBadge(

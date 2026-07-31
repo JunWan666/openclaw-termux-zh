@@ -40,7 +40,7 @@ class AppConstants {
 
   // Node.js binary tarball 閳?downloaded directly by Flutter, extracted by Java.
   // Bypasses curl/gpg/NodeSource which fail inside proot.
-  static const String nodeVersion = '24.14.1';
+  static const String nodeVersion = '24.18.1';
   static const String nodeArmv7Version = '22.22.2';
   static const String openClawEstimatedSize = '~95 MB';
   static const String nodeBaseUrl =
@@ -187,5 +187,16 @@ class AppConstants {
       default:
         return rootfsArm64;
     }
+  }
+
+  static List<String> getRootfsDownloadCandidates(String arch) {
+    final archiveArch = ubuntuRootfsArchiveArch(arch);
+    final fileName = 'ubuntu-base-24.04.3-base-$archiveArch.tar.gz';
+    return <String>[
+      getRootfsUrl(arch),
+      'https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cdimage/ubuntu-base/releases/24.04/release/$fileName',
+      'https://mirrors.ustc.edu.cn/ubuntu-cdimage/ubuntu-base/releases/24.04/release/$fileName',
+      'http://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/$fileName',
+    ];
   }
 }

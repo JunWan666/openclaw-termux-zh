@@ -16,6 +16,23 @@ class BootstrapService {
   final OpenClawVersionService _openClawVersionService =
       OpenClawVersionService();
   SetupState _lastSetupState = const SetupState();
+  CancelToken? _downloadCancelToken;
+  bool _cancelRequested = false;
+
+  Future<void> cancelSetup() async {
+    _cancelRequested = true;
+    _downloadCancelToken?.cancel('Setup cancelled by user');
+    try {
+      await NativeBridge.cancelSetup();
+    } catch (_) {}
+    _stopSetupService();
+  }
+
+  void _checkCancelled() {
+    if (_cancelRequested) {
+      throw const _SetupCancelledException();
+    }
+  }
 
   AppLocalizations get _notificationL10n =>
       AppLocalizations(PlatformDispatcher.instance.locale);
@@ -174,6 +191,7 @@ class BootstrapService {
     await _dio.download(
       url,
       destinationPath,
+      cancelToken: _downloadCancelToken,
       onReceiveProgress: (received, total) {
         if (total <= 0) {
           return;
@@ -193,6 +211,41 @@ class BootstrapService {
         );
       },
     );
+  }
+
+  Future<void> _downloadRootfsArchive({
+    required String arch,
+    required String destinationPath,
+    required void Function(SetupState) onProgress,
+    required String idleMessage,
+  }) async {
+    DioException? lastError;
+    final candidates = AppConstants.getRootfsDownloadCandidates(arch);
+    for (var index = 0; index < candidates.length; index++) {
+      try {
+        await _downloadStepArchive(
+          url: candidates[index],
+          destinationPath: destinationPath,
+          onProgress: onProgress,
+          step: SetupStep.downloadingRootfs,
+          startProgress: 0.0,
+          endProgress: 1.0,
+          idleMessage: index == 0
+              ? idleMessage
+              : 'Primary Ubuntu source failed, trying mirror ${index + 1}/${candidates.length}...',
+          detailBuilder: (currentMb, totalMb, details) =>
+              '$currentMb MB / $totalMb MB | $details',
+        );
+        return;
+      } on DioException catch (error) {
+        lastError = error;
+        _deleteArchiveIfExists(destinationPath);
+        if (_cancelRequested || CancelToken.isCancel(error)) {
+          rethrow;
+        }
+      }
+    }
+    throw lastError ?? StateError('No Ubuntu rootfs download source available');
   }
 
   Future<String> _selectUbuntuMirror(String arch) async {
@@ -373,6 +426,8 @@ class BootstrapService {
     OpenClawReleaseInfo? selectedOpenClawRelease,
     OpenClawInstallOptions installOptions = const OpenClawInstallOptions(),
   }) async {
+    _cancelRequested = false;
+    _downloadCancelToken = CancelToken();
     _lastSetupState = const SetupState();
     final logSubscription = NativeBridge.setupLogStream.listen((line) {
       final trimmed = line.trim();
@@ -406,6 +461,7 @@ class BootstrapService {
       try {
         await NativeBridge.setupDirs();
       } catch (_) {}
+      _checkCancelled();
       try {
         await NativeBridge.writeResolv();
       } catch (_) {}
@@ -636,16 +692,11 @@ class BootstrapService {
                   'Using downloaded Ubuntu rootfs package... 30.0%',
             );
           } else {
-            await _downloadStepArchive(
-              url: rootfsUrl,
+            await _downloadRootfsArchive(
+              arch: arch,
               destinationPath: tarPath,
               onProgress: onProgress,
-              step: SetupStep.downloadingRootfs,
-              startProgress: 0.0,
-              endProgress: 1.0,
               idleMessage: 'Downloading Ubuntu rootfs...',
-              detailBuilder: (currentMb, totalMb, details) =>
-                  '$currentMb MB / $totalMb MB | $details',
             );
           }
 
@@ -661,16 +712,11 @@ class BootstrapService {
             try {
               File(tarPath).deleteSync();
             } catch (_) {}
-            await _downloadStepArchive(
-              url: rootfsUrl,
+            await _downloadRootfsArchive(
+              arch: arch,
               destinationPath: tarPath,
               onProgress: onProgress,
-              step: SetupStep.downloadingRootfs,
-              startProgress: 0.0,
-              endProgress: 1.0,
               idleMessage: 'Local rootfs cache failed, downloading online...',
-              detailBuilder: (currentMb, totalMb, details) =>
-                  '$currentMb MB / $totalMb MB | $details',
             );
             await _extractRootfsWithProgress(
               onProgress: onProgress,
@@ -1034,22 +1080,53 @@ class BootstrapService {
         message: 'Setup complete! Ready to start the gateway.',
         notificationText: 'Setup complete! 100.0%',
       );
-    } on DioException catch (e) {
+    } on _SetupCancelledException {
       _stopSetupService();
+      onProgress(const SetupState(
+        step: SetupStep.checkingStatus,
+        message: 'Setup stopped',
+      ));
+    } on DioException catch (e) {
+      if (_cancelRequested || CancelToken.isCancel(e)) {
+        _stopSetupService();
+        onProgress(const SetupState(
+          step: SetupStep.checkingStatus,
+          message: 'Setup stopped',
+        ));
+        return;
+      }
+      _stopSetupService();
+      final detail = e.message?.trim();
+      final fallback = e.response?.statusCode != null
+          ? 'HTTP ${e.response!.statusCode}'
+          : e.type.name;
       onProgress(SetupState(
         step: SetupStep.error,
-        error: 'Download failed: ${e.message}. Check your internet connection.',
+        error:
+            'Download failed: ${detail?.isNotEmpty == true ? detail : fallback}. Check your internet connection.',
       ));
     } catch (e) {
       _stopSetupService();
+      if (_cancelRequested) {
+        onProgress(const SetupState(
+          step: SetupStep.checkingStatus,
+          message: 'Setup stopped',
+        ));
+        return;
+      }
       onProgress(SetupState(
         step: SetupStep.error,
         error: 'Setup failed: $e',
       ));
     } finally {
+      _downloadCancelToken = null;
       await logSubscription.cancel();
     }
   }
+}
+
+class _SetupCancelledException implements Exception {
+  const _SetupCancelledException();
 }
 
 class _TransferProgressTracker {

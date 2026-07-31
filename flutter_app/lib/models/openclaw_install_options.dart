@@ -2,11 +2,13 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import '../l10n/app_localizations.dart';
+import 'openclaw_version_policy.dart';
 
-const String defaultRecommendedOpenClawReleaseVersion = '2026.3.23';
+const String defaultRecommendedOpenClawReleaseVersion =
+    OpenClawReleasePolicy.stableVersion;
 const Set<String> recommendedOpenClawReleaseVersions = {
   '2026.3.13',
-  '2026.3.23',
+  OpenClawReleasePolicy.stableVersion,
 };
 
 bool isRecommendedOpenClawReleaseVersion(String version) {
@@ -16,20 +18,12 @@ bool isRecommendedOpenClawReleaseVersion(String version) {
 String formatOpenClawReleaseLabel(
   AppLocalizations l10n,
   String version, {
-  String? latestVersion,
+  OpenClawReleaseChannel channel = OpenClawReleaseChannel.historical,
 }) {
-  final tags = <String>[];
-  if (version == latestVersion) {
-    tags.add(l10n.t('gatewayLatest'));
-  }
   if (isRecommendedOpenClawReleaseVersion(version)) {
-    tags.add(l10n.t('setupWizardRecommended'));
+    return '$version (${l10n.t('openClawVersionRecommended')})';
   }
-
-  if (tags.isEmpty) {
-    return version;
-  }
-  return '$version (${tags.join(' / ')})';
+  return version;
 }
 
 class OpenClawInstallOptions {
@@ -111,11 +105,22 @@ class OpenClawInstallOptions {
         '--no-audit',
         '--no-fund',
         '--no-progress',
+        '--prefer-offline',
+        '--fetch-retries=2',
+        '--fetch-retry-mintimeout=1000',
+        '--fetch-retry-maxtimeout=10000',
+        '--loglevel=warn',
         if (ignoreScripts) '--ignore-scripts',
       ];
 
   Map<String, String> get installEnvironment => {
         'npm_package_config_node_gyp_jobs': '$resolvedParallelJobs',
+        'npm_config_cache': '/tmp/npm-cache',
+        'npm_config_prefer_offline': 'true',
+        'npm_config_update_notifier': 'false',
+        'npm_config_audit': 'false',
+        'npm_config_fund': 'false',
+        'npm_config_progress': 'false',
         'MAKEFLAGS': '-j$resolvedParallelJobs',
         'CMAKE_BUILD_PARALLEL_LEVEL': '$resolvedParallelJobs',
       };

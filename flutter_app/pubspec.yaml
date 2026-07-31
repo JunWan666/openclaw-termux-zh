@@ -31,6 +31,7 @@ dependencies:
   flutter_blue_plus: ^1.32.0
   usb_serial: ^0.5.1
   flutter_markdown_plus: ^1.0.7
+  pub_semver: ^2.2.0
 
 dev_dependencies:
   flutter_test:

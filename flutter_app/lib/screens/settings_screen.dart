@@ -29,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   final _prefs = PreferencesService();
   bool _autoStart = false;
+  bool _showPrereleaseVersions = false;
   bool _bonjourEnabled = false;
   bool _nodeEnabled = false;
   bool _batteryOptimized = true;
@@ -55,6 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     await _prefs.init();
     _autoStart = _prefs.autoStartGateway;
+    _showPrereleaseVersions = _prefs.showPrereleaseVersions;
     _bonjourEnabled = await ProviderConfigService.readBonjourEnabled();
     _prefs.bonjourEnabled = _bonjourEnabled;
     _nodeEnabled = _prefs.nodeEnabled;
@@ -151,6 +153,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (value) {
                     setState(() => _autoStart = value);
                     _prefs.autoStartGateway = value;
+                  },
+                ),
+                SwitchListTile(
+                  title: Text(l10n.t('settingsShowPrereleaseVersions')),
+                  subtitle:
+                      Text(l10n.t('settingsShowPrereleaseVersionsSubtitle')),
+                  value: _showPrereleaseVersions,
+                  onChanged: (value) {
+                    setState(() => _showPrereleaseVersions = value);
+                    _prefs.showPrereleaseVersions = value;
                   },
                 ),
                 SwitchListTile(

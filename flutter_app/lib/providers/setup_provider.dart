@@ -39,6 +39,14 @@ class SetupProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> cancelSetup() async {
+    if (!_isRunning) return;
+    await _bootstrapService.cancelSetup();
+    _isRunning = false;
+    _state = const SetupState();
+    notifyListeners();
+  }
+
   void reset() {
     _state = const SetupState();
     _isRunning = false;

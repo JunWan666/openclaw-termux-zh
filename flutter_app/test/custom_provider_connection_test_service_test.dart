@@ -39,6 +39,30 @@ void main() {
       );
     });
 
+    test('appends only the request path to a custom base URL', () async {
+      final adapter = _FakeHttpClientAdapter((options) async {
+        expect(
+          options.uri.toString(),
+          'https://api.example.com/chat/completions',
+        );
+        return _jsonResponse({'ok': true}, 200);
+      });
+
+      final dio = Dio()..httpClientAdapter = adapter;
+      final service = CustomProviderConnectionTestService(dio: dio);
+
+      final result = await service.testConnection(
+        compatibility: CustomProviderCompatibility.openaiChatCompletions,
+        apiKey: 'sk-test',
+        baseUrl: 'https://api.example.com',
+        modelId: 'demo-model',
+      );
+
+      expect(result.success, isTrue);
+      expect(result.endpoint.toString(),
+          'https://api.example.com/chat/completions');
+    });
+
     test('auto-detect prefers Google endpoint when base URL matches', () async {
       final adapter = _FakeHttpClientAdapter((options) async {
         expect(

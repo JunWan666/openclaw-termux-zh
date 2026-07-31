@@ -60,6 +60,25 @@
 - 支持局域网访问说明、节点日志复制、结构化对话日志展示等移动端优化。
 - 支持全架构 APK 打包，便于真机与模拟器测试。
 
+## OpenClaw 版本通道与兼容性
+
+安装向导和首页版本卡片使用显式通道，不会用 npm 最新版静默替换稳定版：
+
+| 通道 | OpenClaw 版本 | 默认行为 | Gateway 协议 | Node.js |
+| --- | --- | --- | --- | --- |
+| Stable | `2026.3.23` | 默认推荐；离线时仍可选择 | 兼容 v3 | arm64/x86_64 使用已验证的 `24.18.1`；armv7 使用 `22.22.2` |
+| Experimental | npm `latest`，当前为 `2026.7.1-2` | 仅在线显示，不自动替代 Stable | 优先 v4，仅在明确协议不匹配时安全降级 | 要求 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`；arm64/x86_64 使用 `24.18.1`，armv7 暂不满足 |
+| 历史版本 | npm 中 `2026.3.13` 及之后的其他版本 | 继续允许手动选择，不标记为 Stable/Experimental；更早版本不再显示 | 依据服务端能力协商 | 安装前按完整 `engines.node` 范围校验 |
+
+版本和运行时兼容层还包含以下保护：
+
+- v3/v4 握手、Token、deviceToken、scope 和服务端重试建议由独立协议层处理；鉴权错误不会触发协议降级，deviceToken 最多重试一次。
+- 启动时区分 `fresh / complete / repairable / upgradeInterrupted / manualRecoveryRequired`；自动修复只重建 wrapper、Bionic Bypass、PRoot compatibility 和 DNS 等运行文件，不删除 RootFS、配置或用户数据。
+- 升级或降级前会显示来源、目标和通道，并创建保护性快照；失败时回滚 package、command 和配置。降级保留 7.x 新增状态，但旧版可能忽略新字段。
+- 自定义 Provider Base URL 只去除首尾空白，不会自动追加 `/v1`；探测请求需要的 endpoint 仅在发起请求时拼接。
+
+详细设计和验证记录见 [兼容性分析](docs/openclaw-2026.7-compatibility-analysis.zh.md)、[实施计划](docs/openclaw-2026.7-implementation-plan.zh.md) 与 [回归记录](docs/openclaw-2026.7-regression-record.zh.md)。
+
 ## 界面截图
 
 <table>

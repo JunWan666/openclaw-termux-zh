@@ -18,7 +18,7 @@
 ```text
 https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource/openclaw-rootfs-noble-arm64.tar.gz
 https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource/ubuntu-base-24.04.3-base-arm64.tar.gz
-https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource/node-v24.14.1-linux-arm64.tar.xz
+https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource/node-v24.18.1-linux-arm64.tar.xz
 ```
 
 也可以手动分别填入“预构建 RootFS”“Ubuntu base RootFS”“Node.js 运行时”三个输入框，或分别选择本地文件。若预构建 RootFS 解压或校验失败，应用会自动回退到标准 Ubuntu base rootfs 在线初始化流程。
@@ -29,19 +29,19 @@ https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource
 | --- | --- | ---: |
 | `openclaw-rootfs-noble-arm64.tar.gz` | arm64 预构建 Ubuntu RootFS，已包含 `ca-certificates git python3 make g++ curl wget` 等基础包，推荐给大多数现代 Android 手机使用 | 140.20 MB |
 | `ubuntu-base-24.04.3-base-arm64.tar.gz` | Ubuntu 24.04.3 arm64 官方 base rootfs 备份资源，适合标准在线初始化流程兜底 | 28.48 MB |
-| `node-v24.14.1-linux-arm64.tar.xz` | Node.js 24.14.1 arm64 运行时压缩包，供安装流程下载或本地缓存复用 | 28.67 MB |
+| `node-v24.18.1-linux-arm64.tar.xz` | Node.js 24.18.1 LTS arm64 运行时压缩包，兼容 OpenClaw 2026.3.23 与当前最新版，供安装流程下载或本地缓存复用 | 29.06 MB |
 
 ## 直接下载链接
 
 - [openclaw-rootfs-noble-arm64.tar.gz](https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource/openclaw-rootfs-noble-arm64.tar.gz)
 - [ubuntu-base-24.04.3-base-arm64.tar.gz](https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource/ubuntu-base-24.04.3-base-arm64.tar.gz)
-- [node-v24.14.1-linux-arm64.tar.xz](https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource/node-v24.14.1-linux-arm64.tar.xz)
+- [node-v24.18.1-linux-arm64.tar.xz](https://github.com/JunWan666/openclaw-termux-zh/releases/download/basic-resource/node-v24.18.1-linux-arm64.tar.xz)
 
 ## SHA256
 
 - `openclaw-rootfs-noble-arm64.tar.gz`: `755EAA05383339FCD0C2DE528C907848F1D38A283C14D3EA0FDB63105874AD5E`
 - `ubuntu-base-24.04.3-base-arm64.tar.gz`: `7B2DCED6DD56AD5E4A813FA25C8DE307B655FDABC6EA9213175A92C48DABB048`
-- `node-v24.14.1-linux-arm64.tar.xz`: `71E427E28B78846F201D4D5ECC30CB13D1508CA099EF3871889A1256C7D6F67E`
+- `node-v24.18.1-linux-arm64.tar.xz`: `7201E3A09DC825BAC57867C81913E2B8F0EF87D04CB9082AF4CDA82F6FF3D88C`
 
 ## 使用提醒
 

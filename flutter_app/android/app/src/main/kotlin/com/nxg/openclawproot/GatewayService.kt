@@ -129,22 +129,69 @@ class GatewayService : Service() {
         }
 
         private fun killResidualGatewayProcesses() {
-            val patterns = listOf(
-                "openclaw gateway --verbose",
-                "openclaw.mjs gateway",
-                "node-wrapper.js",
-            )
+            repeat(3) {
+                val gatewayPids = File("/proc").listFiles()
+                    ?.mapNotNull { entry ->
+                        val pid = entry.name.toIntOrNull() ?: return@mapNotNull null
+                        if (pid == android.os.Process.myPid() || !isOwnedGatewayProcess(entry)) {
+                            return@mapNotNull null
+                        }
+                        pid
+                    }
+                    .orEmpty()
 
-            for (pattern in patterns) {
+                if (gatewayPids.isEmpty()) {
+                    return
+                }
+
+                // 子进程通常拥有更大的 PID；先杀 Node，再杀 PRoot 追踪器，避免留下僵死网关。
+                gatewayPids.sortedDescending().forEach { pid ->
+                    try {
+                        android.os.Process.killProcess(pid)
+                    } catch (_: Exception) {}
+                }
+
                 try {
-                    val escaped = pattern.replace("'", "'\"'\"'")
-                    ProcessBuilder(
-                        "/system/bin/sh",
-                        "-c",
-                        "ps -A | grep -F '$escaped' | grep -v grep | while read -r line; do pid=\$(echo \"\$line\" | awk '{print \$2}'); kill -9 \"\$pid\" 2>/dev/null; done"
-                    ).start().waitFor()
-                } catch (_: Exception) {}
+                    Thread.sleep(100)
+                } catch (_: InterruptedException) {
+                    return
+                }
             }
+        }
+
+        private fun isOwnedGatewayProcess(entry: File): Boolean {
+            val ownUid = android.os.Process.myUid()
+            val processUid = try {
+                File(entry, "status").useLines { lines ->
+                    lines.firstOrNull { it.startsWith("Uid:") }
+                        ?.split(Regex("\\s+"))
+                        ?.getOrNull(1)
+                        ?.toIntOrNull()
+                }
+            } catch (_: Exception) {
+                null
+            }
+            if (processUid != ownUid) {
+                return false
+            }
+
+            val processName = try {
+                File(entry, "comm").readText().trim()
+            } catch (_: Exception) {
+                ""
+            }
+            val commandLine = try {
+                File(entry, "cmdline").readBytes()
+                    .toString(Charsets.UTF_8)
+                    .replace('\u0000', ' ')
+                    .trim()
+            } catch (_: Exception) {
+                ""
+            }
+
+            return processName == "openclaw-gateway" ||
+                commandLine.contains("openclaw gateway") ||
+                commandLine.contains("openclaw.mjs gateway")
         }
     }
 
@@ -439,22 +486,7 @@ class GatewayService : Service() {
     }
 
     private fun forceCleanupResidualGatewayProcesses() {
-        val patterns = listOf(
-            "openclaw gateway --verbose",
-            "openclaw.mjs gateway",
-            "node-wrapper.js",
-        )
-
-        for (pattern in patterns) {
-            try {
-                val escaped = pattern.replace("'", "'\"'\"'")
-                ProcessBuilder(
-                    "/system/bin/sh",
-                    "-c",
-                    "ps -A | grep -F '$escaped' | grep -v grep | while read -r line; do pid=\$(echo \"\$line\" | awk '{print \$2}'); kill -9 \"\$pid\" 2>/dev/null; done"
-                ).start().waitFor()
-            } catch (_: Exception) {}
-        }
+        killResidualGatewayProcesses()
     }
 
     /** Watchdog: periodically checks if the proot process is alive.

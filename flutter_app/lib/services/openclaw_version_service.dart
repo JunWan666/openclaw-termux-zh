@@ -8,8 +8,10 @@ import 'package:http/http.dart' as http;
 
 import '../constants.dart';
 import '../models/openclaw_install_options.dart';
+import '../models/openclaw_version_policy.dart';
 import 'native_bridge.dart';
 import 'proot_dns_service.dart';
+import 'upgrade_config_guard.dart';
 
 typedef OpenClawInstallProgressCallback = void Function(
   OpenClawInstallProgress progress,
@@ -20,12 +22,16 @@ class OpenClawReleaseInfo {
   final int? unpackedSizeBytes;
   final String? nodeRequirement;
   final String? tarballUrl;
+  final OpenClawReleaseChannel channel;
+  final OpenClawNodeValidationStatus nodeValidationStatus;
 
   const OpenClawReleaseInfo({
     required this.version,
     this.unpackedSizeBytes,
     this.nodeRequirement,
     this.tarballUrl,
+    this.channel = OpenClawReleaseChannel.historical,
+    this.nodeValidationStatus = OpenClawNodeValidationStatus.unknown,
   });
 
   factory OpenClawReleaseInfo.fromJson(Map<String, dynamic> json) {
@@ -43,6 +49,24 @@ class OpenClawReleaseInfo {
     );
   }
 
+  OpenClawReleaseInfo copyWith({
+    String? version,
+    int? unpackedSizeBytes,
+    String? nodeRequirement,
+    String? tarballUrl,
+    OpenClawReleaseChannel? channel,
+    OpenClawNodeValidationStatus? nodeValidationStatus,
+  }) {
+    return OpenClawReleaseInfo(
+      version: version ?? this.version,
+      unpackedSizeBytes: unpackedSizeBytes ?? this.unpackedSizeBytes,
+      nodeRequirement: nodeRequirement ?? this.nodeRequirement,
+      tarballUrl: tarballUrl ?? this.tarballUrl,
+      channel: channel ?? this.channel,
+      nodeValidationStatus: nodeValidationStatus ?? this.nodeValidationStatus,
+    );
+  }
+
   String? get unpackedSizeLabel {
     final size = unpackedSizeBytes;
     if (size == null || size <= 0) {
@@ -52,20 +76,44 @@ class OpenClawReleaseInfo {
   }
 }
 
+/// 统一的在线/离线版本目录。Stable 始终存在，网络最新版本只作为 Experimental。
+class OpenClawReleaseCatalog {
+  final List<OpenClawReleaseInfo> releases;
+  final OpenClawReleaseInfo stableRelease;
+  final OpenClawReleaseInfo? experimentalRelease;
+  final String? warning;
+  final bool hasOnlineMetadata;
+
+  const OpenClawReleaseCatalog({
+    required this.releases,
+    required this.stableRelease,
+    required this.experimentalRelease,
+    required this.hasOnlineMetadata,
+    this.warning,
+  });
+
+  bool get isOffline => !hasOnlineMetadata;
+}
+
 class OpenClawVersionService {
   static const _packageJsonPath =
       'usr/local/lib/node_modules/openclaw/package.json';
-  static const _packageRegistryEndpoint = 'https://registry.npmjs.org/openclaw';
-  static const _latestReleaseEndpoint =
-      'https://registry.npmjs.org/openclaw/latest';
+  static const _packageRegistryEndpoints = [
+    'https://registry.npmjs.org/openclaw',
+    'https://registry.npmmirror.com/openclaw',
+  ];
   static const _nodePathMarker = '__OPENCLAW_NODE_PATH__';
   static const _nodeWrapper = '/root/.openclaw/node-wrapper.js';
   static const _npmCli = '/usr/local/lib/node_modules/npm/bin/npm-cli.js';
   final Dio _dio = Dio();
+  final http.Client _httpClient;
   OpenClawInstallProgress _lastProgress = const OpenClawInstallProgress(
     progress: 0.0,
     message: '',
   );
+
+  OpenClawVersionService({http.Client? httpClient})
+      : _httpClient = httpClient ?? http.Client();
 
   double _clampProgress(double progress) => progress.clamp(0.0, 1.0).toDouble();
 
@@ -291,20 +339,42 @@ class OpenClawVersionService {
     return runtime.version;
   }
 
+  Future<Map<String, dynamic>> _fetchRegistryJson(Iterable<Uri> endpoints,
+      {String accept = 'application/json'}) async {
+    Object? lastError;
+
+    for (final endpoint in endpoints) {
+      try {
+        final response = await _httpClient.get(
+          endpoint,
+          headers: {'Accept': accept},
+        ).timeout(const Duration(seconds: 20));
+
+        if (response.statusCode != 200) {
+          lastError = Exception(
+            '${endpoint.host} returned ${response.statusCode}',
+          );
+          continue;
+        }
+
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        lastError = Exception('${endpoint.host} returned invalid JSON');
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw Exception('OpenClaw registry unavailable: $lastError');
+  }
+
   Future<OpenClawReleaseInfo> fetchLatestRelease() async {
-    final response = await http.get(
-      Uri.parse(_latestReleaseEndpoint),
-      headers: const {'Accept': 'application/json'},
-    ).timeout(const Duration(seconds: 12));
-
-    if (response.statusCode != 200) {
-      throw Exception('npm registry returned ${response.statusCode}');
-    }
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw Exception('Invalid npm registry response');
-    }
+    final decoded = await _fetchRegistryJson(
+      _packageRegistryEndpoints
+          .map((endpoint) => Uri.parse('$endpoint/latest')),
+    );
 
     final release = OpenClawReleaseInfo.fromJson(decoded);
     if (release.version.isEmpty) {
@@ -319,19 +389,11 @@ class OpenClawVersionService {
       throw Exception('Version cannot be empty');
     }
 
-    final response = await http.get(
-      Uri.parse('$_packageRegistryEndpoint/$normalizedVersion'),
-      headers: const {'Accept': 'application/json'},
-    ).timeout(const Duration(seconds: 12));
-
-    if (response.statusCode != 200) {
-      throw Exception('npm registry returned ${response.statusCode}');
-    }
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw Exception('Invalid npm registry response');
-    }
+    final encodedVersion = Uri.encodeComponent(normalizedVersion);
+    final decoded = await _fetchRegistryJson(
+      _packageRegistryEndpoints
+          .map((endpoint) => Uri.parse('$endpoint/$encodedVersion')),
+    );
 
     final release = OpenClawReleaseInfo.fromJson(decoded);
     if (release.version.isEmpty) {
@@ -341,19 +403,10 @@ class OpenClawVersionService {
   }
 
   Future<List<OpenClawReleaseInfo>> fetchAvailableReleases({int? limit}) async {
-    final response = await http.get(
-      Uri.parse(_packageRegistryEndpoint),
-      headers: const {'Accept': 'application/json'},
-    ).timeout(const Duration(seconds: 15));
-
-    if (response.statusCode != 200) {
-      throw Exception('npm registry returned ${response.statusCode}');
-    }
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw Exception('Invalid npm registry response');
-    }
+    final decoded = await _fetchRegistryJson(
+      _packageRegistryEndpoints.map(Uri.parse),
+      accept: 'application/vnd.npm.install-v1+json',
+    );
 
     final versions = decoded['versions'];
     if (versions is! Map<String, dynamic>) {
@@ -382,6 +435,139 @@ class OpenClawVersionService {
     return releases;
   }
 
+  /// 加载供 UI 使用的版本目录；网络不可用时仍返回可安装的 Stable。
+  Future<OpenClawReleaseCatalog> loadReleaseCatalog({
+    String? arch,
+    Iterable<String> pinnedVersions = const [],
+  }) async {
+    final resolvedArch = arch ?? await NativeBridge.getArch();
+    OpenClawReleaseInfo? latestRelease;
+    List<OpenClawReleaseInfo> availableReleases = const [];
+    String? warning;
+
+    try {
+      latestRelease = await fetchLatestRelease();
+      try {
+        availableReleases = await fetchAvailableReleases();
+      } catch (error) {
+        availableReleases = [latestRelease];
+        warning = '$error';
+      }
+    } catch (error) {
+      warning = '$error';
+    }
+
+    return buildReleaseCatalog(
+      availableReleases: availableReleases,
+      latestRelease: latestRelease,
+      arch: resolvedArch,
+      pinnedVersions: pinnedVersions,
+      warning: warning,
+      hasOnlineMetadata: latestRelease != null,
+    );
+  }
+
+  /// 将 npm 元数据应用到固定通道策略，便于测试在线、离线和部分失败场景。
+  static OpenClawReleaseCatalog buildReleaseCatalog({
+    required Iterable<OpenClawReleaseInfo> availableReleases,
+    required OpenClawReleaseInfo? latestRelease,
+    required String arch,
+    Iterable<String> pinnedVersions = const [],
+    String? warning,
+    bool hasOnlineMetadata = true,
+  }) {
+    final releasesByVersion = <String, OpenClawReleaseInfo>{};
+    for (final release in availableReleases) {
+      final version = release.version.trim();
+      if (version.isNotEmpty) {
+        releasesByVersion[version] = release;
+      }
+    }
+    if (latestRelease != null && latestRelease.version.trim().isNotEmpty) {
+      releasesByVersion[latestRelease.version.trim()] = latestRelease;
+    }
+    for (final version in pinnedVersions) {
+      final normalized = version.trim();
+      if (normalized.isNotEmpty) {
+        releasesByVersion.putIfAbsent(
+          normalized,
+          () => OpenClawReleaseInfo(version: normalized),
+        );
+      }
+    }
+
+    releasesByVersion.putIfAbsent(
+      OpenClawReleasePolicy.stableVersion,
+      () => const OpenClawReleaseInfo(
+        version: OpenClawReleasePolicy.stableVersion,
+        nodeRequirement: OpenClawReleasePolicy.stableNodeRequirement,
+      ),
+    );
+
+    final experimentalVersion = latestRelease?.version.trim();
+    final orderedVersions = OpenClawReleasePolicy.orderVersions(
+      releasesByVersion.keys,
+      experimentalVersion: experimentalVersion,
+    );
+    final validatedNodeVersion = AppConstants.getNodeVersionForArch(arch);
+    final releases = orderedVersions.map((version) {
+      var release = releasesByVersion[version]!;
+      if (version == OpenClawReleasePolicy.stableVersion &&
+          (release.nodeRequirement?.trim().isEmpty ?? true)) {
+        release = release.copyWith(
+          nodeRequirement: OpenClawReleasePolicy.stableNodeRequirement,
+        );
+      }
+      final channel = OpenClawReleasePolicy.channelFor(
+        version,
+        experimentalVersion: experimentalVersion,
+      );
+      final validationStatus = _validateNodeRequirement(
+        release.nodeRequirement,
+        validatedNodeVersion,
+      );
+      return release.copyWith(
+        channel: channel,
+        nodeValidationStatus: validationStatus,
+      );
+    }).toList(growable: false);
+
+    final stableRelease = releases.firstWhere(
+      (release) => release.channel == OpenClawReleaseChannel.stable,
+    );
+    OpenClawReleaseInfo? experimentalRelease;
+    for (final release in releases) {
+      if (release.channel == OpenClawReleaseChannel.experimental) {
+        experimentalRelease = release;
+        break;
+      }
+    }
+    return OpenClawReleaseCatalog(
+      releases: releases,
+      stableRelease: stableRelease,
+      experimentalRelease: experimentalRelease,
+      warning: warning,
+      hasOnlineMetadata: hasOnlineMetadata,
+    );
+  }
+
+  static OpenClawNodeValidationStatus _validateNodeRequirement(
+    String? requirement,
+    String validatedNodeVersion,
+  ) {
+    if (requirement == null || requirement.trim().isEmpty) {
+      return OpenClawNodeValidationStatus.unknown;
+    }
+    try {
+      return NodeVersionRequirement.parse(requirement)
+              .allows(validatedNodeVersion)
+          ? OpenClawNodeValidationStatus.verified
+          : OpenClawNodeValidationStatus.unsupported;
+    } on FormatException {
+      return OpenClawNodeValidationStatus.unknown;
+    }
+  }
+
   Future<void> updateToLatest({
     OpenClawReleaseInfo? latestRelease,
     OpenClawInstallProgressCallback? onProgress,
@@ -406,6 +592,8 @@ class OpenClawVersionService {
     bool captureLiveLogs = true,
   }) async {
     _lastProgress = const OpenClawInstallProgress(progress: 0.0, message: '');
+    String? upgradeTransactionId;
+    bool upgradeCommitted = false;
     final logSubscription = await _startLiveDetailStream(
       onProgress,
       enabled: captureLiveLogs,
@@ -470,6 +658,35 @@ class OpenClawVersionService {
       final packageSpecifier = tarballUrl != null && tarballUrl.isNotEmpty
           ? '/tmp/${packageFile.uri.pathSegments.last}'
           : 'openclaw@$normalizedVersion';
+      final sourceVersion = await readInstalledVersion();
+      final isVersionSwitch = sourceVersion != null &&
+          !isSameVersion(
+            installedVersion: sourceVersion,
+            targetVersion: normalizedVersion,
+          );
+      Map<String, dynamic> originalConfig = const {};
+      if (isVersionSwitch) {
+        final originalConfigContent = await NativeBridge.readRootfsFile(
+          'root/.openclaw/openclaw.json',
+        );
+        originalConfig = UpgradeConfigGuard.decodeObject(originalConfigContent);
+        try {
+          await NativeBridge.stopGateway();
+        } catch (_) {}
+        _emitProgress(
+          onProgress,
+          progress: 0.53,
+          message: 'Protecting existing OpenClaw data...',
+        );
+        final transaction = await NativeBridge.beginOpenClawUpgrade(
+          sourceVersion: sourceVersion,
+          targetVersion: normalizedVersion,
+        );
+        upgradeTransactionId = transaction['id'] as String?;
+        if (upgradeTransactionId == null || upgradeTransactionId.isEmpty) {
+          throw Exception('Upgrade transaction was not created');
+        }
+      }
       final installCommand =
           _buildInstallCommand(packageSpecifier, installOptions);
       await _runEstimatedProgress(
@@ -498,6 +715,116 @@ class OpenClawVersionService {
         message: 'Verifying OpenClaw...',
       );
       await NativeBridge.runInProot('openclaw --version', timeout: 30);
+      final installedVersion = await readInstalledVersion();
+      if (installedVersion == null ||
+          !isSameVersion(
+            installedVersion: installedVersion,
+            targetVersion: normalizedVersion,
+          )) {
+        throw Exception(
+          'Installed version mismatch. Expected $normalizedVersion, '
+          'found ${installedVersion ?? 'unknown'}',
+        );
+      }
+
+      if (upgradeTransactionId != null) {
+        await NativeBridge.updateOpenClawUpgrade(
+          id: upgradeTransactionId,
+          phase: 'packageInstalled',
+          detailsJson: jsonEncode({'installedVersion': installedVersion}),
+        );
+        var doctorLintCompleted = false;
+        var doctorFixApplied = false;
+        if (compareVersions(normalizedVersion, '2026.7.0') >= 0) {
+          _emitProgress(
+            onProgress,
+            progress: 0.97,
+            message: 'Checking migrated configuration...',
+          );
+          final lintOutput = await NativeBridge.runInProot(
+            "set +e; doctor_output=\$(NODE_OPTIONS='--require "
+            "/root/.openclaw/bionic-bypass.js' openclaw doctor --lint "
+            "--json 2>&1); doctor_status=\$?; printf '%s\\n' "
+            '"\$doctor_output"; if [ "\$doctor_status" -gt 1 ]; then '
+            'exit "\$doctor_status"; fi',
+            timeout: 180,
+          );
+          doctorLintCompleted = true;
+          final needsFix = UpgradeConfigGuard.doctorNeedsFix(lintOutput);
+          if (needsFix) {
+            await NativeBridge.runInProot(
+              "NODE_OPTIONS='--require /root/.openclaw/bionic-bypass.js' "
+              'openclaw doctor --fix --non-interactive --yes',
+              timeout: 300,
+            );
+            doctorFixApplied = true;
+          }
+        }
+        await NativeBridge.updateOpenClawUpgrade(
+          id: upgradeTransactionId,
+          phase: 'doctorChecked',
+          detailsJson: jsonEncode({
+            'doctorLintCompleted': doctorLintCompleted,
+            'doctorFixApplied': doctorFixApplied,
+          }),
+        );
+
+        final migratedContent = await NativeBridge.readRootfsFile(
+          'root/.openclaw/openclaw.json',
+        );
+        final migratedConfig = UpgradeConfigGuard.decodeObject(migratedContent);
+        final mergedConfig = UpgradeConfigGuard.mergePreservingUserValues(
+          originalConfig,
+          migratedConfig,
+        );
+        final configChanges = UpgradeConfigGuard.describeChanges(
+          originalConfig,
+          mergedConfig,
+        );
+        if (jsonEncode(mergedConfig) != jsonEncode(migratedConfig)) {
+          await NativeBridge.writeRootfsFile(
+            'root/.openclaw/openclaw.json',
+            const JsonEncoder.withIndent('  ').convert(mergedConfig),
+          );
+        }
+        final serializedChanges = configChanges
+            .map((change) => {
+                  'path': change.path,
+                  'kind': change.kind,
+                  'summary': change.summary,
+                })
+            .toList(growable: false);
+        await NativeBridge.updateOpenClawUpgrade(
+          id: upgradeTransactionId,
+          phase: 'configMerged',
+          detailsJson: jsonEncode({'configChanges': serializedChanges}),
+        );
+
+        final validation =
+            await NativeBridge.validateOpenClawUpgrade(upgradeTransactionId);
+        if (validation['valid'] != true) {
+          throw Exception(
+            'Protected upgrade paths are missing: ${validation['missing']}',
+          );
+        }
+        await NativeBridge.updateOpenClawUpgrade(
+          id: upgradeTransactionId,
+          phase: 'verified',
+          detailsJson: jsonEncode({'protectedPathsValid': true}),
+        );
+        final report = jsonEncode({
+          'sourceVersion': sourceVersion,
+          'targetVersion': normalizedVersion,
+          'doctorLintCompleted': doctorLintCompleted,
+          'doctorFixApplied': doctorFixApplied,
+          'configChanges': serializedChanges,
+        });
+        await NativeBridge.commitOpenClawUpgrade(
+          id: upgradeTransactionId,
+          reportJson: report,
+        );
+        upgradeCommitted = true;
+      }
       try {
         if (packageFile.existsSync()) {
           packageFile.deleteSync();
@@ -508,6 +835,13 @@ class OpenClawVersionService {
         progress: 1.0,
         message: 'OpenClaw installed',
       );
+    } catch (_) {
+      if (upgradeTransactionId != null && !upgradeCommitted) {
+        try {
+          await NativeBridge.rollbackOpenClawUpgrade(upgradeTransactionId);
+        } catch (_) {}
+      }
+      rethrow;
     } finally {
       await logSubscription?.cancel();
     }
@@ -535,12 +869,18 @@ class OpenClawVersionService {
       return;
     }
 
-    final minimumVersion = _minimumNodeVersion(requirement);
     final arch = await NativeBridge.getArch();
-    final targetVersion = _selectNodeVersionForRequirement(
-      minimumVersion ?? AppConstants.getNodeVersionForArch(arch),
-      arch,
-    );
+    final parsedRequirement = NodeVersionRequirement.parse(requirement);
+    final validatedVersions = [AppConstants.getNodeVersionForArch(arch)];
+    final targetVersion =
+        parsedRequirement.selectHighestAllowed(validatedVersions);
+    if (targetVersion == null) {
+      throw Exception(
+        'No validated Node.js runtime for $arch satisfies '
+        '${requirement ?? 'the requested OpenClaw release'}. '
+        'Validated candidates: ${validatedVersions.join(', ')}.',
+      );
+    }
     await _installNodeRuntime(
       targetVersion,
       onProgress: onProgress,
@@ -663,41 +1003,24 @@ class OpenClawVersionService {
     );
   }
 
-  String _selectNodeVersionForRequirement(String minimumVersion, String arch) {
-    final preferredVersion = AppConstants.getNodeVersionForArch(arch);
-    if (compareVersions(preferredVersion, minimumVersion) >= 0) {
-      return preferredVersion;
-    }
-    if (AppConstants.isArmv7Arch(arch)) {
-      throw Exception(
-        'Node.js $minimumVersion or newer is required, but official '
-        'armv7l builds are configured to use Node.js '
-        '${AppConstants.nodeArmv7Version}.',
-      );
-    }
-    return minimumVersion;
-  }
-
   bool _nodeSatisfiesRequirement(
       String? installedVersion, String? requirement) {
+    return nodeVersionSatisfiesRequirement(installedVersion, requirement);
+  }
+
+  static bool nodeVersionSatisfiesRequirement(
+    String? installedVersion,
+    String? requirement,
+  ) {
     if (installedVersion == null || installedVersion.trim().isEmpty) {
       return false;
     }
 
-    final minimumVersion = _minimumNodeVersion(requirement);
-    if (minimumVersion == null) {
-      return true;
+    try {
+      return NodeVersionRequirement.parse(requirement).allows(installedVersion);
+    } on FormatException {
+      return false;
     }
-    return compareVersions(installedVersion, minimumVersion) >= 0;
-  }
-
-  String? _minimumNodeVersion(String? requirement) {
-    if (requirement == null || requirement.trim().isEmpty) {
-      return null;
-    }
-
-    final match = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(requirement);
-    return match?.group(1);
   }
 
   static bool isUpdateAvailable({
@@ -726,32 +1049,7 @@ class OpenClawVersionService {
   }
 
   static int compareVersions(String left, String right) {
-    final leftParts = _versionParts(left);
-    final rightParts = _versionParts(right);
-    final maxLength = leftParts.length > rightParts.length
-        ? leftParts.length
-        : rightParts.length;
-
-    for (var i = 0; i < maxLength; i++) {
-      final leftValue = i < leftParts.length ? leftParts[i] : 0;
-      final rightValue = i < rightParts.length ? rightParts[i] : 0;
-
-      if (leftValue > rightValue) {
-        return 1;
-      }
-      if (leftValue < rightValue) {
-        return -1;
-      }
-    }
-
-    return 0;
-  }
-
-  static List<int> _versionParts(String version) {
-    return RegExp(r'\d+')
-        .allMatches(version)
-        .map((match) => int.tryParse(match.group(0) ?? '0') ?? 0)
-        .toList();
+    return OpenClawReleasePolicy.compareVersions(left, right);
   }
 
   static String formatBytes(int bytes) {

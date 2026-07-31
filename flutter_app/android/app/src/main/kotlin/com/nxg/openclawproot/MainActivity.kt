@@ -139,6 +139,11 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "command required", null)
                     }
                 }
+                "cancelSetup" -> {
+                    processManager.cancelActiveInstall()
+                    SetupService.stop(applicationContext)
+                    result.success(true)
+                }
                 "startGateway" -> {
                     try {
                         GatewayService.start(applicationContext)
@@ -460,10 +465,11 @@ class MainActivity : FlutterActivity() {
                 }
                 "createBinWrappers" -> {
                     val packageName = call.argument<String>("packageName")
+                    val force = call.argument<Boolean>("force") ?: false
                     if (packageName != null) {
                         Thread {
                             try {
-                                bootstrapManager.createBinWrappers(packageName)
+                                bootstrapManager.createBinWrappers(packageName, force)
                                 runOnUiThread { result.success(true) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("BIN_WRAPPER_ERROR", e.message, null) }
@@ -643,6 +649,98 @@ class MainActivity : FlutterActivity() {
                         }.start()
                     } else {
                         result.error("INVALID_ARGS", "path required", null)
+                    }
+                }
+                "beginOpenClawUpgrade" -> {
+                    val sourceVersion = call.argument<String>("sourceVersion")
+                    val targetVersion = call.argument<String>("targetVersion")
+                    if (sourceVersion.isNullOrBlank() || targetVersion.isNullOrBlank()) {
+                        result.error("INVALID_ARGS", "sourceVersion and targetVersion required", null)
+                    } else {
+                        Thread {
+                            try {
+                                val transaction = bootstrapManager.beginOpenClawUpgrade(
+                                    sourceVersion,
+                                    targetVersion
+                                )
+                                runOnUiThread { result.success(transaction) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("UPGRADE_BEGIN_ERROR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "commitOpenClawUpgrade" -> {
+                    val id = call.argument<String>("id")
+                    val reportJson = call.argument<String>("reportJson")
+                    if (id.isNullOrBlank()) {
+                        result.error("INVALID_ARGS", "id required", null)
+                    } else {
+                        Thread {
+                            try {
+                                bootstrapManager.commitOpenClawUpgrade(id, reportJson)
+                                runOnUiThread { result.success(true) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("UPGRADE_COMMIT_ERROR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "updateOpenClawUpgrade" -> {
+                    val id = call.argument<String>("id")
+                    val phase = call.argument<String>("phase")
+                    val detailsJson = call.argument<String>("detailsJson")
+                    if (id.isNullOrBlank() || phase.isNullOrBlank()) {
+                        result.error("INVALID_ARGS", "id and phase required", null)
+                    } else {
+                        Thread {
+                            try {
+                                bootstrapManager.updateOpenClawUpgrade(id, phase, detailsJson)
+                                runOnUiThread { result.success(true) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("UPGRADE_UPDATE_ERROR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "validateOpenClawUpgrade" -> {
+                    val id = call.argument<String>("id")
+                    if (id.isNullOrBlank()) {
+                        result.error("INVALID_ARGS", "id required", null)
+                    } else {
+                        Thread {
+                            try {
+                                val validation = bootstrapManager.validateOpenClawUpgrade(id)
+                                runOnUiThread { result.success(validation) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("UPGRADE_VALIDATE_ERROR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "rollbackOpenClawUpgrade" -> {
+                    val id = call.argument<String>("id")
+                    if (id.isNullOrBlank()) {
+                        result.error("INVALID_ARGS", "id required", null)
+                    } else {
+                        Thread {
+                            try {
+                                bootstrapManager.rollbackOpenClawUpgrade(id)
+                                runOnUiThread { result.success(true) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("UPGRADE_ROLLBACK_ERROR", e.message, null)
+                                }
+                            }
+                        }.start()
                     }
                 }
                 "copyToClipboard" -> {

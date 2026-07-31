@@ -14,7 +14,10 @@ android/key.properties
 *.keystore
 
 # PRoot binaries (fetched by script, not committed)
-android/app/src/main/jniLibs/
+# Native PRoot binaries are provisioned locally, but the small compatibility
+# shim below is source-controlled because PRoot cannot start without it.
+android/app/src/main/jniLibs/*/*
+!android/app/src/main/jniLibs/*/libandroid-shmem.so
 
 # IDE
 .idea/

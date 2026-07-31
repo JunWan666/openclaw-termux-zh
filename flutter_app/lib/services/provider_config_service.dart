@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import '../models/ai_provider.dart';
 import '../models/custom_provider_preset.dart';
@@ -14,8 +15,12 @@ class ProviderConfigService {
   static const _customOpenaiContextWindow = 128000;
   static const _customOpenaiMaxTokens = 8192;
   static const _localGatewayMode = 'local';
+  static const _defaultGatewayPort = 18789;
+  static const _defaultWorkspace = '/root/.openclaw/workspace';
+  static const _hiddenBuiltInProviderIds = {'openrouter', 'xai'};
 
   static final Set<String> _builtInProviderIds = {
+    ..._hiddenBuiltInProviderIds,
     for (final provider in AiProvider.all.where(
       (provider) => provider.id != _customOpenaiId,
     ))
@@ -47,6 +52,19 @@ class ProviderConfigService {
     } catch (_) {
       return <String, dynamic>{};
     }
+  }
+
+  static Future<Map<String, dynamic>> _readConfigMapForInitialization() async {
+    final content = await NativeBridge.readRootfsFile(_configPath);
+    if (content == null || content.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+
+    final decoded = jsonDecode(content);
+    if (decoded is! Map) {
+      throw const FormatException('OpenClaw config root must be an object');
+    }
+    return _asStringKeyedMap(decoded);
   }
 
   static Future<void> _writeConfigMap(Map<String, dynamic> config) async {
@@ -85,6 +103,24 @@ class ProviderConfigService {
     final gateway = _asStringKeyedMap(config['gateway']);
     config['gateway'] = gateway;
     return gateway;
+  }
+
+  static Map<String, dynamic> _ensureMapSectionForInitialization(
+    Map<String, dynamic> parent,
+    String key,
+  ) {
+    final existing = parent[key];
+    if (existing == null) {
+      final section = <String, dynamic>{};
+      parent[key] = section;
+      return section;
+    }
+    if (existing is! Map) {
+      throw FormatException('OpenClaw config section "$key" must be an object');
+    }
+    final section = _asStringKeyedMap(existing);
+    parent[key] = section;
+    return section;
   }
 
   static Map<String, dynamic> _ensureDiscoverySection(
@@ -312,13 +348,22 @@ class ProviderConfigService {
   }
 
   static bool _hasSavedModelOrProviderConfig(Map<String, dynamic> config) {
-    final providers = _ensureProvidersSection(config);
-    if (providers.isNotEmpty) {
+    final models = config['models'];
+    final providers = models is Map ? models['providers'] : null;
+    if (providers is Map && providers.isNotEmpty) {
       return true;
     }
 
     final primary = _readActiveModel(config);
     return _isNonEmptyString(primary);
+  }
+
+  static String _generateGatewayToken() {
+    final random = math.Random.secure();
+    return List.generate(
+      32,
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
   }
 
   static Map<String, dynamic> _providerEntryForSave({
@@ -363,39 +408,8 @@ class ProviderConfigService {
     String input,
     CustomProviderCompatibility compatibility,
   ) {
-    final trimmed = input.trim();
-    if (trimmed.isEmpty || !compatibility.appendsV1) {
-      return trimmed;
-    }
-
-    final uri = Uri.tryParse(trimmed);
-    if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
-      return trimmed;
-    }
-
-    var path = uri.path.trim();
-    if (path.isEmpty || path == '/') {
-      path = '/v1';
-    } else {
-      path = path.replaceAll(RegExp(r'/+$'), '');
-      const suffixes = [
-        '/chat/completions',
-        '/responses',
-      ];
-      for (final suffix in suffixes) {
-        if (path.endsWith(suffix)) {
-          path = path.substring(0, path.length - suffix.length);
-          break;
-        }
-      }
-      if (path.isEmpty || path == '/') {
-        path = '/v1';
-      } else if (!path.endsWith('/v1')) {
-        path = '$path/v1';
-      }
-    }
-
-    return uri.replace(path: path).toString();
+    // 兼容类型只决定请求协议，不能参与用户地址的持久化。
+    return input.trim();
   }
 
   static String _sanitizeProviderId(String input) {
@@ -562,17 +576,7 @@ class ProviderConfigService {
         }
         knownCustomProviderIds.add(entry.key);
 
-        final normalizedBaseUrl = normalizeCustomBaseUrl(
-          preset.baseUrl,
-          preset.compatibility,
-        );
         final providerConfig = _asStringKeyedMap(entry.value);
-        if (normalizedBaseUrl != preset.baseUrl) {
-          providerConfig['baseUrl'] = normalizedBaseUrl;
-          providers[entry.key] = providerConfig;
-          configChanged = true;
-        }
-
         final normalizedPrimary = preset.modelRef;
         if (activeModel == preset.modelId) {
           _ensureDefaultModelSection(config)['primary'] = normalizedPrimary;
@@ -688,6 +692,51 @@ class ProviderConfigService {
     } catch (_) {
       return false;
     }
+  }
+
+  /// 写入 App 首次启动所需的最小本地配置，不要求先完成终端 onboarding。
+  ///
+  /// 该操作只补充缺失字段；已有 Gateway、Token、模型和未知配置均保持不变。
+  /// 已存在但无法解析的配置会直接报错，避免静默覆盖用户数据。
+  static Future<void> ensureInitialAppConfig() async {
+    final config = await _readConfigMapForInitialization();
+    final before = jsonEncode(config);
+
+    final gateway = _ensureMapSectionForInitialization(config, 'gateway');
+    if (!_isNonEmptyString(gateway['mode'])) {
+      gateway['mode'] = _localGatewayMode;
+    }
+    gateway.putIfAbsent('port', () => _defaultGatewayPort);
+    if (!_isNonEmptyString(gateway['bind'])) {
+      gateway['bind'] = 'loopback';
+    }
+
+    final auth = _ensureMapSectionForInitialization(gateway, 'auth');
+    if (!_isNonEmptyString(auth['mode'])) {
+      auth['mode'] = 'token';
+    }
+    final authMode = auth['mode'] is String
+        ? (auth['mode'] as String).trim().toLowerCase()
+        : '';
+    if (authMode == 'token' && !_isNonEmptyString(auth['token'])) {
+      auth['token'] = _generateGatewayToken();
+    }
+
+    final reload = _ensureMapSectionForInitialization(gateway, 'reload');
+    if (!_isNonEmptyString(reload['mode'])) {
+      reload['mode'] = 'hybrid';
+    }
+
+    final agents = _ensureMapSectionForInitialization(config, 'agents');
+    final defaults = _ensureMapSectionForInitialization(agents, 'defaults');
+    if (!_isNonEmptyString(defaults['workspace'])) {
+      defaults['workspace'] = _defaultWorkspace;
+    }
+
+    if (before == jsonEncode(config)) {
+      return;
+    }
+    await _writeConfigMap(config);
   }
 
   static Future<void> ensureGatewayDefaults() async {

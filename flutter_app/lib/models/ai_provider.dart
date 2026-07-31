@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 enum BaseUrlBehavior {
-  keepAsIs,
-  appendV1IfMissing,
+  useProviderDefaultWhenEmpty,
+  preserveUserInput,
 }
 
 /// Metadata for an AI model provider that can be configured
@@ -22,6 +22,11 @@ class AiProvider {
   final String? modelHintKey;
   final BaseUrlBehavior baseUrlBehavior;
   final String? apiValue;
+  final String? apiKeyUrl;
+  final String? usageNoticeKey;
+  final bool supportsModelCatalog;
+  final bool modelCatalogRequiresApiKey;
+  final bool supportsConnectionTest;
 
   const AiProvider({
     required this.id,
@@ -35,8 +40,13 @@ class AiProvider {
     this.supportsCustomBaseUrl = false,
     this.endpointHelperKey,
     this.modelHintKey,
-    this.baseUrlBehavior = BaseUrlBehavior.keepAsIs,
+    this.baseUrlBehavior = BaseUrlBehavior.useProviderDefaultWhenEmpty,
     this.apiValue,
+    this.apiKeyUrl,
+    this.usageNoticeKey,
+    this.supportsModelCatalog = false,
+    this.modelCatalogRequiresApiKey = false,
+    this.supportsConnectionTest = false,
   });
 
   String name(AppLocalizations l10n) => l10n.t(nameKey);
@@ -49,6 +59,9 @@ class AiProvider {
   String modelHint(AppLocalizations l10n) =>
       l10n.t(modelHintKey ?? 'providerDetailCustomModelHint');
 
+  String? usageNotice(AppLocalizations l10n) =>
+      usageNoticeKey == null ? null : l10n.t(usageNoticeKey!);
+
   bool matchesModel(String model) {
     return defaultModels.any((candidate) => model.contains(candidate)) ||
         model.contains(id);
@@ -56,27 +69,12 @@ class AiProvider {
 
   String normalizeBaseUrl(String input) {
     final trimmed = input.trim();
-    if (trimmed.isEmpty ||
-        baseUrlBehavior != BaseUrlBehavior.appendV1IfMissing) {
-      return trimmed;
+    switch (baseUrlBehavior) {
+      case BaseUrlBehavior.useProviderDefaultWhenEmpty:
+        return trimmed.isEmpty ? baseUrl : trimmed;
+      case BaseUrlBehavior.preserveUserInput:
+        return trimmed;
     }
-
-    final uri = Uri.tryParse(trimmed);
-    if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
-      return trimmed;
-    }
-
-    var path = uri.path.trim();
-    if (path.isEmpty || path == '/') {
-      path = '/v1';
-    } else {
-      path = path.replaceAll(RegExp(r'/+$'), '');
-      if (!path.endsWith('/v1')) {
-        path = '$path/v1';
-      }
-    }
-
-    return uri.replace(path: path).toString();
   }
 
   static const customOpenai = AiProvider(
@@ -91,7 +89,7 @@ class AiProvider {
     supportsCustomBaseUrl: true,
     endpointHelperKey: 'providerDetailEndpointHelperOpenaiCompatible',
     modelHintKey: 'providerDetailModelHintOpenaiCompatible',
-    baseUrlBehavior: BaseUrlBehavior.appendV1IfMissing,
+    baseUrlBehavior: BaseUrlBehavior.preserveUserInput,
   );
 
   static const anthropic = AiProvider(
@@ -164,22 +162,6 @@ class AiProvider {
     apiKeyHint: 'AIza...',
   );
 
-  static const openrouter = AiProvider(
-    id: 'openrouter',
-    nameKey: 'providerNameOpenrouter',
-    descriptionKey: 'providerDescriptionOpenrouter',
-    icon: Icons.route,
-    color: Color(0xFF6366F1),
-    baseUrl: 'https://openrouter.ai/api/v1',
-    defaultModels: [
-      'anthropic/claude-sonnet-4',
-      'openai/gpt-4o',
-      'google/gemini-2.5-pro',
-      'meta-llama/llama-3.1-405b-instruct',
-    ],
-    apiKeyHint: 'sk-or-...',
-  );
-
   static const nvidia = AiProvider(
     id: 'nvidia',
     nameKey: 'providerNameNvidia',
@@ -188,13 +170,19 @@ class AiProvider {
     color: Color(0xFF76B900),
     baseUrl: 'https://integrate.api.nvidia.com/v1',
     defaultModels: [
-      'meta/llama-3.1-405b-instruct',
-      'meta/llama-3.1-70b-instruct',
-      'meta/llama-3.3-70b-instruct',
-      'nvidia/nemotron-4-340b-instruct',
-      'deepseek-ai/deepseek-r1',
+      'deepseek-ai/deepseek-v4-pro',
+      'deepseek-ai/deepseek-v4-flash',
+      'moonshotai/kimi-k2.6',
+      'openai/gpt-oss-120b',
+      'z-ai/glm-5.2',
+      'nvidia/nemotron-3-super-120b-a12b',
     ],
     apiKeyHint: 'nvapi-...',
+    apiValue: 'openai-completions',
+    apiKeyUrl: 'https://build.nvidia.com/settings/api-keys',
+    usageNoticeKey: 'providerNoticeNvidiaFree',
+    supportsModelCatalog: true,
+    supportsConnectionTest: true,
   );
 
   static const deepseek = AiProvider(
@@ -205,25 +193,15 @@ class AiProvider {
     color: Color(0xFF0EA5E9),
     baseUrl: 'https://api.deepseek.com/v1',
     defaultModels: [
-      'deepseek-chat',
-      'deepseek-reasoner',
+      'deepseek-v4-pro',
+      'deepseek-v4-flash',
     ],
     apiKeyHint: 'sk-...',
-  );
-
-  static const xai = AiProvider(
-    id: 'xai',
-    nameKey: 'providerNameXai',
-    descriptionKey: 'providerDescriptionXai',
-    icon: Icons.bolt,
-    color: Color(0xFFEF4444),
-    baseUrl: 'https://api.x.ai/v1',
-    defaultModels: [
-      'grok-3',
-      'grok-3-mini',
-      'grok-2',
-    ],
-    apiKeyHint: 'xai-...',
+    apiValue: 'openai-completions',
+    apiKeyUrl: 'https://platform.deepseek.com/api_keys',
+    supportsModelCatalog: true,
+    modelCatalogRequiresApiKey: true,
+    supportsConnectionTest: true,
   );
 
   static const qwen = AiProvider(
@@ -279,16 +257,14 @@ class AiProvider {
   /// All available AI providers.
   static const all = [
     customOpenai,
+    deepseek,
+    nvidia,
+    zhipu,
     anthropic,
     openai,
-    zhipu,
     qwen,
     minimax,
     doubao,
     google,
-    openrouter,
-    nvidia,
-    deepseek,
-    xai,
   ];
 }

@@ -46,6 +46,10 @@ class NativeBridge {
         .invokeMethod('runInProot', {'command': command, 'timeout': timeout});
   }
 
+  static Future<bool> cancelSetup() async {
+    return await _channel.invokeMethod('cancelSetup');
+  }
+
   static Future<bool> startGateway() async {
     return await _channel.invokeMethod('startGateway');
   }
@@ -100,9 +104,14 @@ class NativeBridge {
         .invokeMethod('extractNodeTarball', {'tarPath': tarPath});
   }
 
-  static Future<bool> createBinWrappers(String packageName) async {
-    return await _channel
-        .invokeMethod('createBinWrappers', {'packageName': packageName});
+  static Future<bool> createBinWrappers(
+    String packageName, {
+    bool force = false,
+  }) async {
+    return await _channel.invokeMethod('createBinWrappers', {
+      'packageName': packageName,
+      'force': force,
+    });
   }
 
   static Future<bool> startTerminalService() async {
@@ -221,6 +230,54 @@ class NativeBridge {
     return await _channel.invokeMethod(
       'restoreWorkspaceBackup',
       {'path': path},
+    );
+  }
+
+  static Future<Map<String, dynamic>> beginOpenClawUpgrade({
+    required String sourceVersion,
+    required String targetVersion,
+  }) async {
+    final result = await _channel.invokeMethod('beginOpenClawUpgrade', {
+      'sourceVersion': sourceVersion,
+      'targetVersion': targetVersion,
+    });
+    return Map<String, dynamic>.from(result);
+  }
+
+  static Future<bool> commitOpenClawUpgrade({
+    required String id,
+    String? reportJson,
+  }) async {
+    return await _channel.invokeMethod('commitOpenClawUpgrade', {
+      'id': id,
+      'reportJson': reportJson,
+    });
+  }
+
+  static Future<bool> updateOpenClawUpgrade({
+    required String id,
+    required String phase,
+    String? detailsJson,
+  }) async {
+    return await _channel.invokeMethod('updateOpenClawUpgrade', {
+      'id': id,
+      'phase': phase,
+      'detailsJson': detailsJson,
+    });
+  }
+
+  static Future<Map<String, dynamic>> validateOpenClawUpgrade(String id) async {
+    final result = await _channel.invokeMethod(
+      'validateOpenClawUpgrade',
+      {'id': id},
+    );
+    return Map<String, dynamic>.from(result);
+  }
+
+  static Future<bool> rollbackOpenClawUpgrade(String id) async {
+    return await _channel.invokeMethod(
+      'rollbackOpenClawUpgrade',
+      {'id': id},
     );
   }
 

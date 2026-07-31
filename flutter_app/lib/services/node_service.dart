@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import '../constants.dart';
 import '../models/node_frame.dart';
+import '../models/gateway_protocol.dart';
 import '../models/node_state.dart';
 import 'dashboard_url_resolver.dart';
 import 'gateway_auth_config_service.dart';
@@ -21,6 +22,11 @@ class NodeService {
       _capabilityHandlers = {};
   String? _gatewayAuthToken;
   bool _isAppInForeground = true;
+  bool _deviceTokenRetryUsed = false;
+  bool _legacyProtocolRetryUsed = false;
+  DateTime? _connectStartedAt;
+
+  static const _connectBudget = Duration(seconds: 30);
 
   void setAppInForeground(bool value) {
     _isAppInForeground = value;
@@ -69,6 +75,10 @@ class NodeService {
         host ?? prefs.nodeGatewayHost ?? AppConstants.gatewayHost;
     final targetPort =
         port ?? prefs.nodeGatewayPort ?? AppConstants.gatewayPort;
+
+    _deviceTokenRetryUsed = false;
+    _legacyProtocolRetryUsed = false;
+    _connectStartedAt = DateTime.now();
 
     _updateState(_state.copyWith(
       status: NodeStatus.connecting,
@@ -120,7 +130,13 @@ class NodeService {
         }
         _log('[NODE] Challenge received, signing...');
         try {
-          await _sendConnect(nonce);
+          await _sendConnect(
+            nonce,
+            protocolRange: _legacyProtocolRetryUsed
+                ? GatewayProtocolVersionRange.legacyV3
+                : GatewayProtocolVersionRange.compatible,
+            forceDeviceToken: _deviceTokenRetryUsed,
+          );
         } catch (e) {
           _log('[NODE] Challenge/connect error: $e');
           _updateState(_state.copyWith(
@@ -173,23 +189,46 @@ class NodeService {
     return null;
   }
 
-  /// Build and send the `connect` request per Gateway Protocol v3.
-  Future<void> _sendConnect(String nonce) async {
+  /// 发送 connect 请求。默认声明 v3..v4，仅在明确协议不匹配时降级 v3。
+  Future<void> _sendConnect(
+    String nonce, {
+    GatewayProtocolVersionRange protocolRange =
+        GatewayProtocolVersionRange.compatible,
+    bool forceDeviceToken = false,
+  }) async {
     final prefs = PreferencesService();
     await prefs.init();
-    final deviceToken = prefs.nodeDeviceToken;
+    final endpoint = '${_state.gatewayHost}:${_state.gatewayPort}';
+    final storedTokenEndpoint = prefs.nodeDeviceTokenEndpoint;
+    // 新格式 Token 只用于签发它的 Gateway；旧格式无端点 Token 继续兼容。
+    final deviceToken =
+        storedTokenEndpoint == null || storedTokenEndpoint == endpoint
+            ? prefs.nodeDeviceToken
+            : null;
 
     // For local connections, read the gateway auth token from dashboard URL
     _gatewayAuthToken ??= await _readGatewayToken();
 
-    // Prefer gateway auth token (exact match); fall back to device token
-    // (gateway verifies device tokens as fallback if gateway token check fails)
-    final authToken = _gatewayAuthToken ?? deviceToken;
+    // 首次优先共享 Gateway Token；服务端明确允许时才用 deviceToken 重试。
+    final authToken =
+        forceDeviceToken ? deviceToken : (_gatewayAuthToken ?? deviceToken);
+    final authSource = authToken == null
+        ? GatewayAuthSource.none
+        : (forceDeviceToken || _gatewayAuthToken == null)
+            ? GatewayAuthSource.deviceToken
+            : GatewayAuthSource.gatewayToken;
 
     const clientId = 'node-host';
     const clientMode = 'node';
-    const role = AppConstants.nodeRole;
-    const scopes = <String>['node.device'];
+    final useDeviceTokenContext =
+        authSource == GatewayAuthSource.deviceToken && deviceToken != null;
+    final role = useDeviceTokenContext
+        ? (prefs.nodeDeviceTokenRole ?? AppConstants.nodeRole)
+        : AppConstants.nodeRole;
+    final storedScopes = prefs.nodeDeviceTokenScopes;
+    final scopes = useDeviceTokenContext && storedScopes.isNotEmpty
+        ? storedScopes
+        : const <String>['node.device'];
     final signedAtMs = DateTime.now().millisecondsSinceEpoch;
 
     // Build the structured payload the gateway verifies:
@@ -211,8 +250,8 @@ class NodeService {
     _log('[NODE] Declaring ${commands.length} commands: $commands');
 
     final connectFrame = NodeFrame.request('connect', {
-      'minProtocol': 3,
-      'maxProtocol': 3,
+      'minProtocol': protocolRange.min,
+      'maxProtocol': protocolRange.max,
       'client': {
         'id': clientId,
         'displayName': 'OpenClawX Node',
@@ -236,36 +275,95 @@ class NodeService {
       },
     });
 
-    _log('[NODE] Connect frame caps=$caps commands=$commands');
+    _log(
+        '[NODE] Connect frame protocol=${protocolRange.min}..${protocolRange.max} '
+        'auth=${authSource.name} caps=$caps commands=$commands');
     _log('[NODE] Connect frame platform=android deviceFamily=Android');
     final response = await _ws.sendRequest(connectFrame);
     _log(
         '[NODE] Connect response ok=${response.isOk} payload=${response.payload}');
 
     if (response.isOk) {
-      // hello-ok
-      final authPayload = response.payload?['auth'] as Map<String, dynamic>?;
-      final deviceToken = authPayload?['deviceToken'] as String?;
-      if (deviceToken != null) {
-        prefs.nodeDeviceToken = deviceToken;
-      }
-      _onConnected(response);
-    } else if (response.isError) {
-      final errPayload = response.payload ?? response.error ?? {};
-      final code = errPayload['code'] as String? ?? '';
-      final message = errPayload['message'] as String? ?? 'Connect failed';
-
-      if (code == 'TOKEN_INVALID' ||
-          code == 'NOT_PAIRED' ||
-          code == 'DEVICE_NOT_PAIRED') {
-        _log('[NODE] Not paired, requesting pairing...');
-        await _requestPairing();
-      } else {
+      final hello = GatewayHello.fromPayload(response.payload ?? const {});
+      if (hello.protocol != null && !protocolRange.supports(hello.protocol!)) {
+        _ws.pauseReconnect();
         _updateState(_state.copyWith(
           status: NodeStatus.error,
-          errorMessage: message,
+          errorMessage: 'Gateway negotiated unsupported protocol '
+              '${hello.protocol}',
         ));
-        _log('[NODE] Connect error: $code - $message');
+        return;
+      }
+      if (hello.deviceToken != null) {
+        prefs.saveNodeDeviceToken(
+          token: hello.deviceToken!,
+          endpoint: endpoint,
+          role: hello.role ?? role,
+          scopes: hello.scopes.isEmpty ? scopes : hello.scopes,
+        );
+      }
+      prefs.nodeMainSessionKey = hello.mainSessionKey;
+      _log('[NODE] Gateway hello protocol=${hello.protocol ?? 'legacy'} '
+          'role=${hello.role ?? role} scopes=${hello.scopes} '
+          'features=${hello.features.keys.toList()}');
+      _onConnected(response);
+    } else if (response.isError) {
+      final error = GatewayErrorInfo.fromMaps(response.error, response.payload);
+      final elapsed = DateTime.now().difference(_connectStartedAt!);
+      final remaining = _connectBudget - elapsed;
+      final decision = GatewayConnectDecision.forError(
+        error: error,
+        authSource: authSource,
+        hasDeviceToken: deviceToken != null && deviceToken.isNotEmpty,
+        deviceTokenRetryUsed: _deviceTokenRetryUsed,
+        legacyProtocolRetryUsed: _legacyProtocolRetryUsed,
+        remainingBudget: remaining.isNegative ? Duration.zero : remaining,
+      );
+      _log('[NODE] Connect error: ${error.code} - ${error.message} '
+          'next=${error.recommendedNextStep ?? decision.action.name}');
+
+      switch (decision.action) {
+        case GatewayConnectAction.retryLegacyV3:
+          _legacyProtocolRetryUsed = true;
+          await _sendConnect(
+            nonce,
+            protocolRange: GatewayProtocolVersionRange.legacyV3,
+            forceDeviceToken: forceDeviceToken,
+          );
+          return;
+        case GatewayConnectAction.retryWithDeviceToken:
+          _deviceTokenRetryUsed = true;
+          await _sendConnect(
+            nonce,
+            protocolRange: protocolRange,
+            forceDeviceToken: true,
+          );
+          return;
+        case GatewayConnectAction.retryAfterDelay:
+          await Future.delayed(decision.delay!);
+          await _sendConnect(
+            nonce,
+            protocolRange: protocolRange,
+            forceDeviceToken: forceDeviceToken,
+          );
+          return;
+        case GatewayConnectAction.requestPairing:
+          _log('[NODE] Not paired, requesting pairing...');
+          await _requestPairing();
+          return;
+        case GatewayConnectAction.fail:
+          if (authSource == GatewayAuthSource.deviceToken &&
+              error.isAuthenticationFailure) {
+            prefs.clearNodeDeviceToken();
+          }
+          if (error.isAuthenticationFailure) {
+            _ws.pauseReconnect();
+          }
+          _updateState(_state.copyWith(
+            status: NodeStatus.error,
+            errorMessage: error.message,
+          ));
+          return;
       }
     }
   }
@@ -274,6 +372,7 @@ class NodeService {
     _updateState(_state.copyWith(
       status: NodeStatus.paired,
       connectedAt: DateTime.now(),
+      clearError: true,
       clearPairingCode: true,
     ));
     _log('[NODE] Paired and connected');
@@ -322,7 +421,12 @@ class NodeService {
       if (token != null) {
         final prefs = PreferencesService();
         await prefs.init();
-        prefs.nodeDeviceToken = token;
+        prefs.saveNodeDeviceToken(
+          token: token,
+          endpoint: '${_state.gatewayHost}:${_state.gatewayPort}',
+          role: AppConstants.nodeRole,
+          scopes: const ['node.device'],
+        );
         _log('[NODE] Pairing approved, token received');
         await Future.delayed(const Duration(milliseconds: 500));
         await _ws.disconnect();
@@ -365,25 +469,19 @@ class NodeService {
   /// We must respond by sending a request "node.invoke.result" with:
   ///   {id, nodeId, ok, payload/payloadJSON, error}
   Future<void> _handleInvokeRequest(Map<String, dynamic> invokePayload) async {
-    final requestId = invokePayload['id'] as String?;
-    final command = invokePayload['command'] as String?;
-    final nodeId = invokePayload['nodeId'] as String? ?? _identity.deviceId;
-    final paramsJSON = invokePayload['paramsJSON'] as String?;
+    final invoke = GatewayNodeInvoke.fromPayload(invokePayload);
+    final requestId = invoke.id;
+    final command = invoke.command;
+    final nodeId = invoke.nodeId ?? _identity.deviceId;
 
-    if (requestId == null || command == null) {
+    if (!invoke.isValid || requestId == null || command == null) {
       _log('[NODE] Invoke missing id or command');
       return;
     }
 
     _log('[NODE] Invoke: $command');
 
-    Map<String, dynamic> commandParams = {};
-    if (paramsJSON != null && paramsJSON.isNotEmpty) {
-      try {
-        commandParams =
-            Map<String, dynamic>.from(jsonDecode(paramsJSON) as Map);
-      } catch (_) {}
-    }
+    final commandParams = invoke.params;
 
     // Commands that require Activity in foreground (camera, screen, sensor, flash, location)
     const foregroundCommands = [

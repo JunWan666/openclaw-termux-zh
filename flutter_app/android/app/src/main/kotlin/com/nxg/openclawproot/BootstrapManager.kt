@@ -49,6 +49,14 @@ class BootstrapManager(
         "config",
         "extensions",
         "agents",
+        // 2026.7.x 将 Goals、共享状态和配对信息迁移到以下目录。
+        "state",
+        "devices",
+        "nodes",
+        "identity",
+        "workspace",
+        "canvas",
+        "skill-workshop",
     )
 
     fun setupDirectories() {
@@ -101,6 +109,7 @@ class BootstrapManager(
             "libprootloader.so",
             "libprootloader32.so",
             "libtalloc.so",
+            "libandroid-shmem.so",
         ).forEach { libName ->
             ensureNativeRuntimeBinary(libName)
         }
@@ -181,16 +190,50 @@ class BootstrapManager(
         val bypass = File("$rootfsDir/root/.openclaw/bionic-bypass.js")
         val node = File("$rootfsDir/usr/local/bin/node")
         val openclaw = File("$rootfsDir/usr/local/lib/node_modules/openclaw/package.json")
+        val openclawCommand = File("$rootfsDir/usr/local/bin/openclaw")
         return rootfs.exists() && binBash.exists() && bypass.exists()
-            && node.exists() && openclaw.exists()
+            && node.exists() && openclaw.exists() && openclawCommand.exists()
     }
 
     fun getBootstrapStatus(): Map<String, Any> {
         val rootfsExists = File(rootfsDir).exists()
+        // setupDirectories() intentionally creates a small runtime skeleton under
+        // the RootFS path before the first installation. Do not treat that
+        // application-owned skeleton as evidence that RootFS extraction started.
+        val rootfsPayloadExists = listOf("bin", "usr", "lib", "sbin", "root")
+            .any { File(rootfsDir, it).exists() }
         val binBashExists = File("$rootfsDir/bin/bash").exists()
         val nodeExists = File("$rootfsDir/usr/local/bin/node").exists()
-        val openclawExists = File("$rootfsDir/usr/local/lib/node_modules/openclaw/package.json").exists()
+        val openclawPackageExists = File("$rootfsDir/usr/local/lib/node_modules/openclaw/package.json").exists()
+        val openclawCommandExists = File("$rootfsDir/usr/local/bin/openclaw").exists()
+        val openclawExists = openclawPackageExists && openclawCommandExists
         val bypassExists = File("$rootfsDir/root/.openclaw/bionic-bypass.js").exists()
+        val nodeWrapperExists = File("$rootfsDir/root/.openclaw/node-wrapper.js").exists()
+        val prootCompatExists = File("$rootfsDir/root/.openclaw/proot-compat.js").exists()
+        val openclawCommandFile = File("$rootfsDir/usr/local/bin/openclaw")
+        val openclawCommandIsSymlink = try {
+            java.nio.file.Files.isSymbolicLink(openclawCommandFile.toPath())
+        } catch (_: Exception) {
+            false
+        }
+        val workspace = File("$rootfsDir/root/.openclaw")
+        val configExists = File(workspace, "openclaw.json").exists()
+        val envExists = File(workspace, ".env").exists()
+        val agentsExist = File(workspace, "agents").exists()
+        val dataExists = File(workspace, "data").exists()
+        val memoryExists = File(workspace, "memory").exists()
+        val userDataExists = configExists || envExists || agentsExist ||
+            dataExists || memoryExists
+        val nodeModulesDir = File("$rootfsDir/usr/local/lib/node_modules")
+        val partialOpenClawPackageExists = nodeModulesDir.listFiles()?.any {
+            it.name.startsWith(".openclaw-") || it.name.startsWith("openclaw.tmp")
+        } == true
+        val npmResidueExists = partialOpenClawPackageExists || listOf(
+            File("$rootfsDir/root/.npm/_cacache/tmp"),
+            File("$rootfsDir/tmp/npm-cache/_cacache/tmp"),
+        ).any { candidate ->
+            candidate.exists() && (candidate.isFile || !candidate.listFiles().isNullOrEmpty())
+        }
         val basePackageBinaries = listOf(
             "$rootfsDir/usr/bin/git",
             "$rootfsDir/usr/bin/python3",
@@ -205,13 +248,28 @@ class BootstrapManager(
         val basePackagesInstalled = binBashExists &&
             basePackageBinaries.all { File(it).exists() } &&
             caCertificatesReady
+        val pendingUpgradeTransactionId = findPendingUpgradeTransactionId() ?: ""
 
         return mapOf(
             "rootfsExists" to rootfsExists,
+            "rootfsPayloadExists" to rootfsPayloadExists,
             "binBashExists" to binBashExists,
             "nodeInstalled" to nodeExists,
             "openclawInstalled" to openclawExists,
+            "openclawPackageExists" to openclawPackageExists,
+            "openclawCommandExists" to openclawCommandExists,
+            "openclawCommandIsSymlink" to openclawCommandIsSymlink,
             "bypassInstalled" to bypassExists,
+            "nodeWrapperInstalled" to nodeWrapperExists,
+            "prootCompatInstalled" to prootCompatExists,
+            "configExists" to configExists,
+            "envExists" to envExists,
+            "agentsExist" to agentsExist,
+            "dataExists" to dataExists,
+            "memoryExists" to memoryExists,
+            "userDataExists" to userDataExists,
+            "npmResidueExists" to npmResidueExists,
+            "pendingUpgradeTransactionId" to pendingUpgradeTransactionId,
             "basePackagesInstalled" to basePackagesInstalled,
             "rootfsPath" to rootfsDir,
             "complete" to (rootfsExists && binBashExists && bypassExists
@@ -918,7 +976,7 @@ class BootstrapManager(
      * Reads the package.json `bin` field directly from the rootfs filesystem
      * (no shell escaping needed).
      */
-    fun createBinWrappers(packageName: String) {
+    fun createBinWrappers(packageName: String, force: Boolean = false) {
         val pkgDir = File("$rootfsDir/usr/local/lib/node_modules/$packageName")
         val pkgJson = File(pkgDir, "package.json")
         if (!pkgJson.exists()) {
@@ -962,7 +1020,16 @@ class BootstrapManager(
         for ((name, relPath) in binEntries) {
             val binFile = File(binDir, name)
             // Only create wrapper if the symlink doesn't already work
-            if (binFile.exists() && binFile.canExecute()) continue
+            if (!force && binFile.exists() && binFile.canExecute()) continue
+
+            // 修复模式允许替换损坏的 symlink 或旧 wrapper，仅作用于命令文件。
+            try {
+                java.nio.file.Files.deleteIfExists(binFile.toPath())
+            } catch (_: Exception) {
+                if (binFile.exists() && !binFile.delete()) {
+                    throw RuntimeException("Cannot replace command wrapper: $binFile")
+                }
+            }
 
             val target = "/usr/local/lib/node_modules/$packageName/$relPath"
             val wrapper = "#!/bin/sh\nexec node \"$target\" \"\$@\"\n"
@@ -980,11 +1047,13 @@ class BootstrapManager(
         // Path boundary check: refuse to delete anything outside filesDir.
         // This is a secondary safeguard against accidental data loss (#67, #63).
         try {
-            if (!file.canonicalPath.startsWith(filesDir)) {
+            val filesRoot = File(filesDir).canonicalFile.toPath()
+            val target = file.absoluteFile.toPath().normalize()
+            if (!target.startsWith(filesRoot)) {
                 return
             }
         } catch (_: Exception) {
-            return // If we can't resolve the path, don't risk deleting
+            return // 无法验证词法路径边界时，宁可保留文件也不冒险删除。
         }
 
         try {
@@ -1458,6 +1527,363 @@ require('/root/.openclaw/proot-compat.js');
             )
             rootfsResolv.writeText(content)
         } catch (_: Exception) {}
+    }
+
+    /**
+     * 创建升级事务。包目录使用同分区移动，工作区按受保护清单复制。
+     * 任一步失败都会尝试回滚，且绝不触碰清单之外的用户路径。
+     */
+    fun beginOpenClawUpgrade(
+        sourceVersion: String,
+        targetVersion: String
+    ): Map<String, Any> {
+        setupDirectories()
+        cleanupCompletedUpgradeTransactions()
+        val pendingTransactionId = findPendingUpgradeTransactionId()
+        if (pendingTransactionId != null) {
+            throw IllegalStateException(
+                "Pending upgrade transaction must be recovered first: $pendingTransactionId"
+            )
+        }
+        val id = "${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}"
+        val transactionRoot = File("$filesDir/upgrade_transactions/$id")
+        val workspaceBackup = File(transactionRoot, "workspace")
+        val packageBackup = File(transactionRoot, "package/openclaw")
+        val packageSource = File("$rootfsDir/usr/local/lib/node_modules/openclaw")
+        val commandFile = File("$rootfsDir/usr/local/bin/openclaw")
+        val backedUpEntries = JSONArray()
+
+        try {
+            workspaceBackup.mkdirs()
+            workspaceBackupRelativePaths.forEach { relativePath ->
+                val source = File(workspaceRootDir, relativePath)
+                if (source.exists()) {
+                    copyUpgradePath(source, File(workspaceBackup, relativePath))
+                    backedUpEntries.put(relativePath)
+                }
+            }
+
+            val commandJson = JSONObject()
+            try {
+                if (java.nio.file.Files.isSymbolicLink(commandFile.toPath())) {
+                    commandJson.put("kind", "symlink")
+                    commandJson.put(
+                        "target",
+                        java.nio.file.Files.readSymbolicLink(commandFile.toPath()).toString()
+                    )
+                } else if (commandFile.exists()) {
+                    commandJson.put("kind", "file")
+                    copyUpgradePath(commandFile, File(transactionRoot, "command/openclaw"))
+                } else {
+                    commandJson.put("kind", "missing")
+                }
+            } catch (_: Exception) {
+                commandJson.put("kind", "missing")
+            }
+
+            val manifest = JSONObject().apply {
+                put("id", id)
+                put("sourceVersion", sourceVersion.trim())
+                put("targetVersion", targetVersion.trim())
+                put("createdAt", java.time.Instant.now().toString())
+                put("phase", "prepared")
+                put("packageOriginallyPresent", packageSource.exists())
+                put("workspaceEntries", backedUpEntries)
+                put("command", commandJson)
+            }
+            File(transactionRoot, "manifest.json").writeText(manifest.toString(2))
+
+            // 清单必须先于第一次破坏性移动落盘，进程在任意时刻终止都能找到回滚入口。
+            if (packageSource.exists()) {
+                moveUpgradePath(packageSource, packageBackup)
+            }
+
+            // npm 安装会重新创建 openclaw 命令；旧命令必须在事务清单落盘后移走，
+            // 否则版本切换会在最后的 bin 链接阶段因 EEXIST 失败。
+            try {
+                java.nio.file.Files.deleteIfExists(commandFile.toPath())
+            } catch (error: Exception) {
+                if (!commandFile.delete() &&
+                    (commandFile.exists() || java.nio.file.Files.isSymbolicLink(commandFile.toPath()))) {
+                    throw error
+                }
+            }
+
+            return hashMapOf(
+                "id" to id,
+                "backupPath" to transactionRoot.absolutePath,
+                "workspaceEntries" to jsonArrayToStringList(backedUpEntries)
+            )
+        } catch (error: Exception) {
+            try {
+                if (File(transactionRoot, "manifest.json").exists()) {
+                    rollbackOpenClawUpgrade(id)
+                } else {
+                    if (packageBackup.exists() && !packageSource.exists()) {
+                        moveUpgradePath(packageBackup, packageSource)
+                    }
+                    deleteRecursively(transactionRoot)
+                }
+            } catch (_: Exception) {}
+            throw RuntimeException("Failed to prepare upgrade transaction: ${error.message}")
+        }
+    }
+
+    fun commitOpenClawUpgrade(id: String, reportJson: String?) {
+        val transactionRoot = resolveUpgradeTransaction(id)
+        val manifestFile = File(transactionRoot, "manifest.json")
+        val manifest = if (manifestFile.exists()) {
+            JSONObject(manifestFile.readText())
+        } else {
+            JSONObject().put("id", id)
+        }
+        manifest.put("phase", "committed")
+        manifest.put("committedAt", java.time.Instant.now().toString())
+        if (!reportJson.isNullOrBlank()) {
+            try {
+                manifest.put("report", JSONObject(reportJson))
+            } catch (_: Exception) {
+                manifest.put("report", reportJson.take(16_384))
+            }
+        }
+
+        val historyDir = File("$filesDir/upgrade_history")
+        historyDir.mkdirs()
+        File(historyDir, "$id.json").writeText(manifest.toString(2))
+        deleteRecursively(transactionRoot)
+        cleanupCompletedUpgradeTransactions()
+    }
+
+    /** 持久化事务中间阶段，供中断恢复和历史审计定位失败位置。 */
+    fun updateOpenClawUpgrade(id: String, phase: String, detailsJson: String?) {
+        val allowedPhases = setOf(
+            "prepared",
+            "packageInstalled",
+            "doctorChecked",
+            "configMerged",
+            "verified",
+        )
+        if (phase !in allowedPhases) {
+            throw IllegalArgumentException("Invalid upgrade transaction phase: $phase")
+        }
+        val transactionRoot = resolveUpgradeTransaction(id)
+        val manifestFile = File(transactionRoot, "manifest.json")
+        if (!manifestFile.exists()) {
+            throw IllegalArgumentException("Upgrade transaction manifest not found: $id")
+        }
+        val manifest = JSONObject(manifestFile.readText())
+        val currentPhase = manifest.optString("phase")
+        if (currentPhase == "committed" || currentPhase == "rolledBack") {
+            throw IllegalStateException("Upgrade transaction is already complete: $id")
+        }
+        manifest.put("phase", phase)
+        val updatedAt = java.time.Instant.now().toString()
+        manifest.put("updatedAt", updatedAt)
+        if (!detailsJson.isNullOrBlank()) {
+            val details = try {
+                JSONObject(detailsJson)
+            } catch (_: Exception) {
+                detailsJson.take(16_384)
+            }
+            manifest.put("phaseDetails", details)
+            val phaseHistory = manifest.optJSONObject("phaseHistory") ?: JSONObject()
+            phaseHistory.put(
+                phase,
+                JSONObject().apply {
+                    put("updatedAt", updatedAt)
+                    put("details", details)
+                }
+            )
+            manifest.put("phaseHistory", phaseHistory)
+        }
+        manifestFile.writeText(manifest.toString(2))
+    }
+
+    fun validateOpenClawUpgrade(id: String): Map<String, Any> {
+        val transactionRoot = resolveUpgradeTransaction(id)
+        val manifestFile = File(transactionRoot, "manifest.json")
+        if (!manifestFile.exists()) {
+            throw IllegalArgumentException("Upgrade transaction manifest not found: $id")
+        }
+        val manifest = JSONObject(manifestFile.readText())
+        val missing = ArrayList<String>()
+        val entries = manifest.optJSONArray("workspaceEntries") ?: JSONArray()
+        for (index in 0 until entries.length()) {
+            val relativePath = entries.optString(index)
+            if (relativePath.isNotBlank() && !File(workspaceRootDir, relativePath).exists()) {
+                missing.add(relativePath)
+            }
+        }
+        if (!File("$rootfsDir/usr/local/lib/node_modules/openclaw/package.json").exists()) {
+            missing.add("package.json")
+        }
+        if (!File("$rootfsDir/usr/local/bin/openclaw").exists()) {
+            missing.add("openclaw-command")
+        }
+        return hashMapOf(
+            "valid" to missing.isEmpty(),
+            "missing" to missing
+        )
+    }
+
+    fun rollbackOpenClawUpgrade(id: String) {
+        val transactionRoot = resolveUpgradeTransaction(id)
+        val manifestFile = File(transactionRoot, "manifest.json")
+        if (!manifestFile.exists()) {
+            throw IllegalArgumentException("Upgrade transaction manifest not found: $id")
+        }
+        val manifest = JSONObject(manifestFile.readText())
+        val packageTarget = File("$rootfsDir/usr/local/lib/node_modules/openclaw")
+        val packageBackup = File(transactionRoot, "package/openclaw")
+
+        val packageOriginallyPresent = manifest.optBoolean(
+            "packageOriginallyPresent",
+            packageBackup.exists()
+        )
+        if (packageBackup.exists()) {
+            if (packageTarget.exists()) deleteRecursively(packageTarget)
+            moveUpgradePath(packageBackup, packageTarget)
+        } else if (packageOriginallyPresent && !packageTarget.exists()) {
+            // 清单已落盘但备份和原包都不存在时无法证明可恢复，禁止继续破坏工作区。
+            throw IllegalStateException("Original OpenClaw package backup is missing")
+        }
+
+        // 回滚时只清理受保护目标，再从事务备份恢复原始内容。
+        workspaceBackupRelativePaths.forEach { relativePath ->
+            val target = File(workspaceRootDir, relativePath)
+            if (target.exists()) deleteRecursively(target)
+            val backup = File(transactionRoot, "workspace/$relativePath")
+            if (backup.exists()) copyUpgradePath(backup, target)
+        }
+
+        val commandFile = File("$rootfsDir/usr/local/bin/openclaw")
+        try {
+            java.nio.file.Files.deleteIfExists(commandFile.toPath())
+        } catch (_: Exception) {
+            commandFile.delete()
+        }
+        val command = manifest.optJSONObject("command")
+        when (command?.optString("kind")) {
+            "symlink" -> {
+                commandFile.parentFile?.mkdirs()
+                Os.symlink(command.optString("target"), commandFile.absolutePath)
+            }
+            "file" -> copyUpgradePath(
+                File(transactionRoot, "command/openclaw"),
+                commandFile
+            )
+            else -> if (packageTarget.exists()) createBinWrappers("openclaw", force = true)
+        }
+
+        installBionicBypass()
+        writeResolvConf()
+        manifest.put("rolledBackFromPhase", manifest.optString("phase", "prepared"))
+        manifest.put("phase", "rolledBack")
+        manifest.put("rolledBackAt", java.time.Instant.now().toString())
+        val historyDir = File("$filesDir/upgrade_history")
+        historyDir.mkdirs()
+        File(historyDir, "$id.json").writeText(manifest.toString(2))
+        deleteRecursively(transactionRoot)
+        cleanupCompletedUpgradeTransactions()
+    }
+
+    private fun resolveUpgradeTransaction(id: String): File {
+        val normalized = id.trim()
+        if (!Regex("^[A-Za-z0-9._-]+$").matches(normalized)) {
+            throw IllegalArgumentException("Invalid upgrade transaction id")
+        }
+        val root = File("$filesDir/upgrade_transactions").canonicalFile
+        val target = File(root, normalized).canonicalFile
+        if (target.parentFile != root) {
+            throw IllegalArgumentException("Upgrade transaction escapes root")
+        }
+        return target
+    }
+
+    /** 返回任意非终态事务，完成历史不会触发启动回滚。 */
+    private fun findPendingUpgradeTransactionId(): String? {
+        val transactionRoot = File("$filesDir/upgrade_transactions")
+        return transactionRoot.listFiles()
+            ?.asSequence()
+            ?.filter { it.isDirectory && Regex("^[A-Za-z0-9._-]+$").matches(it.name) }
+            ?.mapNotNull { transaction ->
+                val manifestFile = File(transaction, "manifest.json")
+                val phase = try {
+                    if (!manifestFile.exists()) return@mapNotNull null
+                    JSONObject(manifestFile.readText()).optString("phase")
+                } catch (_: Exception) {
+                    return@mapNotNull null
+                }
+                if (phase != "committed" && phase != "rolledBack") transaction else null
+            }
+            ?.maxByOrNull { it.lastModified() }
+            ?.name
+    }
+
+    /** 清理由旧版本遗留、但已有最终历史记录的事务目录，不触碰仍在进行的事务。 */
+    private fun cleanupCompletedUpgradeTransactions() {
+        val transactionRoot = File("$filesDir/upgrade_transactions")
+        val historyRoot = File("$filesDir/upgrade_history")
+        transactionRoot.listFiles()?.forEach { transaction ->
+            if (!Regex("^[A-Za-z0-9._-]+$").matches(transaction.name)) {
+                return@forEach
+            }
+            val history = File(historyRoot, "${transaction.name}.json")
+            if (!history.exists()) return@forEach
+            val phase = try {
+                JSONObject(history.readText()).optString("phase")
+            } catch (_: Exception) {
+                ""
+            }
+            if (phase == "committed" || phase == "rolledBack") {
+                deleteRecursively(transaction)
+            }
+        }
+    }
+
+    private fun moveUpgradePath(source: File, target: File) {
+        target.parentFile?.mkdirs()
+        try {
+            java.nio.file.Files.move(
+                source.toPath(),
+                target.toPath(),
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE
+            )
+            return
+        } catch (_: Exception) {}
+        if (source.renameTo(target)) return
+        copyUpgradePath(source, target)
+        deleteRecursively(source)
+    }
+
+    private fun copyUpgradePath(source: File, target: File) {
+        if (java.nio.file.Files.isSymbolicLink(source.toPath())) {
+            target.parentFile?.mkdirs()
+            val linkTarget = java.nio.file.Files.readSymbolicLink(source.toPath())
+            java.nio.file.Files.deleteIfExists(target.toPath())
+            java.nio.file.Files.createSymbolicLink(target.toPath(), linkTarget)
+            return
+        }
+        if (source.isDirectory) {
+            target.mkdirs()
+            source.listFiles()?.forEach { child ->
+                copyUpgradePath(child, File(target, child.name))
+            }
+            return
+        }
+        target.parentFile?.mkdirs()
+        source.copyTo(target, overwrite = true)
+        target.setReadable(true, false)
+        target.setWritable(true, false)
+        if (source.canExecute()) target.setExecutable(true, false)
+    }
+
+    private fun jsonArrayToStringList(array: JSONArray): ArrayList<String> {
+        val result = ArrayList<String>()
+        for (index in 0 until array.length()) {
+            result.add(array.optString(index))
+        }
+        return result
     }
 
     fun exportWorkspaceBackup(

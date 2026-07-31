@@ -29,10 +29,6 @@ enum CustomProviderCompatibility {
   final String? apiValue;
   final String labelKey;
 
-  bool get appendsV1 =>
-      this == CustomProviderCompatibility.openaiChatCompletions ||
-      this == CustomProviderCompatibility.openaiResponses;
-
   static bool _looksLikeZhipuBaseUrl(String? baseUrl) {
     final host = Uri.tryParse(baseUrl?.trim() ?? '')?.host.toLowerCase() ?? '';
     return host.contains('bigmodel.cn');

@@ -24,6 +24,7 @@ class ProcessManager(
     private val libDir get() = "$filesDir/lib"
     private val nativeRuntimeDir get() = "$filesDir/native"
     var installLogEmitter: ((String) -> Unit)? = null
+    @Volatile private var activeInstallProcess: Process? = null
 
     companion object {
         // Match proot-distro v4.37.0 defaults
@@ -66,10 +67,8 @@ class ProcessManager(
         "LD_LIBRARY_PATH" to listOf(libDir, nativeLibDir, nativeRuntimeDir)
             .distinct()
             .joinToString(":"),
-        // NOTE: Do NOT set PROOT_NO_SECCOMP. proot-distro does NOT set it.
-        // Seccomp BPF filter provides efficient syscall interception AND
-        // proper fork/clone child process tracking.
-        //
+        // Keep PRoot's seccomp path enabled. In addition to better speed, apt
+        // relies on its syscall translation for operations such as renameat2.
         // NOTE: Do NOT set PROOT_L2S_DIR. We extract with Java, not
         // `proot --link2symlink tar`, so no L2S metadata exists.
     )
@@ -343,6 +342,7 @@ class ProcessManager(
         pb.redirectErrorStream(true)
 
         val process = pb.start()
+        activeInstallProcess = process
         val output = StringBuilder()
         val errorLines = StringBuilder()
         val criticalLines = StringBuilder()
@@ -368,10 +368,12 @@ class ProcessManager(
         val exited = process.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
         if (!exited) {
             process.destroyForcibly()
+            activeInstallProcess = null
             throw RuntimeException("Command timed out after ${timeoutSeconds}s")
         }
 
         val exitCode = process.exitValue()
+        activeInstallProcess = null
         if (exitCode != 0) {
             val errorOutput = criticalLines.toString().takeLast(3000).ifEmpty {
                 errorLines.toString().takeLast(3000)
@@ -384,6 +386,57 @@ class ProcessManager(
         }
 
         return output.toString()
+    }
+
+    fun cancelActiveInstall() {
+        activeInstallProcess?.let { process ->
+            try {
+                process.destroy()
+                if (process.isAlive) {
+                    process.destroyForcibly()
+                }
+            } catch (_: Exception) {
+            } finally {
+                activeInstallProcess = null
+            }
+        }
+        killRemainingSetupProcesses()
+    }
+
+    private fun killRemainingSetupProcesses() {
+        val ownUid = android.os.Process.myUid()
+        File("/proc").listFiles()?.forEach { entry ->
+            val pid = entry.name.toIntOrNull() ?: return@forEach
+            if (pid == android.os.Process.myPid()) return@forEach
+            val processUid = try {
+                File(entry, "status").useLines { lines ->
+                    lines.firstOrNull { it.startsWith("Uid:") }
+                        ?.split(Regex("\\s+"))
+                        ?.getOrNull(1)
+                        ?.toIntOrNull()
+                }
+            } catch (_: Exception) {
+                null
+            }
+            if (processUid != ownUid) return@forEach
+
+            val commandLine = try {
+                File(entry, "cmdline").readText().replace('\u0000', ' ')
+            } catch (_: Exception) {
+                return@forEach
+            }
+            val isSetupProot = commandLine.contains("libproot.so") &&
+                (commandLine.contains("npm-cli.js install -g") ||
+                    commandLine.contains("apt-get") ||
+                    commandLine.contains("dpkg") ||
+                    commandLine.contains("chmod") ||
+                    commandLine.contains("openclaw --version"))
+            if (isSetupProot) {
+                try {
+                    android.os.Process.killProcess(pid)
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun isCriticalErrorLine(line: String): Boolean {
