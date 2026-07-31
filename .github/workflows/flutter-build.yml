@@ -3,6 +3,8 @@ name: Build OpenClaw Apps
 on:
   push:
     branches: ['*']
+    tags:
+      - 'v*'
     paths:
       - 'flutter_app/**'
       - 'scripts/fetch-proot-binaries.sh'
@@ -40,7 +42,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.44.7'
           channel: stable
           cache: true
 
@@ -254,7 +256,7 @@ jobs:
     name: Create GitHub Release
     needs: [build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
 
     permissions:
       contents: write
@@ -277,12 +279,16 @@ jobs:
 
       - name: Get version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(grep '^version:' flutter_app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          # Check if this tag already exists
-          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q .; then
+          # A tag-triggered workflow always sees its own tag. Check whether the
+          # GitHub Release already exists instead, so manual uploads are kept
+          # and a bare tag can still create the release automatically.
+          if gh release view "v${VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -293,31 +299,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
-          name: OpenClaw v${{ steps.version.outputs.version }}
-          body: |
-            ## OpenClaw Android v${{ steps.version.outputs.version }}
-
-            Standalone Android app — no Termux required.
-
-            ### Downloads
-            | File | Description |
-            |------|-------------|
-            | `OpenClaw-v${{ steps.version.outputs.version }}-arm64-v8a.apk` | Most modern Android phones (recommended) |
-            | `OpenClaw-v${{ steps.version.outputs.version }}-armeabi-v7a.apk` | Older 32-bit ARM devices |
-            | `OpenClaw-v${{ steps.version.outputs.version }}-x86_64.apk` | Emulators / x86 devices |
-            | `OpenClaw-v${{ steps.version.outputs.version }}-universal.apk` | All architectures (larger) |
-            | `OpenClaw-v${{ steps.version.outputs.version }}.aab` | Android App Bundle (Play Store) |
-
-            ### First Run
-            1. Install the APK
-            2. Follow the setup wizard (downloads ~500MB Ubuntu rootfs)
-            3. Start the gateway from the dashboard
-            4. Access the web dashboard at `http://127.0.0.1:18789`
-
-            ### Requirements
-            - Android 10+ (API 29)
-            - ~500MB free storage for initial setup
-            - Internet connection for first-time setup
+          name: v${{ steps.version.outputs.version }}
+          body_path: release/v${{ steps.version.outputs.version }}/Release.zh.md
+          make_latest: true
           files: artifacts/*
           draft: false
           prerelease: false

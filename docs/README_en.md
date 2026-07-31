@@ -10,34 +10,33 @@
 
 ## Current Version
 
-- Version: `v2.0.2`
-- Release notes: [release/v2.0.2/Release.zh.md](../release/v2.0.2/Release.zh.md)
+- Version: `v2.0.3`
+- Release notes: [release/v2.0.3/Release.zh.md](../release/v2.0.3/Release.zh.md)
 - Change log: [CHANGELOG.md](../CHANGELOG.md)
 - Releases page: <https://github.com/JunWan666/openclaw-termux-zh/releases>
 
-## What's New In v2.0.2
+## What's New In v2.0.3
 
-- Merges the setup stability fixes, the previous terminal-performance work, and current unpublished changes into this v2.0.2 package. Android build number is now `77`.
-- Large RootFS / Node.js runtime archives are no longer bundled in the APK, bringing the universal APK down to about 45.96 MB and split APKs to about 27 MB.
-- Bootstrap resource settings now live on a separate page, with GitHub `basic-resource` defaults plus separate URL/local-file fields for prebuilt RootFS, Ubuntu base RootFS, and Node.js.
-- The first-run setup wizard now uses a small-icon header, a step timeline, and a tighter settings area, with localized bootstrap-resource and sample-config copy.
-- Buffered terminal output refreshes across configure, onboarding, package install, Weixin install, and the regular terminal, reducing UI jank during verbose OpenClaw output.
-- Reduced terminal scrollback from 10000 to 3000 lines to lower memory and rendering pressure.
-- Interactive terminals now default to a lighter PRoot fast mode without the heavier SysV IPC compatibility flag.
-- DNS preparation is centralized through `ProotDnsService.ensureReady()` instead of repeated per-screen fallback writes.
-- Keeps armv7 Node.js compatibility, domestic DNS / Ubuntu mirror fallbacks, apt/dpkg directory preparation, and clearer PRoot failure summaries.
-- Bundled sample configs now point to a test-friendly OpenAI-compatible provider so new users can verify the flow quickly.
-- The local model page now explicitly warns that the current path is PRoot + llama.cpp + GGUF CPU, not Google AI Edge native GPU.
+- Keeps OpenClaw `2026.3.23` as the default Stable release, exposes npm latest as Experimental, and hides versions older than `2026.3.13` from the picker.
+- Adds Gateway v3/v4 negotiation, complete Node.js `engines` validation, protected upgrade transactions, and interrupted-upgrade rollback.
+- Detects fresh, complete, repairable, interrupted-upgrade, and manual-recovery environments without deleting the RootFS or user data during automatic repairs.
+- OpenClaw `2026.3.13` and newer now receive a minimal non-interactive configuration and proceed directly to the dashboard for API setup.
+- Reorders and refreshes AI providers: DeepSeek, NVIDIA Free, and Zhipu appear near the top, while OpenRouter and xAI are removed.
+- Adds API-key shortcuts, model catalog fetching, and connection tests for supported providers.
+- Custom OpenAI-compatible providers can automatically fetch `/models` after Base URL and API Key entry, while still allowing manual model IDs.
+- Preserves custom Provider Base URLs exactly instead of silently appending `/v1`.
+- Allows Gateway cold start to be cancelled and cleans up matching leftover PRoot/OpenClaw processes.
+- The full Flutter test suite now contains 119 passing tests across version policy, protocol negotiation, environment recovery, upgrade protection, and provider configuration.
 
 ## Download Artifacts
 
 | File | Target Device | Size | Download |
 |---|---|---:|---|
-| `OpenClaw-v2.0.2-universal.apk` | Best default choice | 45.96 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-universal.apk) |
-| `OpenClaw-v2.0.2-arm64-v8a.apk` | Most modern Android phones | 27.66 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-arm64-v8a.apk) |
-| `OpenClaw-v2.0.2-armeabi-v7a.apk` | Older 32-bit ARM devices | 27.40 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-armeabi-v7a.apk) |
-| `OpenClaw-v2.0.2-x86_64.apk` | Emulator or x86_64 device | 27.87 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2-x86_64.apk) |
-| `OpenClaw-v2.0.2.aab` | Store distribution | 52.74 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.2/OpenClaw-v2.0.2.aab) |
+| `OpenClaw-v2.0.3-universal.apk` | Best default choice | 46.78 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-universal.apk) |
+| `OpenClaw-v2.0.3-arm64-v8a.apk` | Most modern Android phones | 27.96 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-arm64-v8a.apk) |
+| `OpenClaw-v2.0.3-armeabi-v7a.apk` | Older 32-bit ARM devices | 27.70 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-armeabi-v7a.apk) |
+| `OpenClaw-v2.0.3-x86_64.apk` | Emulator or x86_64 device | 28.19 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-x86_64.apk) |
+| `OpenClaw-v2.0.3.aab` | Store distribution | 67.03 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3.aab) |
 
 ## Quick Start
 
@@ -61,7 +60,7 @@ flutter build apk --release
 To generate the release directory with APKs and AAB:
 
 ```bash
-python scripts/build_release.py --version 2.0.2 --build-number 77
+python scripts/build_release.py --version 2.0.3 --build-number 78
 ```
 
 ## Repository Structure

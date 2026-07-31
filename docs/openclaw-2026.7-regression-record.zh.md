@@ -2,8 +2,8 @@
 
 ## 1. 环境与基线
 
-- 日期：2026-07-31。
-- App：`v2.0.2`，Android `versionCode 77`。
+- 日期：2026-08-01。
+- App：`v2.0.3`，Android `versionCode 78`。
 - 主环境：x86_64 API 35 模拟器 `OpenClaw_API_35`。
 - Stable：`2026.3.23`。
 - Experimental：npm `latest`，验证时为 `2026.7.1-2`。
@@ -15,9 +15,10 @@
 | --- | --- |
 | 版本通道、semver、Node engines 专项测试 | 13 项通过 |
 | 协议、恢复、配置迁移与 doctor 专项测试 | 31 项通过 |
-| Flutter 全量测试 | 106 项通过 |
+| Flutter 全量测试 | 119 项通过 |
 | `flutter analyze` | 无 error/warning；仅保留升级前已有的 12 条 info |
 | x86_64 Debug APK | 构建成功，`99,059,227` bytes |
+| v2.0.3 Release 产物 | Universal、arm64-v8a、armeabi-v7a、x86_64 APK 与 AAB 均构建成功 |
 | npm 在线元数据 | `latest=2026.7.1-2`，Node 范围为 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0` |
 
 ## 3. x86_64 模拟器回归

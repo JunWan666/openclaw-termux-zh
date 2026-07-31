@@ -1,6 +1,6 @@
 # Changelog
 
-## 未发布 - OpenClaw 2026.7.x 兼容升级
+## v2.0.3 - OpenClaw 兼容、环境恢复与提供商优化
 
 ### 关键改动
 
@@ -11,7 +11,11 @@
 - **受保护的升级事务**：升级/降级前备份 package、command、配置和 Session/Goal/Provider 等状态路径，执行 doctor lint/fix、结构化脱敏 diff 和健康验证；事务清单先于破坏性移动落盘，并持久化 package、doctor、配置和验证阶段，App 或设备中断后会在启动时自动回滚非终态事务。
 - **自定义 Base URL 保真**：保存、重新加载、连接测试和旧配置迁移均不再给自定义地址追加 `/v1`，内置 OpenAI/OpenRouter 地址继续保留官方路径。
 - **冷启动可取消与残留清理**：Gateway 冷启动期间新增“停止网关”操作；停止时按同 UID 的 `/proc` 命令行识别并清理 PRoot/OpenClaw 进程，避免进程重命名后留下残留。
-- **验证门禁**：106 项 Flutter 测试通过，`flutter analyze` 无 error/warning 且仅保留既有 12 条 info，x86_64 Debug APK 构建成功；API 35 模拟器完成版本通道、降级确认、Latest Gateway 启停和数据哈希保护回归。
+- **AI 提供商目录优化**：自定义模型提供商更名为“自定义 OpenAI 兼容模型”；DeepSeek、英伟达（NVIDIA 免费）和智谱调整到前列，移除 OpenRouter 与 xAI，更新内置模型、Key 获取入口、模型列表拉取和连接测试能力。
+- **自定义模型列表拉取**：自定义 OpenAI 兼容配置填写 Base URL 与 API Key 后可自动请求 `/models`，也可手动刷新并从下拉列表选择模型，同时保留手工模型 ID 输入。
+- **首次配置简化**：`2026.3.13` 及之后版本使用最小基础配置跳过终端交互，初始化完成后可直接进入首页配置 API；版本选择隐藏更早版本，仅为 `2026.3.13` 与 `2026.3.23` 显示推荐标记。
+- **验证门禁**：119 项 Flutter 测试通过，`flutter analyze` 无新增 error/warning；版本策略、Gateway 协议、恢复状态、升级保护、Provider 配置和模型目录均有回归覆盖。
+- **版本元数据同步到 `v2.0.3`**：Android 构建号提升到 `78`，用于覆盖安装 v2.0.2 及此前正式包。
 
 ## v2.0.2 - 合并运行时瘦身、初始化稳定性与终端性能优化
 
