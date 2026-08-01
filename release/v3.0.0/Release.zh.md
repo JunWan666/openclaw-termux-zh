@@ -16,9 +16,9 @@ v3.0.0 是内置运行环境正式版。ARM64 APK 已包含 Ubuntu 24.04.3、Nod
 
 ## 下载
 
-| 文件 | 说明 |
-|---|---|
-| `OpenClaw-v3.0.0-arm64-v8a-full.apk` | Android 10+ ARM64 完整版；348,027,293 字节（331.90 MiB） |
+| 文件 | 适用设备 | 大小 | 下载 |
+|---|---|---:|---|
+| `OpenClaw-v3.0.0-arm64-v8a-full.apk` | Android 10+ ARM64 手机和平板 | 331.90 MiB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v3.0.0/OpenClaw-v3.0.0-arm64-v8a-full.apk) |
 
 本版本仅发布 ARM64 完整版。当前内置 RootFS 不适用于 ARMv7 或 x86_64。
 

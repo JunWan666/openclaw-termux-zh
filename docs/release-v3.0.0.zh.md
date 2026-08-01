@@ -64,9 +64,9 @@ Android 版本信息：
 
 ## 发布文件
 
-| 文件 | 说明 |
-|---|---|
-| `OpenClaw-v3.0.0-arm64-v8a-full.apk` | Android 10+ ARM64 完整版，内置运行环境；348,027,293 字节（331.90 MiB） |
+| 文件 | 适用设备 | 大小 | 下载 |
+|---|---|---:|---|
+| `OpenClaw-v3.0.0-arm64-v8a-full.apk` | Android 10+ ARM64 手机和平板 | 331.90 MiB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v3.0.0/OpenClaw-v3.0.0-arm64-v8a-full.apk) |
 
 本版本不发布 ARMv7、x86_64、Universal APK 或 AAB，因为当前内置 RootFS 仅针对 ARM64 构建。
 
