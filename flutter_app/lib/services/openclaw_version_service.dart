@@ -736,6 +736,22 @@ class OpenClawVersionService {
         var doctorLintCompleted = false;
         var doctorFixApplied = false;
         if (compareVersions(normalizedVersion, '2026.7.0') >= 0) {
+          final preDoctorContent = await NativeBridge.readRootfsFile(
+            'root/.openclaw/openclaw.json',
+          );
+          final preDoctorConfig = UpgradeConfigGuard.decodeObject(
+            preDoctorContent,
+          );
+          final normalizedPreDoctor =
+              UpgradeConfigGuard.normalizeProviderConfiguration(
+            preDoctorConfig,
+          );
+          if (jsonEncode(normalizedPreDoctor) != jsonEncode(preDoctorConfig)) {
+            await NativeBridge.writeRootfsFile(
+              'root/.openclaw/openclaw.json',
+              const JsonEncoder.withIndent('  ').convert(normalizedPreDoctor),
+            );
+          }
           _emitProgress(
             onProgress,
             progress: 0.97,
@@ -773,9 +789,11 @@ class OpenClawVersionService {
           'root/.openclaw/openclaw.json',
         );
         final migratedConfig = UpgradeConfigGuard.decodeObject(migratedContent);
-        final mergedConfig = UpgradeConfigGuard.mergePreservingUserValues(
-          originalConfig,
-          migratedConfig,
+        final mergedConfig = UpgradeConfigGuard.normalizeProviderConfiguration(
+          UpgradeConfigGuard.mergePreservingUserValues(
+            originalConfig,
+            migratedConfig,
+          ),
         );
         final configChanges = UpgradeConfigGuard.describeChanges(
           originalConfig,
@@ -787,6 +805,11 @@ class OpenClawVersionService {
             const JsonEncoder.withIndent('  ').convert(mergedConfig),
           );
         }
+        await NativeBridge.runInProot(
+          "NODE_OPTIONS='--require /root/.openclaw/bionic-bypass.js' "
+          'openclaw config validate --json',
+          timeout: 180,
+        );
         final serializedChanges = configChanges
             .map((change) => {
                   'path': change.path,

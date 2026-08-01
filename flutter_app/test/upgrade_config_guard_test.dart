@@ -135,4 +135,43 @@ void main() {
     expect(text, contains('removed:unknownOld'));
     expect(text, contains('added:unknownNew'));
   });
+
+  test('升级前修复旧版 DeepSeek 裸模型和字符串模型列表', () {
+    final normalized = UpgradeConfigGuard.normalizeProviderConfiguration({
+      'agents': {
+        'defaults': {
+          'model': {'primary': 'deepseek-v4-flash'},
+        },
+      },
+      'models': {
+        'providers': {
+          'deepseek': {
+            'apiKey': 'keep-secret',
+            'baseUrl': 'https://api.deepseek.com/v1',
+            'models': ['deepseek-v4-flash'],
+          },
+        },
+      },
+    });
+
+    final models = normalized['models'] as Map<String, dynamic>;
+    final deepseek = (models['providers'] as Map<String, dynamic>)['deepseek']
+        as Map<String, dynamic>;
+    final model = (deepseek['models'] as List).single as Map<String, dynamic>;
+    final defaults = ((normalized['agents'] as Map<String, dynamic>)['defaults']
+        as Map<String, dynamic>);
+
+    expect(models['mode'], 'merge');
+    expect(deepseek['apiKey'], 'keep-secret');
+    expect(model['id'], 'deepseek-v4-flash');
+    expect(
+      (defaults['model'] as Map<String, dynamic>)['primary'],
+      'deepseek/deepseek-v4-flash',
+    );
+    expect(
+      (defaults['models'] as Map<String, dynamic>)
+          .containsKey('deepseek/deepseek-v4-flash'),
+      isTrue,
+    );
+  });
 }

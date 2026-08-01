@@ -207,6 +207,15 @@ class ProviderConfigService {
     return null;
   }
 
+  static Map<String, dynamic> _ensureDefaultModelsAllowList(
+    Map<String, dynamic> config,
+  ) {
+    final defaults = _ensureDefaultsSection(config);
+    final models = _asStringKeyedMap(defaults['models']);
+    defaults['models'] = models;
+    return models;
+  }
+
   static Map<String, dynamic> _ensureCustomPresetMetadataEntries(
     Map<String, dynamic> metadata,
   ) {
@@ -282,13 +291,14 @@ class ProviderConfigService {
     String model, {
     String? customProviderId,
   }) {
-    if (provider.id == _customOpenaiId) {
-      final providerId = _isNonEmptyString(customProviderId)
-          ? customProviderId!.trim()
-          : provider.id;
-      return '$providerId/$model';
-    }
-    return model;
+    final providerId =
+        provider.id == _customOpenaiId && _isNonEmptyString(customProviderId)
+            ? customProviderId!.trim()
+            : provider.id;
+    final trimmedModel = model.trim();
+    return trimmedModel.startsWith('$providerId/')
+        ? trimmedModel
+        : '$providerId/$trimmedModel';
   }
 
   static String? providerIdFromModelRef(String? modelRef) {
@@ -375,7 +385,7 @@ class ProviderConfigService {
     final entry = <String, dynamic>{
       'apiKey': apiKey,
       'baseUrl': baseUrl,
-      'models': [model],
+      'models': [_customOpenaiModelEntry(model)],
     };
     if (_isNonEmptyString(provider.apiValue)) {
       entry['api'] = provider.apiValue;
@@ -802,6 +812,8 @@ class ProviderConfigService {
     final config = await _readConfigMap();
     _ensureLocalGatewayMode(config);
 
+    final models = _ensureModelsSection(config);
+    models['mode'] ??= 'merge';
     final providers = _ensureProvidersSection(config);
     providers[provider.id] = _providerEntryForSave(
       provider: provider,
@@ -810,8 +822,12 @@ class ProviderConfigService {
       model: model,
     );
 
-    _ensureDefaultModelSection(config)['primary'] =
-        _primaryModelForProvider(provider, model);
+    final modelRef = _primaryModelForProvider(provider, model);
+    _ensureDefaultModelSection(config)['primary'] = modelRef;
+    _ensureDefaultModelsAllowList(config).putIfAbsent(
+      modelRef,
+      () => <String, dynamic>{},
+    );
     await _writeConfigMap(config);
   }
 

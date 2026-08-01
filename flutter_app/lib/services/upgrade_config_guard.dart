@@ -43,6 +43,84 @@ class UpgradeConfigGuard {
     return result;
   }
 
+  /// Repairs provider entries written by older app builds before OpenClaw
+  /// validates them. OpenClaw expects provider-qualified primary model refs
+  /// and object entries in `models.providers.*.models`.
+  static Map<String, dynamic> normalizeProviderConfiguration(
+    Map<String, dynamic> input,
+  ) {
+    final config = _deepCopyMap(input);
+    final models = _stringMap(config['models']);
+    final providers = _stringMap(models['providers']);
+    if (providers.isEmpty) return config;
+
+    models['mode'] ??= 'merge';
+    models['providers'] = providers;
+    config['models'] = models;
+
+    for (final providerEntry in providers.entries) {
+      final provider = _stringMap(providerEntry.value);
+      final rawModels = provider['models'];
+      if (rawModels is List) {
+        provider['models'] = rawModels.map((rawModel) {
+          if (rawModel is Map) return _stringMap(rawModel);
+          final id = rawModel.toString().trim();
+          return <String, dynamic>{
+            'id': id,
+            'name': id,
+            'input': const ['text'],
+            'reasoning': false,
+            'contextWindow': 128000,
+            'maxTokens': 8192,
+            'cost': const {
+              'input': 0,
+              'output': 0,
+              'cacheRead': 0,
+              'cacheWrite': 0,
+            },
+          };
+        }).toList(growable: false);
+      }
+      providers[providerEntry.key] = provider;
+    }
+
+    final agents = _stringMap(config['agents']);
+    final defaults = _stringMap(agents['defaults']);
+    final model = _stringMap(defaults['model']);
+    final primary = model['primary'];
+    if (primary is String && primary.trim().isNotEmpty) {
+      final trimmedPrimary = primary.trim();
+      if (!trimmedPrimary.contains('/')) {
+        for (final providerEntry in providers.entries) {
+          final provider = _stringMap(providerEntry.value);
+          final providerModels = provider['models'];
+          if (providerModels is! List) continue;
+          final containsPrimary = providerModels.any((candidate) {
+            if (candidate is! Map) return false;
+            return candidate['id']?.toString().trim() == trimmedPrimary;
+          });
+          if (containsPrimary) {
+            model['primary'] = '${providerEntry.key}/$trimmedPrimary';
+            break;
+          }
+        }
+      }
+      final normalizedPrimary = model['primary'];
+      if (normalizedPrimary is String && normalizedPrimary.trim().isNotEmpty) {
+        final allowList = _stringMap(defaults['models']);
+        allowList.putIfAbsent(
+          normalizedPrimary.trim(),
+          () => <String, dynamic>{},
+        );
+        defaults['models'] = allowList;
+      }
+    }
+    defaults['model'] = model;
+    agents['defaults'] = defaults;
+    config['agents'] = agents;
+    return config;
+  }
+
   static List<UpgradeConfigChange> describeChanges(
     Map<String, dynamic> before,
     Map<String, dynamic> after,
@@ -138,6 +216,14 @@ class UpgradeConfigGuard {
       Map<String, dynamic>.from(
         jsonDecode(jsonEncode(value)) as Map,
       );
+
+  static Map<String, dynamic> _stringMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, item) => MapEntry(key.toString(), item));
+    }
+    return <String, dynamic>{};
+  }
 
   static Object? _deepCopy(Object? value) => jsonDecode(jsonEncode(value));
 }

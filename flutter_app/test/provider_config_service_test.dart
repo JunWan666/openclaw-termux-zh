@@ -163,6 +163,36 @@ void main() {
     });
   });
 
+  test('DeepSeek 保存为 OpenClaw 可启动的 provider 模型结构', () async {
+    await ProviderConfigService.saveProviderConfig(
+      provider: AiProvider.deepseek,
+      apiKey: 'sk-test',
+      model: 'deepseek-v4-flash',
+    );
+
+    final config = jsonDecode(rootfsFiles[configPath]!) as Map<String, dynamic>;
+    final models = config['models'] as Map<String, dynamic>;
+    final providers = models['providers'] as Map<String, dynamic>;
+    final deepseek = providers['deepseek'] as Map<String, dynamic>;
+    final modelEntries = deepseek['models'] as List<dynamic>;
+    final modelEntry = modelEntries.single as Map<String, dynamic>;
+    final defaults = ((config['agents'] as Map<String, dynamic>)['defaults']
+        as Map<String, dynamic>);
+
+    expect(models['mode'], 'merge');
+    expect(modelEntry['id'], 'deepseek-v4-flash');
+    expect(modelEntry['name'], 'deepseek-v4-flash');
+    expect(
+      (defaults['model'] as Map<String, dynamic>)['primary'],
+      'deepseek/deepseek-v4-flash',
+    );
+    expect(
+      (defaults['models'] as Map<String, dynamic>)
+          .containsKey('deepseek/deepseek-v4-flash'),
+      isTrue,
+    );
+  });
+
   group('ProviderConfigService.normalizeCustomBaseUrl', () {
     test('keeps Zhipu base URL unchanged', () {
       expect(
