@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/environment_recovery.dart';
 import '../services/environment_recovery_service.dart';
+import '../services/bootstrap_service.dart';
 import 'backup_manager_screen.dart';
 import 'dashboard_screen.dart';
 import 'terminal_screen.dart';
@@ -48,6 +49,69 @@ class _EnvironmentRecoveryScreenState extends State<EnvironmentRecoveryScreen> {
         return;
       }
       setState(() => _assessment = result);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restoreBundledRuntime() async {
+    if (_busy) return;
+    final zh = _isZh;
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(zh ? '恢复内置运行环境' : 'Restore bundled runtime'),
+            content: Text(
+              zh
+                  ? '将重新部署 APK 内置运行环境。现有配置、Token、Agents、Workspace 和 Memory 会被保留。'
+                  : 'The APK bundled runtime will be redeployed. Existing configuration, tokens, agents, workspace, and memory will be preserved.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(zh ? '取消' : 'Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(zh ? '开始恢复' : 'Restore'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      var completed = false;
+      String? failure;
+      await BootstrapService().runFullSetup(
+        forceBundledRuntime: true,
+        onProgress: (state) {
+          completed = state.isComplete;
+          failure = state.error;
+          if (!mounted) return;
+          setState(() {
+            _error = state.error ??
+                (state.detail == null
+                    ? state.message
+                    : '${state.message}\n${state.detail}');
+          });
+        },
+      );
+      if (!completed) {
+        throw StateError(failure ?? 'Bundled runtime restore did not complete');
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        (_) => false,
+      );
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -128,6 +192,16 @@ class _EnvironmentRecoveryScreenState extends State<EnvironmentRecoveryScreen> {
                     )
                   : const Icon(Icons.refresh_rounded),
               label: Text(zh ? '重新检测并修复' : 'Check and repair again'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _restoreBundledRuntime,
+              icon: const Icon(Icons.restore_rounded),
+              label: Text(
+                zh
+                    ? '恢复 APK 内置的 OpenClaw 2026.3.23'
+                    : 'Restore bundled OpenClaw 2026.3.23',
+              ),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(

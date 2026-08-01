@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          lfs: true
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -112,17 +114,9 @@ jobs:
         run: flutter analyze --no-fatal-infos
         continue-on-error: true
 
-      - name: Build fat APK (all ABIs)
+      - name: Build ARM64 full APK
         working-directory: flutter_app
-        run: flutter build apk --release
-
-      - name: Build per-ABI APKs
-        working-directory: flutter_app
-        run: flutter build apk --release --split-per-abi
-
-      - name: Build AAB (App Bundle)
-        working-directory: flutter_app
-        run: flutter build appbundle --release
+        run: flutter build apk --release --split-per-abi --target-platform android-arm64
 
       - name: Rename and collect artifacts
         id: apks
@@ -132,23 +126,8 @@ jobs:
 
           mkdir -p artifacts
 
-          # Fat APK
-          cp flutter_app/build/app/outputs/flutter-apk/app-release.apk \
-             "artifacts/OpenClaw-v${VERSION}-universal.apk"
-
-          # Per-ABI APKs
-          for abi in arm64-v8a armeabi-v7a x86_64; do
-            SRC="flutter_app/build/app/outputs/flutter-apk/app-${abi}-release.apk"
-            if [ -f "$SRC" ]; then
-              cp "$SRC" "artifacts/OpenClaw-v${VERSION}-${abi}.apk"
-            fi
-          done
-
-          # AAB
-          AAB="flutter_app/build/app/outputs/bundle/release/app-release.aab"
-          if [ -f "$AAB" ]; then
-            cp "$AAB" "artifacts/OpenClaw-v${VERSION}.aab"
-          fi
+          cp flutter_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+             "artifacts/OpenClaw-v${VERSION}-arm64-v8a-full.apk"
 
           # Summary
           echo "### Build Artifacts" >> "$GITHUB_STEP_SUMMARY"
@@ -170,13 +149,6 @@ jobs:
           path: artifacts/*.apk
           retention-days: 30
 
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: openclaw-aab
-          path: artifacts/*.aab
-          retention-days: 30
-
       - name: Comment on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -190,15 +162,11 @@ jobs:
               ``,
               `**Version:** \`v${version}\``,
               ``,
-              `### Download APKs`,
+              `### Download APK`,
               ``,
               `| Architecture | Download |`,
               `|---|---|`,
-              `| arm64-v8a (recommended) | [OpenClaw-v${version}-arm64-v8a.apk](${runUrl}#artifacts) |`,
-              `| armeabi-v7a (32-bit) | [OpenClaw-v${version}-armeabi-v7a.apk](${runUrl}#artifacts) |`,
-              `| x86_64 (emulator) | [OpenClaw-v${version}-x86_64.apk](${runUrl}#artifacts) |`,
-              `| Universal (all ABIs) | [OpenClaw-v${version}-universal.apk](${runUrl}#artifacts) |`,
-              `| App Bundle (Play Store) | [OpenClaw-v${version}.aab](${runUrl}#artifacts) |`,
+              `| ARM64 full (recommended) | [OpenClaw-v${version}-arm64-v8a-full.apk](${runUrl}#artifacts) |`,
               ``,
               `> Download from [**Actions Artifacts**](${runUrl}#artifacts)`,
               ``,
@@ -269,12 +237,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: openclaw-apks
-          path: artifacts
-
-      - name: Download AAB artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: openclaw-aab
           path: artifacts
 
       - name: Get version

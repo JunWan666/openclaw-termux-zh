@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.util.Log
 import io.flutter.plugin.common.EventChannel
 import java.io.BufferedReader
 import java.io.File
@@ -26,6 +27,7 @@ import java.time.format.DateTimeFormatter
 
 class GatewayService : Service() {
     companion object {
+        private const val TAG = "OpenClawGateway"
         const val CHANNEL_ID = "openclaw_gateway"
         const val NOTIFICATION_ID = 1
         var isRunning = false
@@ -571,6 +573,7 @@ class GatewayService : Service() {
         try {
             val formatted = normalizeLogLine(message)
             if (formatted.isBlank()) return
+            Log.i(TAG, formatted)
             GatewayLogPersistence.appendLine(applicationContext, formatted)
             mainHandler.post {
                 try {

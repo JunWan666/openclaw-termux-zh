@@ -45,7 +45,8 @@ void main() {
   });
 
   group('minimal first-run configuration', () {
-    test('creates a local token gateway without a model provider', () async {
+    test('creates a local token gateway with the public default provider',
+        () async {
       await ProviderConfigService.ensureInitialAppConfig();
 
       final config =
@@ -62,7 +63,16 @@ void main() {
       expect(auth['token'], matches(RegExp(r'^[0-9a-f]{64}$')));
       expect((gateway['reload'] as Map<String, dynamic>)['mode'], 'hybrid');
       expect(defaults['workspace'], '/root/.openclaw/workspace');
-      expect(config.containsKey('models'), isFalse);
+      expect(
+        (defaults['model'] as Map<String, dynamic>)['primary'],
+        'api7749/ywd/deepseek-ai/deepseek-v4-flash',
+      );
+      final providers = ((config['models'] as Map<String, dynamic>)['providers']
+          as Map<String, dynamic>);
+      final ywd = providers['api7749'] as Map<String, dynamic>;
+      expect(ywd['baseUrl'], 'https://api.774966.xyz/v1');
+      expect(ywd['api'], 'openai-completions');
+      expect(ywd['apiKey'], isNotEmpty);
     });
 
     test('preserves existing gateway and user configuration', () async {

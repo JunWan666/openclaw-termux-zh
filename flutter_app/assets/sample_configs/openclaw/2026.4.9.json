@@ -66,7 +66,7 @@
       "7749api": {
         "baseUrl": "https://api.774966.xyz/v1",
         "api": "openai-completions",
-        "apiKey": "sk-OKKVZAdA1Njckk7T48FWJbSK6WkAma8KT68M2SFqeToJ7tt7",
+        "apiKey": "sk-your-api-key",
         "models": [
           {
             "id": "英伟达/openai/gpt-oss-120b",

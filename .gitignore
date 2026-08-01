@@ -1,4 +1,6 @@
 node_modules/
+__pycache__/
+*.py[cod]
 *.log
 .DS_Store
 .env
@@ -32,6 +34,7 @@ release/*
 !release/*/
 release/*/*
 !release/*/Release.zh.md
+local-test-builds/
 .codex-project-rules.md
 
 # Local exported OpenClaw configs with real API keys / tokens

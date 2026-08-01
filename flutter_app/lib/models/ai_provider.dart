@@ -17,6 +17,7 @@ class AiProvider {
   final String baseUrl;
   final List<String> defaultModels;
   final String apiKeyHint;
+  final String? defaultApiKey;
   final bool supportsCustomBaseUrl;
   final String? endpointHelperKey;
   final String? modelHintKey;
@@ -37,6 +38,7 @@ class AiProvider {
     required this.baseUrl,
     required this.defaultModels,
     required this.apiKeyHint,
+    this.defaultApiKey,
     this.supportsCustomBaseUrl = false,
     this.endpointHelperKey,
     this.modelHintKey,
@@ -90,6 +92,27 @@ class AiProvider {
     endpointHelperKey: 'providerDetailEndpointHelperOpenaiCompatible',
     modelHintKey: 'providerDetailModelHintOpenaiCompatible',
     baseUrlBehavior: BaseUrlBehavior.preserveUserInput,
+  );
+
+  static const ywd = AiProvider(
+    id: 'api7749',
+    nameKey: 'providerNameYwd',
+    descriptionKey: 'providerDescriptionYwd',
+    icon: Icons.volunteer_activism,
+    color: Color(0xFF7C3AED),
+    baseUrl: 'https://api.774966.xyz/v1',
+    defaultModels: [
+      'ywd/deepseek-ai/deepseek-v4-flash',
+    ],
+    apiKeyHint: 'sk-...',
+    defaultApiKey: 'sk-b2ZPC93WGxGGu74z01aCPmCX2TFOwsMPHCSgXZQCbYV6lGVl',
+    supportsCustomBaseUrl: true,
+    endpointHelperKey: 'providerDetailEndpointHelperOpenaiCompatible',
+    modelHintKey: 'providerDetailModelHintOpenaiCompatible',
+    apiValue: 'openai-completions',
+    supportsModelCatalog: true,
+    modelCatalogRequiresApiKey: true,
+    supportsConnectionTest: true,
   );
 
   static const anthropic = AiProvider(
@@ -257,6 +280,7 @@ class AiProvider {
   /// All available AI providers.
   static const all = [
     customOpenai,
+    ywd,
     deepseek,
     nvidia,
     zhipu,

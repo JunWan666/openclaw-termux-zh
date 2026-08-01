@@ -32,6 +32,10 @@ class BootstrapManager(
     private val nativeLibDir: String
 ) {
     private val rootfsDir get() = "$filesDir/rootfs/ubuntu"
+    private val rootfsStagingDir get() = "$filesDir/rootfs-staging/ubuntu"
+    private val rootfsRollbackDir get() = "$filesDir/rootfs-rollback/ubuntu"
+    private val runtimeStateDir get() = "$filesDir/runtime"
+    private val installationLock get() = File(runtimeStateDir, "installation.lock")
     private val tmpDir get() = "$filesDir/tmp"
     private val homeDir get() = "$filesDir/home"
     private val configDir get() = "$filesDir/config"
@@ -277,13 +281,53 @@ class BootstrapManager(
         )
     }
 
+    @Synchronized
     fun extractRootfs(tarPath: String) {
-        val rootfs = File(rootfsDir)
-        // Clean up any previous failed extraction
-        if (rootfs.exists()) {
-            deleteRecursively(rootfs)
+        recoverInterruptedRootfsInstall()
+        val staging = File(rootfsStagingDir)
+        val hadCurrentRootfs = File(rootfsDir).exists()
+        if (staging.exists()) deleteRecursively(staging)
+        staging.mkdirs()
+        File(runtimeStateDir).mkdirs()
+        writeInstallationLock("extracting", hadCurrentRootfs)
+
+        try {
+            extractRootfsArchive(tarPath, staging)
+            preserveExistingWorkspace(staging)
+            writeInstallationLock("activating", hadCurrentRootfs)
+            switchStagingRootfs(staging)
+            writeInstallationLock("verifying", hadCurrentRootfs)
+            configureRootfs()
+            ensureRootfsRuntimeDirectories()
+        } catch (error: Exception) {
+            try {
+                rollbackRootfsInstall()
+            } catch (rollbackError: Exception) {
+                throw RuntimeException(
+                    "Rootfs extraction failed: ${error.message}; " +
+                        "rollback also failed: ${rollbackError.message}",
+                    rollbackError,
+                )
+            }
+            throw error
+        } finally {
+            File(tarPath).delete()
         }
-        rootfs.mkdirs()
+    }
+
+    private fun writeInstallationLock(phase: String, hadCurrentRootfs: Boolean) {
+        installationLock.writeText(
+            JSONObject()
+                .put("schemaVersion", 1)
+                .put("phase", phase)
+                .put("hadCurrentRootfs", hadCurrentRootfs)
+                .put("startedAt", System.currentTimeMillis())
+                .toString()
+        )
+    }
+
+    private fun extractRootfsArchive(tarPath: String, rootfs: File) {
+        val rootfsPath = rootfs.canonicalPath
 
         // Pure Java extraction using Apache Commons Compress.
         // Two-phase approach:
@@ -313,7 +357,12 @@ class BootstrapManager(
                                     continue
                                 }
 
-                                val outFile = File(rootfsDir, name)
+                                val outFile = File(rootfs, name)
+                                val outPath = outFile.canonicalPath
+                                if (outPath != rootfsPath &&
+                                    !outPath.startsWith("$rootfsPath${File.separator}")) {
+                                    throw RuntimeException("Unsafe archive path: ${entry.name}")
+                                }
 
                                 when {
                                     entry.isDirectory -> {
@@ -331,7 +380,7 @@ class BootstrapManager(
                                         val target = entry.linkName
                                             .removePrefix("./")
                                             .removePrefix("/")
-                                        val targetFile = File(rootfsDir, target)
+                                        val targetFile = File(rootfs, target)
                                         outFile.parentFile?.mkdirs()
                                         try {
                                             if (targetFile.exists()) {
@@ -387,7 +436,7 @@ class BootstrapManager(
             )
         }
 
-        if (extractionError != null && fileCount < 100) {
+        if (extractionError != null) {
             throw RuntimeException(
                 "Extraction failed after $entryCount entries ($fileCount files): " +
                 "${extractionError!!.message}"
@@ -405,10 +454,10 @@ class BootstrapManager(
                         val linkTarget = if (target.startsWith("/")) {
                             target.removePrefix("/")
                         } else {
-                            val parent = file.parentFile?.absolutePath ?: rootfsDir
-                            File(parent, target).relativeTo(File(rootfsDir)).path
+                            val parent = file.parentFile?.absolutePath ?: rootfs.absolutePath
+                            File(parent, target).relativeTo(rootfs).path
                         }
-                        val realTargetDir = File(rootfsDir, linkTarget)
+                        val realTargetDir = File(rootfs, linkTarget)
                         if (realTargetDir.exists() && realTargetDir.isDirectory) {
                             file.listFiles()?.forEach { child ->
                                 val dest = File(realTargetDir, child.name)
@@ -431,23 +480,110 @@ class BootstrapManager(
         }
 
         // Verify extraction
-        if (!File("$rootfsDir/bin/bash").exists() &&
-            !File("$rootfsDir/usr/bin/bash").exists()) {
+        if (!File(rootfs, "bin/bash").exists() &&
+            !File(rootfs, "usr/bin/bash").exists()) {
             throw RuntimeException(
                 "Extraction failed: bash not found in rootfs. " +
                 "Processed $entryCount entries, $fileCount files, " +
                 "$symlinkCount symlinks (${symlinkErrors} symlink errors). " +
                 "Last symlink error: $lastSymlinkError. " +
-                "usr/bin exists: ${File("$rootfsDir/usr/bin").exists()}. " +
+                "usr/bin exists: ${File(rootfs, "usr/bin").exists()}. " +
                 "Extraction error: ${extractionError?.message ?: "none"}"
             )
         }
 
-        // Post-extraction: configure rootfs for proot compatibility
-        configureRootfs()
+    }
 
-        // Clean up tarball
-        File(tarPath).delete()
+    private fun preserveExistingWorkspace(staging: File) {
+        val source = workspaceRootDir
+        if (!source.exists()) return
+        val destination = File(staging, "root/.openclaw")
+        destination.mkdirs()
+        workspaceBackupRelativePaths.forEach { relativePath ->
+            val sourceEntry = File(source, relativePath)
+            if (!sourceEntry.exists()) return@forEach
+            val destinationEntry = File(destination, relativePath)
+            if (sourceEntry.isDirectory) {
+                sourceEntry.copyRecursively(destinationEntry, overwrite = true)
+            } else {
+                destinationEntry.parentFile?.mkdirs()
+                sourceEntry.copyTo(destinationEntry, overwrite = true)
+            }
+        }
+    }
+
+    private fun switchStagingRootfs(staging: File) {
+        val current = File(rootfsDir)
+        val rollback = File(rootfsRollbackDir)
+        if (rollback.exists()) deleteRecursively(rollback)
+        rollback.parentFile?.mkdirs()
+        if (current.exists() && !current.renameTo(rollback)) {
+            throw RuntimeException("Unable to move current rootfs to rollback directory")
+        }
+        current.parentFile?.mkdirs()
+        if (!staging.renameTo(current)) {
+            if (rollback.exists()) rollback.renameTo(current)
+            throw RuntimeException("Unable to activate staged rootfs")
+        }
+    }
+
+    @Synchronized
+    fun commitRootfsInstall() {
+        val rollback = File(rootfsRollbackDir)
+        if (rollback.exists()) deleteRecursively(rollback)
+        val staging = File(rootfsStagingDir)
+        if (staging.exists()) deleteRecursively(staging)
+        installationLock.delete()
+    }
+
+    @Synchronized
+    fun rollbackRootfsInstall() {
+        val current = File(rootfsDir)
+        val rollback = File(rootfsRollbackDir)
+        val lockState = try {
+            if (installationLock.exists()) JSONObject(installationLock.readText()) else null
+        } catch (_: Exception) {
+            null
+        }
+        val phase = lockState?.optString("phase")
+        val hadCurrentRootfs = lockState?.optBoolean("hadCurrentRootfs", true) ?: true
+        when (RootfsTransactionPolicy.recoveryAction(
+            phase = phase,
+            hadCurrentRootfs = hadCurrentRootfs,
+            rollbackExists = rollback.exists(),
+        )) {
+            RootfsRecoveryAction.RESTORE_ROLLBACK -> {
+                val failed = File("$rootfsStagingDir-failed")
+                if (failed.exists()) deleteRecursively(failed)
+                failed.parentFile?.mkdirs()
+                if (current.exists() && !current.renameTo(failed)) {
+                    throw RuntimeException(
+                        "Unable to move failed rootfs aside before rollback"
+                    )
+                }
+                current.parentFile?.mkdirs()
+                if (!rollback.renameTo(current)) {
+                    if (failed.exists()) failed.renameTo(current)
+                    throw RuntimeException(
+                        "Unable to restore previous rootfs; failed rootfs was put back"
+                    )
+                }
+                if (failed.exists()) deleteRecursively(failed)
+            }
+            RootfsRecoveryAction.DELETE_UNCOMMITTED_ROOTFS -> {
+                if (current.exists()) deleteRecursively(current)
+            }
+            RootfsRecoveryAction.KEEP_CURRENT_ROOTFS -> Unit
+        }
+        val staging = File(rootfsStagingDir)
+        if (staging.exists()) deleteRecursively(staging)
+        installationLock.delete()
+    }
+
+    @Synchronized
+    fun recoverInterruptedRootfsInstall() {
+        if (!installationLock.exists()) return
+        rollbackRootfsInstall()
     }
 
     /**
@@ -1637,6 +1773,19 @@ require('/root/.openclaw/proot-compat.js');
         } else {
             JSONObject().put("id", id)
         }
+        val sourceVersion = manifest.optString("sourceVersion").trim()
+        val packageBackup = File(transactionRoot, "package/openclaw")
+        if (sourceVersion.isNotEmpty() && packageBackup.exists()) {
+            val cachedPackage = cachedOpenClawPackage(sourceVersion)
+            if (cachedPackage.parentFile?.exists() == true) {
+                deleteRecursively(cachedPackage.parentFile!!)
+            }
+            cachedPackage.parentFile?.mkdirs()
+            moveUpgradePath(packageBackup, cachedPackage)
+            cachedPackage.parentFile?.setLastModified(System.currentTimeMillis())
+            manifest.put("cachedSourceVersion", sourceVersion)
+            trimOpenClawVersionCache()
+        }
         manifest.put("phase", "committed")
         manifest.put("committedAt", java.time.Instant.now().toString())
         if (!reportJson.isNullOrBlank()) {
@@ -1741,7 +1890,18 @@ require('/root/.openclaw/proot-compat.js');
             packageBackup.exists()
         )
         if (packageBackup.exists()) {
-            if (packageTarget.exists()) deleteRecursively(packageTarget)
+            val cachedTargetVersion = manifest.optString("restoredFromVersionCache").trim()
+            if (cachedTargetVersion.isNotEmpty() && packageTarget.exists()) {
+                val cachedTarget = cachedOpenClawPackage(cachedTargetVersion)
+                if (cachedTarget.parentFile?.exists() == true) {
+                    deleteRecursively(cachedTarget.parentFile!!)
+                }
+                cachedTarget.parentFile?.mkdirs()
+                moveUpgradePath(packageTarget, cachedTarget)
+                cachedTarget.parentFile?.setLastModified(System.currentTimeMillis())
+            } else if (packageTarget.exists()) {
+                deleteRecursively(packageTarget)
+            }
             moveUpgradePath(packageBackup, packageTarget)
         } else if (packageOriginallyPresent && !packageTarget.exists()) {
             // 清单已落盘但备份和原包都不存在时无法证明可恢复，禁止继续破坏工作区。
@@ -1785,6 +1945,57 @@ require('/root/.openclaw/proot-compat.js');
         File(historyDir, "$id.json").writeText(manifest.toString(2))
         deleteRecursively(transactionRoot)
         cleanupCompletedUpgradeTransactions()
+    }
+
+    fun hasCachedOpenClawVersion(version: String): Boolean {
+        return File(cachedOpenClawPackage(version), "package.json").exists()
+    }
+
+    /**
+     * Restores a previously installed package by renaming it back into the
+     * rootfs. beginOpenClawUpgrade must have moved the current package away
+     * first; commit then places that previous package into this cache slot.
+     */
+    fun restoreCachedOpenClawVersion(id: String, version: String): Int {
+        val transactionRoot = resolveUpgradeTransaction(id)
+        val manifestFile = File(transactionRoot, "manifest.json")
+        if (!manifestFile.exists()) {
+            throw IllegalArgumentException("Upgrade transaction manifest not found: $id")
+        }
+        val manifest = JSONObject(manifestFile.readText())
+        if (manifest.optString("targetVersion").trim() != version.trim()) {
+            throw IllegalArgumentException("Cached version does not match transaction target")
+        }
+        val cachedPackage = cachedOpenClawPackage(version)
+        if (!File(cachedPackage, "package.json").exists()) {
+            throw IllegalStateException("Cached OpenClaw version is incomplete: $version")
+        }
+        val packageTarget = File("$rootfsDir/usr/local/lib/node_modules/openclaw")
+        if (packageTarget.exists()) deleteRecursively(packageTarget)
+        moveUpgradePath(cachedPackage, packageTarget)
+        cachedPackage.parentFile?.let { parent ->
+            if (parent.listFiles()?.isEmpty() == true) parent.delete()
+        }
+        manifest.put("restoredFromVersionCache", version.trim())
+        manifestFile.writeText(manifest.toString(2))
+        return packageTarget.walkTopDown().count { it.isFile }
+    }
+
+    private fun cachedOpenClawPackage(version: String): File {
+        val normalized = version.trim()
+        if (!Regex("^[0-9A-Za-z._-]+$").matches(normalized)) {
+            throw IllegalArgumentException("Invalid OpenClaw cache version")
+        }
+        return File("$filesDir/openclaw_version_cache/$normalized/openclaw")
+    }
+
+    private fun trimOpenClawVersionCache(maxVersions: Int = 2) {
+        val root = File("$filesDir/openclaw_version_cache")
+        val versions = root.listFiles()
+            ?.filter { it.isDirectory }
+            ?.sortedByDescending { it.lastModified() }
+            ?: return
+        versions.drop(maxVersions).forEach { deleteRecursively(it) }
     }
 
     private fun resolveUpgradeTransaction(id: String): File {
@@ -2172,6 +2383,122 @@ require('/root/.openclaw/proot-compat.js');
 
         destinationFile.setReadable(true, false)
         destinationFile.setWritable(true, false)
+    }
+
+    /**
+     * Restore only the bundled OpenClaw package from the full runtime archive.
+     * The caller protects the existing package with an OpenClaw upgrade
+     * transaction first, so this avoids replacing the whole rootfs merely to
+     * switch back to the APK's built-in version.
+     */
+    fun restoreBundledOpenClawPackage(assetPath: String): Int {
+        val assetKey = FlutterInjector.instance()
+            .flutterLoader()
+            .getLookupKeyForAsset(assetPath)
+        val packagePrefix = "usr/local/lib/node_modules/openclaw"
+        val packageRoot = File(rootfsDir, packagePrefix)
+        val packageRootPath = packageRoot.canonicalPath
+        val deferredSymlinks = mutableListOf<Pair<String, String>>()
+        var extractedFiles = 0
+
+        if (packageRoot.exists()) deleteRecursively(packageRoot)
+        packageRoot.mkdirs()
+
+        context.assets.open(assetKey).use { input ->
+            BufferedInputStream(input, 256 * 1024).use { buffered ->
+                GZIPInputStream(buffered).use { gzip ->
+                    TarArchiveInputStream(gzip).use { tar ->
+                        var entry: TarArchiveEntry? = tar.nextEntry
+                        while (entry != null) {
+                            val name = entry.name
+                                .removePrefix("./")
+                                .removePrefix("/")
+                                .trimEnd('/')
+                            if (name == packagePrefix ||
+                                name.startsWith("$packagePrefix/")) {
+                                val relative = name.removePrefix(packagePrefix).trimStart('/')
+                                val output = if (relative.isEmpty()) {
+                                    packageRoot
+                                } else {
+                                    File(packageRoot, relative)
+                                }
+                                val outputPath = output.canonicalPath
+                                if (outputPath != packageRootPath &&
+                                    !outputPath.startsWith(
+                                        "$packageRootPath${File.separator}"
+                                    )) {
+                                    throw RuntimeException(
+                                        "Unsafe bundled OpenClaw path: ${entry.name}"
+                                    )
+                                }
+
+                                when {
+                                    entry.isDirectory -> output.mkdirs()
+                                    entry.isSymbolicLink -> {
+                                        deferredSymlinks.add(entry.linkName to output.absolutePath)
+                                    }
+                                    entry.isLink -> {
+                                        val linkName = entry.linkName
+                                            .removePrefix("./")
+                                            .removePrefix("/")
+                                        if (linkName == packagePrefix ||
+                                            linkName.startsWith("$packagePrefix/")) {
+                                            val targetRelative = linkName
+                                                .removePrefix(packagePrefix)
+                                                .trimStart('/')
+                                            val target = File(packageRoot, targetRelative)
+                                            output.parentFile?.mkdirs()
+                                            if (target.exists()) {
+                                                target.copyTo(output, overwrite = true)
+                                                extractedFiles++
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        output.parentFile?.mkdirs()
+                                        FileOutputStream(output).use { stream ->
+                                            val buffer = ByteArray(64 * 1024)
+                                            var count: Int
+                                            while (tar.read(buffer).also { count = it } != -1) {
+                                                stream.write(buffer, 0, count)
+                                            }
+                                        }
+                                        output.setReadable(true, false)
+                                        output.setWritable(true, false)
+                                        if (entry.mode and 0b001_001_001 != 0 ||
+                                            relative.endsWith(".sh")) {
+                                            output.setExecutable(true, false)
+                                        }
+                                        extractedFiles++
+                                    }
+                                }
+                            }
+                            entry = tar.nextEntry
+                        }
+                    }
+                }
+            }
+        }
+
+        for ((target, path) in deferredSymlinks) {
+            val link = File(path)
+            try {
+                java.nio.file.Files.deleteIfExists(link.toPath())
+            } catch (_: Exception) {
+                if (link.exists()) deleteRecursively(link)
+            }
+            link.parentFile?.mkdirs()
+            Os.symlink(target, path)
+        }
+
+        val packageJson = File(packageRoot, "package.json")
+        if (extractedFiles == 0 || !packageJson.exists()) {
+            if (packageRoot.exists()) deleteRecursively(packageRoot)
+            throw RuntimeException(
+                "Bundled runtime does not contain a complete OpenClaw package"
+            )
+        }
+        return extractedFiles
     }
 
     /**

@@ -1,7 +1,7 @@
 name: openclaw
 description: OpenClaw AI Gateway for Android - standalone, no Termux required.
 publish_to: 'none'
-version: 2.0.3+78
+version: 3.0.0+81
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -45,6 +45,7 @@ flutter:
     - assets/resolv.conf
     - assets/ic_launcher.png
     - assets/sample_configs/openclaw/
+    - assets/runtime/
   fonts:
     - family: DejaVuSansMono
       fonts:

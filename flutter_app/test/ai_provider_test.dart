@@ -6,8 +6,8 @@ import 'package:openclaw/models/ai_provider.dart';
 void main() {
   test('提供商目录按产品顺序展示且不再包含 OpenRouter 和 xAI', () {
     expect(
-      AiProvider.all.map((provider) => provider.id).take(4),
-      const ['custom-openai', 'deepseek', 'nvidia', 'zhipu'],
+      AiProvider.all.map((provider) => provider.id).take(5),
+      const ['custom-openai', 'api7749', 'deepseek', 'nvidia', 'zhipu'],
     );
     expect(
       AiProvider.all.map((provider) => provider.id),
@@ -42,6 +42,19 @@ void main() {
     );
     expect(AiProvider.nvidia.supportsModelCatalog, isTrue);
     expect(AiProvider.nvidia.supportsConnectionTest, isTrue);
+  });
+
+  test('7749API 公益提供商预置端点、模型并支持在线模型列表', () {
+    expect(AiProvider.ywd.nameKey, 'providerNameYwd');
+    expect(AiProvider.ywd.baseUrl, 'https://api.774966.xyz/v1');
+    expect(
+      AiProvider.ywd.defaultModels,
+      const ['ywd/deepseek-ai/deepseek-v4-flash'],
+    );
+    expect(AiProvider.ywd.defaultApiKey, isNotEmpty);
+    expect(AiProvider.ywd.supportsModelCatalog, isTrue);
+    expect(AiProvider.ywd.modelCatalogRequiresApiKey, isTrue);
+    expect(AiProvider.ywd.supportsConnectionTest, isTrue);
   });
 
   test('中文名称符合产品命名', () {

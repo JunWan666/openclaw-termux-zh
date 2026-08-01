@@ -23,8 +23,34 @@ class NativeBridge {
     return await _channel.invokeMethod('getNativeLibDir');
   }
 
+  static Future<Map<String, dynamic>> getRuntimeCompatibilityInfo() async {
+    final result = await _channel.invokeMethod('getRuntimeCompatibilityInfo');
+    return Map<String, dynamic>.from(result as Map);
+  }
+
   static Future<Map<String, dynamic>> getWebViewPackageInfo() async {
     final result = await _channel.invokeMethod('getWebViewPackageInfo');
+    return Map<String, dynamic>.from(result);
+  }
+
+  static Future<Map<String, dynamic>> getNpmCacheInfo() async {
+    final result = await _channel.invokeMethod('getNpmCacheInfo');
+    return Map<String, dynamic>.from(result);
+  }
+
+  static Future<bool> setNpmCacheLimit(int limitMiB) async {
+    return await _channel.invokeMethod(
+      'setNpmCacheLimit',
+      {'limitMiB': limitMiB},
+    );
+  }
+
+  static Future<bool> clearNpmCache() async {
+    return await _channel.invokeMethod('clearNpmCache');
+  }
+
+  static Future<Map<String, dynamic>> trimNpmCache() async {
+    final result = await _channel.invokeMethod('trimNpmCache');
     return Map<String, dynamic>.from(result);
   }
 
@@ -39,6 +65,18 @@ class NativeBridge {
 
   static Future<bool> extractRootfs(String tarPath) async {
     return await _channel.invokeMethod('extractRootfs', {'tarPath': tarPath});
+  }
+
+  static Future<bool> commitRootfsInstall() async {
+    return await _channel.invokeMethod('commitRootfsInstall');
+  }
+
+  static Future<bool> rollbackRootfsInstall() async {
+    return await _channel.invokeMethod('rollbackRootfsInstall');
+  }
+
+  static Future<bool> recoverInterruptedRootfsInstall() async {
+    return await _channel.invokeMethod('recoverInterruptedRootfsInstall');
   }
 
   static Future<String> runInProot(String command, {int timeout = 900}) async {
@@ -93,6 +131,13 @@ class NativeBridge {
       'assetPath': assetPath,
       'destinationPath': destinationPath,
     });
+  }
+
+  static Future<int> restoreBundledOpenClawPackage(String assetPath) async {
+    return await _channel.invokeMethod(
+      'restoreBundledOpenClawPackage',
+      {'assetPath': assetPath},
+    );
   }
 
   static Future<int> extractDebPackages() async {
@@ -252,6 +297,23 @@ class NativeBridge {
       'id': id,
       'reportJson': reportJson,
     });
+  }
+
+  static Future<bool> hasCachedOpenClawVersion(String version) async {
+    return await _channel.invokeMethod(
+      'hasCachedOpenClawVersion',
+      {'version': version},
+    );
+  }
+
+  static Future<int> restoreCachedOpenClawVersion({
+    required String id,
+    required String version,
+  }) async {
+    return await _channel.invokeMethod(
+      'restoreCachedOpenClawVersion',
+      {'id': id, 'version': version},
+    );
   }
 
   static Future<bool> updateOpenClawUpgrade({

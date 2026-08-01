@@ -10,7 +10,20 @@ import 'package:openclaw/models/openclaw_version_policy.dart';
 import 'package:openclaw/services/openclaw_version_service.dart';
 
 void main() {
-  test('版本选择只为 3.13 和 3.23 显示推荐标签', () {
+  test('Node runtime diagnostics preserve execution failures', () {
+    const failed = InstalledNodeRuntime(
+      path: '/usr/local/bin/node',
+      failure: 'ABI_MISMATCH exit code 126: Exec format error',
+    );
+    expect(failed.diagnosticDescription, contains('ABI_MISMATCH'));
+    expect(failed.diagnosticDescription, contains('exit code 126'));
+    expect(
+      const InstalledNodeRuntime().diagnosticDescription,
+      'node binary not found',
+    );
+  });
+
+  test('3.13、3.23 和当前最新 7.1 显示推荐标签', () {
     final l10n = AppLocalizations(const Locale('zh'));
 
     expect(
@@ -25,9 +38,9 @@ void main() {
       formatOpenClawReleaseLabel(
         l10n,
         '2026.7.1',
-        channel: OpenClawReleaseChannel.historical,
+        channel: OpenClawReleaseChannel.experimental,
       ),
-      '2026.7.1',
+      '2026.7.1 (最新 · 推荐)',
     );
   });
 
@@ -236,8 +249,7 @@ void main() {
   });
 
   group('OpenClawVersionService catalog', () {
-    test('online catalog pins Stable first and marks npm latest Experimental',
-        () async {
+    test('online catalog marks the newest formal release as latest', () async {
       final client = MockClient((request) async {
         if (request.url.path.endsWith('/latest')) {
           return http.Response(
@@ -272,6 +284,12 @@ void main() {
                     'node': '>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0',
                   },
                 },
+                '2026.7.1': {
+                  'version': '2026.7.1',
+                  'engines': {
+                    'node': '>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0',
+                  },
+                },
               },
             }),
             200,
@@ -287,13 +305,14 @@ void main() {
       expect(catalog.warning, isNull);
       expect(
         catalog.releases.map((release) => release.version).take(3),
-        const ['2026.3.23', '2026.7.1-2', '2026.3.13'],
+        const ['2026.3.23', '2026.7.1', '2026.7.1-2'],
       );
       expect(catalog.stableRelease.channel, OpenClawReleaseChannel.stable);
       expect(
         catalog.experimentalRelease?.channel,
         OpenClawReleaseChannel.experimental,
       );
+      expect(catalog.experimentalRelease?.version, '2026.7.1');
       expect(
         catalog.experimentalRelease?.nodeValidationStatus,
         OpenClawNodeValidationStatus.verified,

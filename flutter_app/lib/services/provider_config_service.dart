@@ -17,6 +17,7 @@ class ProviderConfigService {
   static const _localGatewayMode = 'local';
   static const _defaultGatewayPort = 18789;
   static const _defaultWorkspace = '/root/.openclaw/workspace';
+  static const _defaultProvider = AiProvider.ywd;
   static const _hiddenBuiltInProviderIds = {'openrouter', 'xai'};
 
   static final Set<String> _builtInProviderIds = {
@@ -741,6 +742,31 @@ class ProviderConfigService {
     final defaults = _ensureMapSectionForInitialization(agents, 'defaults');
     if (!_isNonEmptyString(defaults['workspace'])) {
       defaults['workspace'] = _defaultWorkspace;
+    }
+
+    if (!_hasSavedModelOrProviderConfig(config)) {
+      final defaultModel = _defaultProvider.defaultModels.first;
+      final defaultApiKey = _defaultProvider.defaultApiKey;
+      if (_isNonEmptyString(defaultApiKey)) {
+        final models = _ensureModelsSection(config);
+        models['mode'] ??= 'merge';
+        final providers = _ensureProvidersSection(config);
+        providers[_defaultProvider.id] = _providerEntryForSave(
+          provider: _defaultProvider,
+          apiKey: defaultApiKey!,
+          baseUrl: _defaultProvider.baseUrl,
+          model: defaultModel,
+        );
+        final modelRef = _primaryModelForProvider(
+          _defaultProvider,
+          defaultModel,
+        );
+        _ensureDefaultModelSection(config)['primary'] = modelRef;
+        _ensureDefaultModelsAllowList(config).putIfAbsent(
+          modelRef,
+          () => <String, dynamic>{},
+        );
+      }
     }
 
     if (before == jsonEncode(config)) {

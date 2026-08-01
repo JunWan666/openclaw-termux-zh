@@ -9,6 +9,7 @@ const String defaultRecommendedOpenClawReleaseVersion =
 const Set<String> recommendedOpenClawReleaseVersions = {
   '2026.3.13',
   OpenClawReleasePolicy.stableVersion,
+  OpenClawReleasePolicy.knownLatestVersion,
 };
 
 bool isRecommendedOpenClawReleaseVersion(String version) {
@@ -20,6 +21,9 @@ String formatOpenClawReleaseLabel(
   String version, {
   OpenClawReleaseChannel channel = OpenClawReleaseChannel.historical,
 }) {
+  if (channel == OpenClawReleaseChannel.experimental) {
+    return '$version (${l10n.t('openClawVersionLatest')} · ${l10n.t('openClawVersionRecommended')})';
+  }
   if (isRecommendedOpenClawReleaseVersion(version)) {
     return '$version (${l10n.t('openClawVersionRecommended')})';
   }
@@ -115,7 +119,7 @@ class OpenClawInstallOptions {
 
   Map<String, String> get installEnvironment => {
         'npm_package_config_node_gyp_jobs': '$resolvedParallelJobs',
-        'npm_config_cache': '/tmp/npm-cache',
+        'npm_config_cache': '/root/.cache/npm',
         'npm_config_prefer_offline': 'true',
         'npm_config_update_notifier': 'false',
         'npm_config_audit': 'false',

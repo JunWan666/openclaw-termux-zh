@@ -5,9 +5,9 @@
     <a href="README.md">简体中文</a> | <a href="docs/README_en.md">English</a>
   </p>
   <p>面向中文用户维护与分发的 OpenClaw Android 独立整合版本</p>
-  <p>内置 Ubuntu RootFS、Node.js、OpenClaw 安装与管理能力，重点优化中文文档、移动端配置体验与 Android 原生集成；大体积运行时资源改为安装时下载或手动导入。</p>
+  <p>内置 Ubuntu RootFS、Node.js 与 OpenClaw 完整运行环境，重点优化中文文档、移动端配置体验与 Android 原生集成。</p>
   <p>
-    <img src="https://img.shields.io/badge/Release-v2.0.3-2563EB?style=for-the-badge" alt="Release v2.0.3" />
+    <img src="https://img.shields.io/badge/Release-v3.0.0-2563EB?style=for-the-badge" alt="Release v3.0.0" />
     <img src="https://img.shields.io/github/stars/JunWan666/openclaw-termux-zh?style=for-the-badge&logo=github" alt="GitHub stars" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
@@ -42,7 +42,8 @@
 
 > [!IMPORTANT]
 > - **本仓库不是 OpenClaw 官方 Android 发布渠道，升级前请自行评估兼容性与风险**。
-> - APK 不再内置大体积 RootFS / Node.js 运行时包；首次安装会在线下载并解压 Ubuntu RootFS、Node.js 与 OpenClaw，也可以在“预构建资源配置”页填写 GitHub 资源链接或选择本地压缩包。
+> - v3.0.0 ARM64 完整版 APK 内置 Ubuntu RootFS、Node.js 与 OpenClaw 2026.3.23；首次初始化从安装包本地部署，不下载这些核心组件。
+> - v3.0.0 启用新的长期正式签名，不能覆盖安装 2.x。旧用户必须先导出备份，再卸载旧版、安装 3.0.0 并导入备份。
 > - 导入配置或工作目录备份时，会覆盖当前 `/root/.openclaw` 下的核心数据；恢复前请先确认自己是否需要另做备份。
 > - 节点能力中的 `Canvas` 目前仍是未实现状态，README 会展示能力规划，但这项功能现在不能当成已可用能力使用。
 > - 如果要长时间运行 Gateway、做局域网访问或后台保持会话，建议**关闭系统电池优化**，并正确授予存储等必要权限。
@@ -66,8 +67,8 @@
 
 | 通道 | OpenClaw 版本 | 默认行为 | Gateway 协议 | Node.js |
 | --- | --- | --- | --- | --- |
-| Stable | `2026.3.23` | 默认推荐；离线时仍可选择 | 兼容 v3 | arm64/x86_64 使用已验证的 `24.18.1`；armv7 使用 `22.22.2` |
-| Experimental | npm `latest`，当前为 `2026.7.1-2` | 仅在线显示，不自动替代 Stable | 优先 v4，仅在明确协议不匹配时安全降级 | 要求 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`；arm64/x86_64 使用 `24.18.1`，armv7 暂不满足 |
+| 内置稳定版 | `2026.3.23` | APK 本地恢复；不下载、不运行 npm install | 兼容 v3 | ARM64 使用已验证的 `24.18.1` |
+| 当前最新正式版 | `2026.7.1` | 标记“最新 · 推荐”，首次升级需要联网 | 优先 v4，仅在明确协议不匹配时安全降级 | 要求 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0` |
 | 历史版本 | npm 中 `2026.3.13` 及之后的其他版本 | 继续允许手动选择，不标记为 Stable/Experimental；更早版本不再显示 | 依据服务端能力协商 | 安装前按完整 `engines.node` 范围校验 |
 
 版本和运行时兼容层还包含以下保护：
@@ -134,63 +135,51 @@
 
 ## 当前正式发布版本
 
-- 版本：`v2.0.3`
-- 发布说明：[release/v2.0.3/Release.zh.md](release/v2.0.3/Release.zh.md)
+- 版本：`v3.0.0`
+- 发布说明：[release/v3.0.0/Release.zh.md](release/v3.0.0/Release.zh.md)
 - 改动日志：[CHANGELOG.md](CHANGELOG.md)
-- v2.0.3 发布页：<https://github.com/JunWan666/openclaw-termux-zh/releases/tag/v2.0.3>
+- v3.0.0 发布页：<https://github.com/JunWan666/openclaw-termux-zh/releases/tag/v3.0.0>
 
-> 不确定版本该下哪个时，请优先下载上方 v2.0.3 发布页中标注的文件；本 README 当前锁定 v2.0.3。
+> v2.0.3 Release 已撤回。v3.0.0 当前只发布 ARM64 完整版。
 
-## v2.0.3 重点亮点
+## v3.0.0 重点亮点
 
-- OpenClaw 版本目录采用 Stable、Experimental 与历史版本策略，`2026.3.23` 继续作为默认稳定版本，并隐藏 `2026.3.13` 以前的版本。
-- 新增 Gateway v3/v4 协议兼容层、完整 Node.js `engines` 校验、受保护升级事务和中断回滚。
-- 启动时可以识别完整、可修复、升级中断和人工恢复环境；自动修复不会删除 RootFS 或 `/root/.openclaw` 用户数据。
-- `2026.3.13` 及之后版本自动创建最小配置，首次初始化不再要求用户完成终端式 Onboarding，完成后直接进入首页配置 API。
-- AI 提供商重新排序并更新 DeepSeek、英伟达（NVIDIA 免费）和智谱；移除 OpenRouter 与 xAI。
-- DeepSeek、NVIDIA 等提供商支持快捷获取 Key、拉取模型列表和连接测试。
-- “自定义 OpenAI 兼容模型”支持填写 Base URL 与 API Key 后自动拉取 `/models`，并可从列表选择或继续手工填写模型 ID。
-- 自定义 Provider Base URL 不再被自动追加 `/v1`，保存、迁移、测试和重新加载保持用户原始路径。
-- Gateway 冷启动可取消并清理残留 PRoot/OpenClaw 进程，减少启动失败后的后台残留。
-- 完整测试集共 119 项通过，覆盖版本策略、协议协商、环境恢复、升级保护和 Provider 配置。
+- ARM64 APK 内置 Ubuntu 24.04.3、Node.js 24.18.1、npm 11.16.0 和 OpenClaw 2026.3.23，首次初始化不再下载或执行完整 npm install。
+- 重构欢迎、初始化进度、部署动态和完成页面，提供阶段状态、平滑进度与脱敏日志。
+- 默认配置 `7749API（ywd 公益）`，支持在线拉取模型列表和切换模型。
+- OpenClaw 2026.7.1 标记“最新 · 推荐”；内置 2026.3.23 可快速本地恢复。
+- 升降级使用保护事务并缓存完整版本快照，再次切回可跳过下载和 npm install。
+- npm 持久缓存默认 1 GB，支持自定义容量并按旧文件渐进淘汰。
+- 优化 Gateway 冷启动、Web 控制台连接、配置迁移和页面提示位置。
+- 完整 Flutter 测试集共 139 项通过。
 
 ## 下载指南
 
-> 不确定手机架构时，优先下载 `universal.apk`。
+> 当前内置运行环境仅支持 ARM64，不发布 Universal、ARMv7 或 x86_64 完整版。
 
 | 文件 | 适用设备 | 大小 | 下载 |
 | --- | --- | ---: | --- |
-| `OpenClaw-v2.0.3-universal.apk` | 不确定架构、想直接安装 | 46.78 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-universal.apk) |
-| `OpenClaw-v2.0.3-arm64-v8a.apk` | 大多数现代 Android 手机 | 27.96 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-arm64-v8a.apk) |
-| `OpenClaw-v2.0.3-armeabi-v7a.apk` | 较老的 32 位 ARM 设备 | 27.70 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-armeabi-v7a.apk) |
-| `OpenClaw-v2.0.3-x86_64.apk` | 模拟器或 x86_64 设备 | 28.19 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-x86_64.apk) |
-| `OpenClaw-v2.0.3.aab` | 应用商店分发 | 67.03 MB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3.aab) |
+| `OpenClaw-v3.0.0-arm64-v8a-full.apk` | Android 10+ ARM64 手机和平板 | 331.90 MiB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v3.0.0/OpenClaw-v3.0.0-arm64-v8a-full.apk) |
 
 ## 快速开始
 
 ### 方式一：Android APK（推荐）
 
-1. 从上方“下载指南”中选择适合自己设备的 APK。
-2. 安装后打开应用，并授予必要权限。
-3. 如需指定 OpenClaw 版本，可在安装页顶部选择版本后再点击“开始安装”。
-4. 完成 Onboarding、AI 提供商与 API Key 配置。
-5. 启动 Gateway。
-6. 点击首页地址，或在浏览器访问 `http://127.0.0.1:18789` 打开 Web 控制台。
+1. 旧用户先通过备份中心导出重要数据，再卸载旧签名版本。
+2. 安装 ARM64 完整版，打开应用并完成本地初始化。
+3. 在完成页点击“进入 OpenClaw”，按需导入旧版备份。
+4. 启动 Gateway，点击首页地址打开 Web 控制台。
 
 ### 方式二：源码构建
 
 ```bash
 git clone https://github.com/JunWan666/openclaw-termux-zh.git
-cd openclaw-termux-zh/flutter_app
-flutter pub get
-flutter build apk --release
+cd openclaw-termux-zh
+git lfs pull
+python scripts/build_release.py --version 3.0.0 --build-number 81 --non-interactive
 ```
 
-如需直接生成发布目录中的 APK / AAB，可使用仓库自带脚本：
-
-```bash
-python scripts/build_release.py --version 2.0.3 --build-number 78
-```
+发布脚本只生成与内置运行环境匹配的 ARM64 完整版 APK。
 
 ## 交流反馈
 
@@ -206,11 +195,17 @@ python scripts/build_release.py --version 2.0.3 --build-number 78
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/jsonl_format_guide.md](docs/jsonl_format_guide.md)
 - [docs/README_en.md](docs/README_en.md)
-- [release/v2.0.3/Release.zh.md](release/v2.0.3/Release.zh.md)
+- [release/v3.0.0/Release.zh.md](release/v3.0.0/Release.zh.md)
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=JunWan666/openclaw-termux-zh&type=Date)](https://star-history.com/#JunWan666/openclaw-termux-zh&Date)
+<a href="https://www.star-history.com/?repos=JunWan666%2Fopenclaw-termux-zh&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=JunWan666/openclaw-termux-zh&type=date&theme=dark&legend=top-left&sealed_token=3fhNBkM05BEaiplfXAQqss3WKDVm07YucoWP4Jj7xAMYeoamPxoKKWjHWe1351GtIRlOHuOr_niq9R27sAR5kVqT10ie6fhRs4emcBTEDc3P4U9dDCd79ENAY5xqlB_Svvt8zUy-cNKKHOYn4sDEO0dgvKhyJkEFGonI31o771eyrAHj76hXSl03YvTV" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=JunWan666/openclaw-termux-zh&type=date&legend=top-left&sealed_token=3fhNBkM05BEaiplfXAQqss3WKDVm07YucoWP4Jj7xAMYeoamPxoKKWjHWe1351GtIRlOHuOr_niq9R27sAR5kVqT10ie6fhRs4emcBTEDc3P4U9dDCd79ENAY5xqlB_Svvt8zUy-cNKKHOYn4sDEO0dgvKhyJkEFGonI31o771eyrAHj76hXSl03YvTV" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=JunWan666/openclaw-termux-zh&type=date&legend=top-left&sealed_token=3fhNBkM05BEaiplfXAQqss3WKDVm07YucoWP4Jj7xAMYeoamPxoKKWjHWe1351GtIRlOHuOr_niq9R27sAR5kVqT10ie6fhRs4emcBTEDc3P4U9dDCd79ENAY5xqlB_Svvt8zUy-cNKKHOYn4sDEO0dgvKhyJkEFGonI31o771eyrAHj76hXSl03YvTV" />
+ </picture>
+</a>
 
 ## 免责声明
 

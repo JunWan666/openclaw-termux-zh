@@ -27,6 +27,7 @@ class SetupWizardScreen extends StatefulWidget {
   @override
   State<SetupWizardScreen> createState() => _SetupWizardScreenState();
 }
+
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
   final OpenClawVersionService _versionService = OpenClawVersionService();
 
@@ -1531,8 +1532,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                 ),
               ),
             ],
-            if (selectedRelease.channel ==
-                OpenClawReleaseChannel.experimental) ...[
+            if (OpenClawReleasePolicy.isPrerelease(
+              selectedRelease.version,
+            )) ...[
               const SizedBox(height: 6),
               Text(
                 l10n.t('setupWizardExperimentalWarning'),
@@ -1628,8 +1630,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   String? _localizedSetupDetail(AppLocalizations l10n, String? detail) {
     return InstallStatusMessageFormatter.localizeDetail(l10n, detail);
   }
-
 }
+
 class _BootstrapResourceConfig {
   final String prebuiltRootfsUrl;
   final String? prebuiltRootfsArchivePath;
@@ -2013,6 +2015,7 @@ class _BootstrapResourceConfigScreenState
     );
   }
 }
+
 class _SetupStepCardData {
   final int number;
   final IconData icon;

@@ -16,6 +16,7 @@ enum OpenClawNodeValidationStatus {
 class OpenClawReleasePolicy {
   static const String minimumVisibleVersion = '2026.3.13';
   static const String stableVersion = '2026.3.23';
+  static const String knownLatestVersion = '2026.7.1';
   static const String stableNodeRequirement = '>=22.16.0';
 
   static OpenClawReleaseChannel channelFor(
@@ -26,8 +27,10 @@ class OpenClawReleasePolicy {
     if (normalized == stableVersion) {
       return OpenClawReleaseChannel.stable;
     }
-    if (experimentalVersion != null &&
-        normalized == experimentalVersion.trim()) {
+    final latest = experimentalVersion?.trim().isNotEmpty == true
+        ? experimentalVersion!.trim()
+        : knownLatestVersion;
+    if (normalized == latest) {
       return OpenClawReleaseChannel.experimental;
     }
     return OpenClawReleaseChannel.historical;

@@ -10,7 +10,7 @@
     "providers": {
       "7749api": {
         "baseUrl": "https://api.774966.xyz/v1",
-        "apiKey": "sk-OKKVZAdA1Njckk7T48FWJbSK6WkAma8KT68M2SFqeToJ7tt7",
+        "apiKey": "sk-your-api-key",
         "api": "openai-completions",
         "models": [
           {

@@ -50,4 +50,19 @@ void main() {
     expect(prefs.nodeDeviceTokenRole, isNull);
     expect(prefs.nodeDeviceTokenScopes, isEmpty);
   });
+
+  test('Web dashboard remembers only supported loopback hosts', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = PreferencesService();
+    await prefs.init();
+
+    prefs.webDashboardPreferredHost = 'localhost';
+    expect(prefs.webDashboardPreferredHost, 'localhost');
+
+    prefs.webDashboardPreferredHost = '127.0.0.1';
+    expect(prefs.webDashboardPreferredHost, '127.0.0.1');
+
+    prefs.webDashboardPreferredHost = 'example.com';
+    expect(prefs.webDashboardPreferredHost, isNull);
+  });
 }

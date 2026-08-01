@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models/openclaw_install_options.dart';
 import '../models/openclaw_version_policy.dart';
+import 'bundled_runtime_service.dart';
 import 'native_bridge.dart';
 import 'proot_dns_service.dart';
 import 'upgrade_config_guard.dart';
@@ -329,8 +330,8 @@ class OpenClawVersionService {
       }
 
       return InstalledNodeRuntime(path: path, version: version);
-    } catch (_) {
-      return const InstalledNodeRuntime();
+    } catch (error) {
+      return InstalledNodeRuntime(failure: error.toString());
     }
   }
 
@@ -457,9 +458,20 @@ class OpenClawVersionService {
       warning = '$error';
     }
 
+    var catalogLatestRelease = latestRelease;
+    if (latestRelease != null &&
+        OpenClawReleasePolicy.isPrerelease(latestRelease.version)) {
+      for (final release in availableReleases) {
+        if (!OpenClawReleasePolicy.isPrerelease(release.version)) {
+          catalogLatestRelease = release;
+          break;
+        }
+      }
+    }
+
     return buildReleaseCatalog(
       availableReleases: availableReleases,
-      latestRelease: latestRelease,
+      latestRelease: catalogLatestRelease,
       arch: resolvedArch,
       pinnedVersions: pinnedVersions,
       warning: warning,
@@ -607,6 +619,14 @@ class OpenClawVersionService {
         throw Exception('Version cannot be empty');
       }
 
+      if (await _canRestoreBundledVersion(normalizedVersion)) {
+        await _restoreBundledVersion(
+          normalizedVersion,
+          onProgress: onProgress,
+        );
+        return;
+      }
+
       _emitProgress(
         onProgress,
         progress: 0.02,
@@ -623,6 +643,15 @@ class OpenClawVersionService {
         progressEnd: 0.28,
       );
 
+      final sourceVersion = await readInstalledVersion();
+      final isVersionSwitch = sourceVersion != null &&
+          !isSameVersion(
+            installedVersion: sourceVersion,
+            targetVersion: normalizedVersion,
+          );
+      final useVersionCache = isVersionSwitch &&
+          await NativeBridge.hasCachedOpenClawVersion(normalizedVersion);
+
       final packageFile = File(
           '${await NativeBridge.getFilesDir()}/rootfs/ubuntu/tmp/openclaw-$normalizedVersion.tgz');
       packageFile.parent.createSync(recursive: true);
@@ -633,7 +662,7 @@ class OpenClawVersionService {
       }
 
       final tarballUrl = release.tarballUrl?.trim();
-      if (tarballUrl != null && tarballUrl.isNotEmpty) {
+      if (!useVersionCache && tarballUrl != null && tarballUrl.isNotEmpty) {
         if (!packageFile.existsSync() || packageFile.lengthSync() <= 0) {
           await _downloadWithProgress(
             url: tarballUrl,
@@ -658,12 +687,6 @@ class OpenClawVersionService {
       final packageSpecifier = tarballUrl != null && tarballUrl.isNotEmpty
           ? '/tmp/${packageFile.uri.pathSegments.last}'
           : 'openclaw@$normalizedVersion';
-      final sourceVersion = await readInstalledVersion();
-      final isVersionSwitch = sourceVersion != null &&
-          !isSameVersion(
-            installedVersion: sourceVersion,
-            targetVersion: normalizedVersion,
-          );
       Map<String, dynamic> originalConfig = const {};
       if (isVersionSwitch) {
         final originalConfigContent = await NativeBridge.readRootfsFile(
@@ -687,20 +710,42 @@ class OpenClawVersionService {
           throw Exception('Upgrade transaction was not created');
         }
       }
-      final installCommand =
-          _buildInstallCommand(packageSpecifier, installOptions);
-      await _runEstimatedProgress(
-        onProgress: onProgress,
-        startProgress: 0.54,
-        targetProgress: 0.88,
-        message: 'Installing OpenClaw dependencies...',
-        detail: captureLiveLogs ? 'Running npm install for OpenClaw...' : null,
-        estimatedDuration: const Duration(minutes: 3),
-        task: () => NativeBridge.runInProot(
-          installCommand,
-          timeout: 1800,
-        ),
-      );
+      if (useVersionCache) {
+        final transactionId = upgradeTransactionId;
+        if (transactionId == null) {
+          throw Exception(
+              'Version cache restore requires an upgrade transaction');
+        }
+        await _runEstimatedProgress(
+          onProgress: onProgress,
+          startProgress: 0.54,
+          targetProgress: 0.88,
+          message: 'Restoring cached OpenClaw version...',
+          detail:
+              'Using the complete local version snapshot. npm install is skipped.',
+          estimatedDuration: const Duration(seconds: 12),
+          task: () => NativeBridge.restoreCachedOpenClawVersion(
+            id: transactionId,
+            version: normalizedVersion,
+          ),
+        );
+      } else {
+        final installCommand =
+            _buildInstallCommand(packageSpecifier, installOptions);
+        await _runEstimatedProgress(
+          onProgress: onProgress,
+          startProgress: 0.54,
+          targetProgress: 0.88,
+          message: 'Installing OpenClaw dependencies...',
+          detail:
+              captureLiveLogs ? 'Running npm install for OpenClaw...' : null,
+          estimatedDuration: const Duration(minutes: 3),
+          task: () => NativeBridge.runInProot(
+            installCommand,
+            timeout: 1800,
+          ),
+        );
+      }
 
       _emitProgress(
         onProgress,
@@ -848,10 +893,12 @@ class OpenClawVersionService {
         );
         upgradeCommitted = true;
       }
+      // Keep the downloaded version archive. A later 3.23 -> 7.x switch can
+      // reuse it without downloading the same OpenClaw release again. npm's
+      // cache only stores dependency artifacts; it is not a replacement for
+      // this top-level package archive.
       try {
-        if (packageFile.existsSync()) {
-          packageFile.deleteSync();
-        }
+        await NativeBridge.trimNpmCache();
       } catch (_) {}
       _emitProgress(
         onProgress,
@@ -867,6 +914,126 @@ class OpenClawVersionService {
       rethrow;
     } finally {
       await logSubscription?.cancel();
+    }
+  }
+
+  Future<bool> _canRestoreBundledVersion(String version) async {
+    try {
+      final manifest = await BundledRuntimeService().loadManifest();
+      return isSameVersion(
+        installedVersion: manifest.openclawVersion,
+        targetVersion: version,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _restoreBundledVersion(
+    String version, {
+    OpenClawInstallProgressCallback? onProgress,
+  }) async {
+    final bundledRuntime = BundledRuntimeService();
+    final manifest = await bundledRuntime.loadManifest();
+    String? transactionId;
+
+    try {
+      _emitProgress(
+        onProgress,
+        progress: 0.05,
+        message: 'Preparing bundled OpenClaw $version...',
+        detail:
+            'Using the runtime included in this APK; no download is needed.',
+      );
+      try {
+        await NativeBridge.stopGateway();
+      } catch (_) {}
+
+      await NativeBridge.recoverInterruptedRootfsInstall();
+      final sourceVersion = await readInstalledVersion();
+      if (sourceVersion == null || sourceVersion.isEmpty) {
+        throw Exception('Current OpenClaw version is unavailable');
+      }
+      final transaction = await NativeBridge.beginOpenClawUpgrade(
+        sourceVersion: sourceVersion,
+        targetVersion: version,
+      );
+      transactionId = transaction['id'] as String?;
+      if (transactionId == null || transactionId.isEmpty) {
+        throw Exception('Bundled downgrade transaction was not created');
+      }
+
+      _emitProgress(
+        onProgress,
+        progress: 0.22,
+        message: 'Protecting existing OpenClaw data...',
+      );
+
+      await _runEstimatedProgress(
+        onProgress: onProgress,
+        startProgress: 0.30,
+        targetProgress: 0.88,
+        message: 'Restoring bundled OpenClaw $version...',
+        detail: 'Keeping configuration, agents, workspace, skills, and memory.',
+        estimatedDuration: const Duration(seconds: 20),
+        task: () => NativeBridge.restoreBundledOpenClawPackage(
+          bundledRuntime.assetPathFor(manifest),
+        ),
+      );
+
+      await NativeBridge.createBinWrappers('openclaw', force: true);
+      final restoredVersion = await readInstalledVersion();
+      if (!isSameVersion(
+        installedVersion: restoredVersion,
+        targetVersion: version,
+      )) {
+        throw Exception(
+          'Bundled version verification failed. Expected $version, '
+          'found ${restoredVersion ?? 'unknown'}',
+        );
+      }
+      await NativeBridge.runInProot('openclaw --version', timeout: 30);
+      await NativeBridge.updateOpenClawUpgrade(
+        id: transactionId,
+        phase: 'packageInstalled',
+        detailsJson: jsonEncode({'installedVersion': restoredVersion}),
+      );
+      final validation = await NativeBridge.validateOpenClawUpgrade(
+        transactionId,
+      );
+      if (validation['valid'] != true) {
+        throw Exception(
+          'Protected downgrade paths are missing: ${validation['missing']}',
+        );
+      }
+      await NativeBridge.updateOpenClawUpgrade(
+        id: transactionId,
+        phase: 'verified',
+        detailsJson: jsonEncode({'protectedPathsValid': true}),
+      );
+      await NativeBridge.commitOpenClawUpgrade(
+        id: transactionId,
+        reportJson: jsonEncode({
+          'sourceVersion': sourceVersion,
+          'targetVersion': restoredVersion,
+          'source': 'bundled-runtime-package',
+        }),
+      );
+      transactionId = null;
+
+      _emitProgress(
+        onProgress,
+        progress: 1,
+        message: 'Bundled OpenClaw $version restored',
+        detail: 'Completed locally without downloading npm packages.',
+      );
+    } catch (_) {
+      if (transactionId != null) {
+        try {
+          await NativeBridge.rollbackOpenClawUpgrade(transactionId);
+        } catch (_) {}
+      }
+      rethrow;
     }
   }
 
@@ -915,7 +1082,7 @@ class OpenClawVersionService {
     if (!_nodeSatisfiesRequirement(refreshedRuntime.version, requirement)) {
       throw Exception(
         'Node.js update incomplete. Required: ${requirement ?? 'unknown'}, '
-        'found: ${refreshedRuntime.version ?? 'not detected'}',
+        'found: ${refreshedRuntime.diagnosticDescription}',
       );
     }
   }
@@ -1087,11 +1254,24 @@ class OpenClawVersionService {
 class InstalledNodeRuntime {
   final String? path;
   final String? version;
+  final String? failure;
 
   const InstalledNodeRuntime({
     this.path,
     this.version,
+    this.failure,
   });
+
+  String get diagnosticDescription {
+    if (version != null && version!.isNotEmpty) return version!;
+    if (failure != null && failure!.isNotEmpty) {
+      return 'execution failed: $failure';
+    }
+    if (path != null && path!.isNotEmpty) {
+      return 'binary found at $path but produced no version output';
+    }
+    return 'node binary not found';
+  }
 }
 
 class OpenClawInstallProgress {

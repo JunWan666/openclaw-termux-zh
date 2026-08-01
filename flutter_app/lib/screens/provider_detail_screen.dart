@@ -60,8 +60,8 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _apiKeyController =
-        TextEditingController(text: widget.existingApiKey ?? '');
+    _apiKeyController = TextEditingController(
+        text: widget.existingApiKey ?? widget.provider.defaultApiKey ?? '');
     _baseUrlController = TextEditingController(
       text: widget.existingBaseUrl ?? widget.provider.baseUrl,
     );

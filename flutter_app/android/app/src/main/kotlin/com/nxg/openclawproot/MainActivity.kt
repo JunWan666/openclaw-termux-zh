@@ -19,6 +19,9 @@ import androidx.core.content.ContextCompat
 import android.app.Activity
 import android.content.Context
 import android.os.Environment
+import android.os.StatFs
+import android.system.Os
+import android.system.OsConstants
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -97,8 +100,58 @@ class MainActivity : FlutterActivity() {
                 "getNativeLibDir" -> {
                     result.success(nativeLibDir)
                 }
+                "getRuntimeCompatibilityInfo" -> {
+                    val pageSize = try {
+                        Os.sysconf(OsConstants._SC_PAGESIZE)
+                    } catch (_: Exception) {
+                        -1L
+                    }
+                    val storage = StatFs(filesDir)
+                    result.success(
+                        mapOf(
+                            "supportedAbis" to Build.SUPPORTED_ABIS.toList(),
+                            "androidSdk" to Build.VERSION.SDK_INT,
+                            "pageSizeBytes" to pageSize,
+                            "availableBytes" to storage.availableBytes,
+                        )
+                    )
+                }
                 "getWebViewPackageInfo" -> {
                     result.success(getWebViewPackageInfo())
+                }
+                "getNpmCacheInfo" -> {
+                    Thread {
+                        val info = mapOf(
+                            "sizeBytes" to NpmCacheManager.sizeBytes(applicationContext),
+                            "limitMiB" to NpmCacheManager.getLimitMiB(applicationContext),
+                        )
+                        runOnUiThread { result.success(info) }
+                    }.start()
+                }
+                "setNpmCacheLimit" -> {
+                    val limitMiB = call.argument<Int>("limitMiB")
+                    if (limitMiB == null) {
+                        result.error("INVALID_ARGS", "limitMiB required", null)
+                    } else {
+                        try {
+                            NpmCacheManager.setLimitMiB(applicationContext, limitMiB)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("INVALID_ARGS", e.message, null)
+                        }
+                    }
+                }
+                "clearNpmCache" -> {
+                    Thread {
+                        val cleared = NpmCacheManager.clear(applicationContext)
+                        runOnUiThread { result.success(cleared) }
+                    }.start()
+                }
+                "trimNpmCache" -> {
+                    Thread {
+                        val info = NpmCacheManager.trimIfNeeded(applicationContext)
+                        runOnUiThread { result.success(info) }
+                    }.start()
                 }
                 "isBootstrapComplete" -> {
                     result.success(bootstrapManager.isBootstrapComplete())
@@ -121,6 +174,30 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "tarPath required", null)
                     }
                 }
+                "commitRootfsInstall" -> {
+                    try {
+                        bootstrapManager.commitRootfsInstall()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("ROOTFS_COMMIT_ERROR", e.message, null)
+                    }
+                }
+                "rollbackRootfsInstall" -> {
+                    try {
+                        bootstrapManager.rollbackRootfsInstall()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("ROOTFS_ROLLBACK_ERROR", e.message, null)
+                    }
+                }
+                "recoverInterruptedRootfsInstall" -> {
+                    try {
+                        bootstrapManager.recoverInterruptedRootfsInstall()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("ROOTFS_RECOVERY_ERROR", e.message, null)
+                    }
+                }
                 "runInProot" -> {
                     val command = call.argument<String>("command")
                     val timeout = call.argument<Int>("timeout")?.toLong() ?: 900L
@@ -131,6 +208,18 @@ class MainActivity : FlutterActivity() {
                                 bootstrapManager.writeResolvConf()
                                 val output = processManager.runInProotSync(command, timeout)
                                 runOnUiThread { result.success(output) }
+                            } catch (e: ProotExecutionException) {
+                                runOnUiThread {
+                                    result.error(
+                                        e.category.name,
+                                        e.message,
+                                        mapOf(
+                                            "category" to e.category.name,
+                                            "exitCode" to e.exitCode,
+                                            "output" to e.diagnosticOutput,
+                                        ),
+                                    )
+                                }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("PROOT_ERROR", e.message, null) }
                             }
@@ -651,6 +740,28 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "path required", null)
                     }
                 }
+                "restoreBundledOpenClawPackage" -> {
+                    val assetPath = call.argument<String>("assetPath")
+                    if (!assetPath.isNullOrBlank()) {
+                        Thread {
+                            try {
+                                val count = bootstrapManager
+                                    .restoreBundledOpenClawPackage(assetPath)
+                                runOnUiThread { result.success(count) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error(
+                                        "BUNDLED_OPENCLAW_RESTORE_ERROR",
+                                        e.message,
+                                        null,
+                                    )
+                                }
+                            }
+                        }.start()
+                    } else {
+                        result.error("INVALID_ARGS", "assetPath required", null)
+                    }
+                }
                 "beginOpenClawUpgrade" -> {
                     val sourceVersion = call.argument<String>("sourceVersion")
                     val targetVersion = call.argument<String>("targetVersion")
@@ -685,6 +796,32 @@ class MainActivity : FlutterActivity() {
                             } catch (e: Exception) {
                                 runOnUiThread {
                                     result.error("UPGRADE_COMMIT_ERROR", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "hasCachedOpenClawVersion" -> {
+                    val version = call.argument<String>("version")
+                    if (version.isNullOrBlank()) {
+                        result.error("INVALID_ARGS", "version required", null)
+                    } else {
+                        result.success(bootstrapManager.hasCachedOpenClawVersion(version))
+                    }
+                }
+                "restoreCachedOpenClawVersion" -> {
+                    val id = call.argument<String>("id")
+                    val version = call.argument<String>("version")
+                    if (id.isNullOrBlank() || version.isNullOrBlank()) {
+                        result.error("INVALID_ARGS", "id and version required", null)
+                    } else {
+                        Thread {
+                            try {
+                                val count = bootstrapManager.restoreCachedOpenClawVersion(id, version)
+                                runOnUiThread { result.success(count) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("VERSION_CACHE_RESTORE_ERROR", e.message, null)
                                 }
                             }
                         }.start()

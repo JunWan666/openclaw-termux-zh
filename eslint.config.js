@@ -22,6 +22,12 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/', 'coverage/', 'dist/'],
+    ignores: [
+      'node_modules/',
+      'coverage/',
+      'dist/',
+      'flutter_app/build/',
+      'flutter_app/.dart_tool/',
+    ],
   },
 ];

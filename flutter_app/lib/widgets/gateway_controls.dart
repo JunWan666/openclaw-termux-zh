@@ -213,7 +213,9 @@ class _GatewayControlsState extends State<GatewayControls> {
     try {
       _setInstallProgress(
         0.08,
-        message: 'Preparing installation...',
+        message: _isBundledRelease(selectedRelease)
+            ? 'Restoring bundled version...'
+            : 'Preparing installation...',
         detail: '',
       );
       if (provider.state.status != GatewayStatus.stopped) {
@@ -288,21 +290,31 @@ class _GatewayControlsState extends State<GatewayControls> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.t('gatewayInstallVersionConfirmTitle')),
+        title: Text(
+          l10n.t(
+            _isBundledRelease(selectedRelease)
+                ? 'gatewayRestoreBundledConfirmTitle'
+                : 'gatewayInstallVersionConfirmTitle',
+          ),
+        ),
         content: Text(
-          l10n.t('gatewayInstallVersionConfirmBody', {
-            'current': currentVersion,
-            'selected': selectedRelease.version,
-            'currentChannel': _releaseChannelLabel(
-              l10n,
-              OpenClawReleasePolicy.channelFor(
-                currentVersion,
-                experimentalVersion: _latestRelease?.version,
-              ),
-            ),
-            'selectedChannel':
-                _releaseChannelLabel(l10n, selectedRelease.channel),
-          }),
+          l10n.t(
+              _isBundledRelease(selectedRelease)
+                  ? 'gatewayRestoreBundledConfirmBody'
+                  : 'gatewayInstallVersionConfirmBody',
+              {
+                'current': currentVersion,
+                'selected': selectedRelease.version,
+                'currentChannel': _releaseChannelLabel(
+                  l10n,
+                  OpenClawReleasePolicy.channelFor(
+                    currentVersion,
+                    experimentalVersion: _latestRelease?.version,
+                  ),
+                ),
+                'selectedChannel':
+                    _releaseChannelLabel(l10n, selectedRelease.channel),
+              }),
         ),
         actions: [
           TextButton(
@@ -742,8 +754,9 @@ class _GatewayControlsState extends State<GatewayControls> {
                 ),
               ),
             ],
-            if (selectedRelease.channel ==
-                OpenClawReleaseChannel.experimental) ...[
+            if (OpenClawReleasePolicy.isPrerelease(
+              selectedRelease.version,
+            )) ...[
               const SizedBox(height: 6),
               Text(
                 l10n.t('gatewayExperimentalWarning'),
@@ -867,7 +880,7 @@ class _GatewayControlsState extends State<GatewayControls> {
         ),
       OpenClawReleaseChannel.experimental => (
           AppColors.statusAmber,
-          l10n.t('gatewayVersionExperimental'),
+          '${l10n.t('openClawVersionLatest')} · ${l10n.t('openClawVersionRecommended')}',
         ),
       OpenClawReleaseChannel.historical => (
           AppColors.statusGrey,
@@ -946,6 +959,7 @@ class _GatewayControlsState extends State<GatewayControls> {
       installedVersion: _installedVersion,
       targetVersion: selectedRelease?.version,
     );
+    final bundledRelease = _isBundledRelease(selectedRelease);
 
     return FilledButton.icon(
       style: _buildCompactFilledButtonStyle(theme),
@@ -959,15 +973,25 @@ class _GatewayControlsState extends State<GatewayControls> {
       icon: Icon(
         isSelectedVersionInstalled
             ? Icons.check_circle_outline
-            : Icons.system_update_alt,
+            : bundledRelease
+                ? Icons.restore_rounded
+                : Icons.system_update_alt,
         size: 16,
       ),
       label: Text(
         isSelectedVersionInstalled
             ? l10n.t('gatewaySelectedVersionCurrent')
-            : l10n.t('gatewayInstallSelectedVersion'),
+            : l10n.t(
+                bundledRelease
+                    ? 'gatewayRestoreBundledVersion'
+                    : 'gatewayInstallSelectedVersion',
+              ),
       ),
     );
+  }
+
+  bool _isBundledRelease(OpenClawReleaseInfo? release) {
+    return release?.version == OpenClawReleasePolicy.stableVersion;
   }
 
   Widget _buildVersionRefreshAction(
@@ -1032,7 +1056,7 @@ class _GatewayControlsState extends State<GatewayControls> {
     return switch (channel) {
       OpenClawReleaseChannel.stable => l10n.t('openClawChannelStable'),
       OpenClawReleaseChannel.experimental =>
-        l10n.t('openClawChannelExperimental'),
+        '${l10n.t('openClawVersionLatest')} · ${l10n.t('openClawVersionRecommended')}',
       OpenClawReleaseChannel.historical => l10n.t('openClawChannelHistorical'),
     };
   }

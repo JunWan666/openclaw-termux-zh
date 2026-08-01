@@ -7,6 +7,26 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
 
+enum class CommandFailureCategory {
+    FILE_NOT_FOUND,
+    PERMISSION_DENIED,
+    ABI_MISMATCH,
+    DYNAMIC_LINKER,
+    PAGE_SIZE_INCOMPATIBLE,
+    PROOT_STARTUP,
+    TIMEOUT,
+    TERMINATED,
+    COMMAND_FAILED,
+}
+
+class ProotExecutionException(
+    val category: CommandFailureCategory,
+    val exitCode: Int?,
+    val diagnosticOutput: String,
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
+
 /**
  * Manages proot process execution, matching Termux proot-distro as closely
  * as possible. Two command modes:
@@ -23,6 +43,7 @@ class ProcessManager(
     private val configDir get() = "$filesDir/config"
     private val libDir get() = "$filesDir/lib"
     private val nativeRuntimeDir get() = "$filesDir/native"
+    private val npmCacheDir get() = "$filesDir/npm-cache"
     var installLogEmitter: ((String) -> Unit)? = null
     @Volatile private var activeInstallProcess: Process? = null
 
@@ -164,6 +185,13 @@ class ProcessManager(
         val prootPath = getProotPath()
         val procFakes = "$configDir/proc_fakes"
         val sysFakes = "$configDir/sys_fakes"
+        val hostNpmCache = File(npmCacheDir)
+        val legacyNpmCache = File("$rootfsDir/tmp/npm-cache")
+        if (!hostNpmCache.exists() && legacyNpmCache.exists()) {
+            legacyNpmCache.renameTo(hostNpmCache)
+        }
+        hostNpmCache.mkdirs()
+        File("$rootfsDir/root/.cache/npm").mkdirs()
 
         val flags = mutableListOf(
             prootPath,
@@ -194,6 +222,7 @@ class ProcessManager(
             // SELinux override 鈥?empty dir disables SELinux checks
             "--bind=$sysFakes/empty:/sys/fs/selinux",
             "--bind=$homeDir:/root/home",
+            "--bind=${hostNpmCache.absolutePath}:/root/.cache/npm",
         )
         if (resolvFile != null) {
             flags.add("--bind=${resolvFile.absolutePath}:/etc/resolv.conf")
@@ -261,8 +290,7 @@ class ProcessManager(
             "TERM=xterm-256color",
             "TMPDIR=/tmp",
             "DEBIAN_FRONTEND=noninteractive",
-            // npm cache location (mkdir broken in proot, pre-created by Java)
-            "npm_config_cache=/tmp/npm-cache",
+            "npm_config_cache=/root/.cache/npm",
             "/bin/bash", "-c",
             command,
         ))
@@ -341,7 +369,19 @@ class ProcessManager(
         pb.environment().putAll(env)
         pb.redirectErrorStream(true)
 
-        val process = pb.start()
+        val process = try {
+            pb.start()
+        } catch (error: Exception) {
+            val raw = error.message.orEmpty()
+            val category = classifyCommandFailure(raw, null, startFailure = true)
+            throw ProotExecutionException(
+                category = category,
+                exitCode = null,
+                diagnosticOutput = redactDiagnostic(raw),
+                message = "Unable to start PRoot command [$category]: ${redactDiagnostic(raw)}",
+                cause = error,
+            )
+        }
         activeInstallProcess = process
         val output = StringBuilder()
         val errorLines = StringBuilder()
@@ -369,7 +409,12 @@ class ProcessManager(
         if (!exited) {
             process.destroyForcibly()
             activeInstallProcess = null
-            throw RuntimeException("Command timed out after ${timeoutSeconds}s")
+            throw ProotExecutionException(
+                category = CommandFailureCategory.TIMEOUT,
+                exitCode = null,
+                diagnosticOutput = redactDiagnostic(output.toString().takeLast(3000)),
+                message = "Command timed out after ${timeoutSeconds}s",
+            )
         }
 
         val exitCode = process.exitValue()
@@ -380,12 +425,54 @@ class ProcessManager(
             }.ifEmpty {
                 output.toString().takeLast(3000)
             }
-            throw RuntimeException(
-                "Command failed (exit code $exitCode): $errorOutput"
+            val safeOutput = redactDiagnostic(errorOutput)
+            val category = classifyCommandFailure(safeOutput, exitCode)
+            throw ProotExecutionException(
+                category = category,
+                exitCode = exitCode,
+                diagnosticOutput = safeOutput,
+                message = "Command failed [$category] (exit code $exitCode): $safeOutput",
             )
         }
 
         return output.toString()
+    }
+
+    private fun classifyCommandFailure(
+        output: String,
+        exitCode: Int?,
+        startFailure: Boolean = false,
+    ): CommandFailureCategory {
+        val text = output.lowercase()
+        return when {
+            "no such file or directory" in text || "not found" in text ->
+                CommandFailureCategory.FILE_NOT_FOUND
+            "permission denied" in text || "operation not permitted" in text ->
+                CommandFailureCategory.PERMISSION_DENIED
+            "exec format error" in text || "wrong elf class" in text ||
+                "unexpected e_machine" in text -> CommandFailureCategory.ABI_MISMATCH
+            "dynamic linker" in text || "error while loading shared libraries" in text ||
+                "cannot locate symbol" in text || "linker:" in text ->
+                CommandFailureCategory.DYNAMIC_LINKER
+            "page size" in text || "pagesize" in text || "16kb" in text ||
+                "16384" in text && ("elf" in text || "align" in text) ->
+                CommandFailureCategory.PAGE_SIZE_INCOMPATIBLE
+            "proot" in text && ("fatal" in text || "loader" in text || "seccomp" in text) ->
+                CommandFailureCategory.PROOT_STARTUP
+            exitCode == 137 || exitCode == 143 || "killed" in text ->
+                CommandFailureCategory.TERMINATED
+            startFailure -> CommandFailureCategory.PROOT_STARTUP
+            else -> CommandFailureCategory.COMMAND_FAILED
+        }
+    }
+
+    private fun redactDiagnostic(value: String): String {
+        return value
+            .replace(
+                Regex("(?i)(api[_-]?key|token|secret|password)\\s*[:=]\\s*[^\\s,;]+"),
+                "\$1=<redacted>",
+            )
+            .takeLast(3000)
     }
 
     fun cancelActiveInstall() {

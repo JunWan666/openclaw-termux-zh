@@ -46,6 +46,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _persistentGatewayLogs = false;
   bool _checkingUpdate = false;
   bool _updatingBonjour = false;
+  int _npmCacheBytes = 0;
+  int _npmCacheLimitMiB = 512;
+  bool _clearingNpmCache = false;
 
   @override
   void initState() {
@@ -69,6 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final persistentGatewayLogs =
           await NativeBridge.isGatewayLogPersistenceEnabled();
       final storageGranted = await NativeBridge.hasStoragePermission();
+      final npmCacheInfo = await NativeBridge.getNpmCacheInfo();
 
       // Check optional package statuses
       final filesDir = await NativeBridge.getFilesDir();
@@ -92,6 +96,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _sshInstalled = sshInstalled;
         _adbInstalled = adbInstalled;
         _cpolarInstalled = cpolarInstalled;
+        _npmCacheBytes = (npmCacheInfo['sizeBytes'] as num?)?.toInt() ?? 0;
+        _npmCacheLimitMiB = (npmCacheInfo['limitMiB'] as num?)?.toInt() ?? 512;
         _loading = false;
       });
     } catch (e) {
@@ -303,6 +309,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const Divider(),
                 _sectionHeader(theme, l10n.t('settingsMaintenance')),
+                ListTile(
+                  title: Text(l10n.t('settingsNpmCacheTitle')),
+                  subtitle: Text(
+                    l10n.t('settingsNpmCacheSubtitle', {
+                      'size': _formatBytes(_npmCacheBytes),
+                      'limit': _formatNpmCacheLimit(l10n),
+                    }),
+                  ),
+                  leading: const Icon(Icons.inventory_2_outlined),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _npmCacheLimitMiB,
+                    decoration: InputDecoration(
+                      labelText: l10n.t('settingsNpmCacheLimit'),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: 0,
+                        child: Text(l10n.t('settingsNpmCacheDisabled')),
+                      ),
+                      for (final value in const [256, 512, 1024, 2048])
+                        DropdownMenuItem(
+                          value: value,
+                          child: Text(value >= 1024
+                              ? '${value ~/ 1024} GB'
+                              : '$value MB'),
+                        ),
+                      DropdownMenuItem(
+                        value: -1,
+                        child: Text(l10n.t('settingsNpmCacheUnlimited')),
+                      ),
+                    ],
+                    onChanged: (value) async {
+                      if (value == null) return;
+                      await NativeBridge.setNpmCacheLimit(value);
+                      await NativeBridge.trimNpmCache();
+                      final info = await NativeBridge.getNpmCacheInfo();
+                      if (!mounted) return;
+                      setState(() {
+                        _npmCacheLimitMiB = value;
+                        _npmCacheBytes =
+                            (info['sizeBytes'] as num?)?.toInt() ?? 0;
+                      });
+                    },
+                  ),
+                ),
+                ListTile(
+                  title: Text(l10n.t('settingsNpmCacheClear')),
+                  leading: _clearingNpmCache
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_sweep_outlined),
+                  onTap: _clearingNpmCache ? null : _clearNpmCache,
+                ),
                 ListTile(
                   title: Text(l10n.t('settingsBackupCenterTitle')),
                   subtitle: Text(l10n.t('settingsBackupCenterSubtitle')),
@@ -520,6 +585,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
     }
+  }
+
+  Future<void> _clearNpmCache() async {
+    final l10n = context.l10n;
+    setState(() => _clearingNpmCache = true);
+    try {
+      final cleared = await NativeBridge.clearNpmCache();
+      final info = await NativeBridge.getNpmCacheInfo();
+      if (!mounted) return;
+      setState(() {
+        _npmCacheBytes = (info['sizeBytes'] as num?)?.toInt() ?? 0;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.t(cleared
+              ? 'settingsNpmCacheCleared'
+              : 'settingsNpmCacheClearFailed')),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.t('settingsNpmCacheClearFailed'))),
+      );
+    } finally {
+      if (mounted) setState(() => _clearingNpmCache = false);
+    }
+  }
+
+  String _formatNpmCacheLimit(AppLocalizations l10n) {
+    if (_npmCacheLimitMiB < 0) {
+      return l10n.t('settingsNpmCacheUnlimited');
+    }
+    if (_npmCacheLimitMiB == 0) {
+      return l10n.t('settingsNpmCacheDisabled');
+    }
+    if (_npmCacheLimitMiB >= 1024 && _npmCacheLimitMiB % 1024 == 0) {
+      return '${_npmCacheLimitMiB ~/ 1024} GB';
+    }
+    return '$_npmCacheLimitMiB MB';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    final kib = bytes / 1024;
+    if (kib < 1024) return '${kib.toStringAsFixed(1)} KB';
+    final mib = kib / 1024;
+    if (mib < 1024) return '${mib.toStringAsFixed(1)} MB';
+    return '${(mib / 1024).toStringAsFixed(2)} GB';
   }
 
   Widget _sectionHeader(ThemeData theme, String title) {

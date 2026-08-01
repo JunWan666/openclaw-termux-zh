@@ -11,6 +11,7 @@ class PreferencesService {
       'pending_setup_completion_choice';
   static const _keyDashboardUrl = 'dashboard_url';
   static const _keyWebDashboardScale = 'web_dashboard_scale';
+  static const _keyWebDashboardPreferredHost = 'web_dashboard_preferred_host';
   static const _keyLocaleCode = 'locale_code';
   static const _keyBonjourEnabled = 'bonjour_enabled';
   static const _keyNodeEnabled = 'node_enabled';
@@ -30,6 +31,9 @@ class PreferencesService {
   static const _keyLocalModelMemoryLimitMiB = 'local_model_memory_limit_mib';
   static const _keyLocalModelPerformanceMode = 'local_model_performance_mode';
   static const _keyShowPrereleaseVersions = 'show_prerelease_versions';
+  static const _keyBundledRuntimeAgreementVersion =
+      'bundled_runtime_agreement_version';
+  static const bundledRuntimeAgreementVersion = 1;
 
   static final ValueNotifier<bool> showPrereleaseVersionsChanges =
       ValueNotifier<bool>(false);
@@ -52,6 +56,15 @@ class PreferencesService {
 
   bool get setupComplete => _prefs.getBool(_keySetupComplete) ?? false;
   set setupComplete(bool value) => _prefs.setBool(_keySetupComplete, value);
+
+  bool get hasAcceptedBundledRuntimeAgreement =>
+      (_prefs.getInt(_keyBundledRuntimeAgreementVersion) ?? 0) >=
+      bundledRuntimeAgreementVersion;
+
+  Future<void> acceptBundledRuntimeAgreement() => _prefs.setInt(
+        _keyBundledRuntimeAgreementVersion,
+        bundledRuntimeAgreementVersion,
+      );
 
   bool get isFirstRun => _prefs.getBool(_keyFirstRun) ?? true;
   set isFirstRun(bool value) => _prefs.setBool(_keyFirstRun, value);
@@ -96,6 +109,19 @@ class PreferencesService {
       _prefs.remove(_keyWebDashboardScale);
     } else {
       _prefs.setDouble(_keyWebDashboardScale, value);
+    }
+  }
+
+  String? get webDashboardPreferredHost {
+    final value = _prefs.getString(_keyWebDashboardPreferredHost)?.trim();
+    return value == 'localhost' || value == '127.0.0.1' ? value : null;
+  }
+
+  set webDashboardPreferredHost(String? value) {
+    if (value == 'localhost' || value == '127.0.0.1') {
+      _prefs.setString(_keyWebDashboardPreferredHost, value!);
+    } else {
+      _prefs.remove(_keyWebDashboardPreferredHost);
     }
   }
 

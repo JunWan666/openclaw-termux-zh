@@ -30,6 +30,8 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
   final WebViewCookieManager _cookieManager = WebViewCookieManager();
 
   Timer? _loadTimer;
+  Timer? _noticeTimer;
+  OverlayEntry? _noticeEntry;
   bool _loading = true;
   String? _error;
   String? _statusMessage;
@@ -39,6 +41,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
   int _navigationRevision = 0;
   double _pageScale = 1.0;
   _WebViewPackageInfo? _webViewInfo;
+  String? _preferredHost;
 
   @override
   void initState() {
@@ -55,6 +58,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
     }
 
     final savedScale = prefs.webDashboardScale;
+    _preferredHost = prefs.webDashboardPreferredHost;
     if ((_pageScale - savedScale).abs() > 0.0001) {
       setState(() {
         _pageScale = savedScale;
@@ -172,6 +176,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
   @override
   void dispose() {
     _cancelLoadTimer();
+    _dismissTopNotice();
     super.dispose();
   }
 
@@ -209,7 +214,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       _statusMessage = null;
     });
 
-    await _loadCandidate(0, clearState: true);
+    await _loadCandidate(0, clearState: false);
   }
 
   List<String> _buildCandidateUrls(String resolvedUrl) {
@@ -233,6 +238,16 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       add(uri.replace(host: 'localhost'));
     } else if (uri.host == 'localhost') {
       add(uri.replace(host: '127.0.0.1'));
+    }
+
+    final preferredHost = _preferredHost;
+    if (preferredHost != null) {
+      candidates.sort((a, b) {
+        final aPreferred = Uri.tryParse(a)?.host == preferredHost;
+        final bPreferred = Uri.tryParse(b)?.host == preferredHost;
+        if (aPreferred == bPreferred) return 0;
+        return aPreferred ? -1 : 1;
+      });
     }
 
     return candidates;
@@ -319,7 +334,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
 
     await _loadCandidate(
       _currentCandidateIndex,
-      clearState: true,
+      clearState: false,
       statusMessage: 'Reloading dashboard...',
     );
   }
@@ -338,7 +353,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
         _candidateUrls[nextIndex];
     await _loadCandidate(
       nextIndex,
-      clearState: true,
+      clearState: false,
       statusMessage: 'Switching to $host...',
     );
   }
@@ -354,13 +369,13 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
 
     final uri = Uri.tryParse(targetUrl);
     if (uri == null) {
-      _showSnackBar('Invalid dashboard URL.');
+      _showTopNotice('Invalid dashboard URL.', isError: true);
       return;
     }
 
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && mounted) {
-      _showSnackBar('Unable to open the external browser.');
+      _showTopNotice('Unable to open the external browser.', isError: true);
     }
   }
 
@@ -379,9 +394,9 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       return;
     }
     if (requestedScale == null) {
-      _showSnackBar('Adaptive view enabled.');
+      _showTopNotice('Adaptive view enabled.');
     } else {
-      _showSnackBar('Page scale set to ${(scale * 100).round()}%.');
+      _showTopNotice('Page scale set to ${(scale * 100).round()}%.');
     }
   }
 
@@ -525,7 +540,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
         _candidateUrls[nextIndex];
     await _loadCandidate(
       nextIndex,
-      clearState: true,
+      clearState: false,
       statusMessage: '$reason Trying $nextHost...',
     );
     return true;
@@ -556,6 +571,22 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
         _statusMessage = 'Loaded with ${Uri.parse(finishedUrl).host}.';
       });
     }
+    await _rememberSuccessfulHost(finishedUrl);
+  }
+
+  Future<void> _rememberSuccessfulHost(String url) async {
+    final host = Uri.tryParse(url)?.host;
+    if (host != 'localhost' && host != '127.0.0.1') return;
+    _preferredHost = host;
+    final prefs = PreferencesService();
+    await prefs.init();
+    prefs.webDashboardPreferredHost = host;
+  }
+
+  Future<void> _clearWebDataAndReload() async {
+    await _resetWebViewState();
+    if (!mounted) return;
+    await _reloadCurrentCandidate();
   }
 
   Future<_DashboardDomSnapshot?> _readDomSnapshot() async {
@@ -610,13 +641,76 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
     return text;
   }
 
-  void _showSnackBar(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+  void _showTopNotice(String message, {bool isError = false}) {
+    if (!mounted) return;
+    _dismissTopNotice();
+
+    final overlay = Overlay.of(context);
+    final top = MediaQuery.paddingOf(context).top + kToolbarHeight + 8;
+    final colors = Theme.of(context).colorScheme;
+    _noticeEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: top,
+        left: 16,
+        right: 16,
+        child: IgnorePointer(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 180),
+            builder: (context, value, child) => Opacity(
+              opacity: value,
+              child: Transform.translate(
+                offset: Offset(0, -12 * (1 - value)),
+                child: child,
+              ),
+            ),
+            child: Material(
+              elevation: 6,
+              borderRadius: BorderRadius.circular(12),
+              color: isError ? colors.errorContainer : colors.inverseSurface,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isError
+                          ? Icons.error_outline
+                          : Icons.check_circle_outline,
+                      size: 18,
+                      color: isError
+                          ? colors.onErrorContainer
+                          : colors.onInverseSurface,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        message,
+                        style: TextStyle(
+                          color: isError
+                              ? colors.onErrorContainer
+                              : colors.onInverseSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
+    overlay.insert(_noticeEntry!);
+    _noticeTimer = Timer(const Duration(milliseconds: 1800), _dismissTopNotice);
+  }
+
+  void _dismissTopNotice() {
+    _noticeTimer?.cancel();
+    _noticeTimer = null;
+    _noticeEntry?.remove();
+    _noticeEntry = null;
   }
 
   @override
@@ -656,6 +750,11 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
             icon: const Icon(Icons.refresh),
             tooltip: l10n.t('logsRefresh'),
             onPressed: _reloadCurrentCandidate,
+          ),
+          IconButton(
+            icon: const Icon(Icons.cleaning_services_outlined),
+            tooltip: l10n.t('webDashboardClearData'),
+            onPressed: _clearWebDataAndReload,
           ),
         ],
       ),

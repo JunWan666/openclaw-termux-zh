@@ -10,58 +10,45 @@
 
 ## Current Version
 
-- Version: `v2.0.3`
-- Release notes: [release/v2.0.3/Release.zh.md](../release/v2.0.3/Release.zh.md)
+- Version: `v3.0.0` (base build 81; ARM64 APK versionCode 2081)
+- Release notes: [release/v3.0.0/Release.zh.md](../release/v3.0.0/Release.zh.md)
 - Change log: [CHANGELOG.md](../CHANGELOG.md)
 - Releases page: <https://github.com/JunWan666/openclaw-termux-zh/releases>
 
-## What's New In v2.0.3
+## What's New In v3.0.0
 
-- Keeps OpenClaw `2026.3.23` as the default Stable release, exposes npm latest as Experimental, and hides versions older than `2026.3.13` from the picker.
-- Adds Gateway v3/v4 negotiation, complete Node.js `engines` validation, protected upgrade transactions, and interrupted-upgrade rollback.
-- Detects fresh, complete, repairable, interrupted-upgrade, and manual-recovery environments without deleting the RootFS or user data during automatic repairs.
-- OpenClaw `2026.3.13` and newer now receive a minimal non-interactive configuration and proceed directly to the dashboard for API setup.
-- Reorders and refreshes AI providers: DeepSeek, NVIDIA Free, and Zhipu appear near the top, while OpenRouter and xAI are removed.
-- Adds API-key shortcuts, model catalog fetching, and connection tests for supported providers.
-- Custom OpenAI-compatible providers can automatically fetch `/models` after Base URL and API Key entry, while still allowing manual model IDs.
-- Preserves custom Provider Base URLs exactly instead of silently appending `/v1`.
-- Allows Gateway cold start to be cancelled and cleans up matching leftover PRoot/OpenClaw processes.
-- The full Flutter test suite now contains 119 passing tests across version policy, protocol negotiation, environment recovery, upgrade protection, and provider configuration.
+- Bundles Ubuntu 24.04.3, Node.js 24.18.1, npm 11.16.0, and OpenClaw 2026.3.23 in the ARM64 APK.
+- Redesigns the welcome, initialization progress, deployment activity, and completion screens.
+- Adds the default `7749API (ywd public service)` provider with model catalog retrieval.
+- Marks OpenClaw 2026.7.1 as Latest and Recommended while keeping 2026.3.23 locally restorable.
+- Adds protected version switching, complete installed-version snapshots, and a persistent 1 GB npm cache.
+- Improves Gateway cold starts, Web dashboard loading, configuration migration, and in-app notices.
+- The full Flutter test suite contains 139 passing tests.
 
 ## Download Artifacts
 
 | File | Target Device | Size | Download |
 |---|---|---:|---|
-| `OpenClaw-v2.0.3-universal.apk` | Best default choice | 46.78 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-universal.apk) |
-| `OpenClaw-v2.0.3-arm64-v8a.apk` | Most modern Android phones | 27.96 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-arm64-v8a.apk) |
-| `OpenClaw-v2.0.3-armeabi-v7a.apk` | Older 32-bit ARM devices | 27.70 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-armeabi-v7a.apk) |
-| `OpenClaw-v2.0.3-x86_64.apk` | Emulator or x86_64 device | 28.19 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3-x86_64.apk) |
-| `OpenClaw-v2.0.3.aab` | Store distribution | 67.03 MB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v2.0.3/OpenClaw-v2.0.3.aab) |
+| `OpenClaw-v3.0.0-arm64-v8a-full.apk` | Android 10+ ARM64 devices | 331.90 MiB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v3.0.0/OpenClaw-v3.0.0-arm64-v8a-full.apk) |
 
 ## Quick Start
 
 ### Option A: APK
 
-1. Download the APK that matches your device.
-2. Install and open the app.
-3. Optionally choose a specific OpenClaw version before setup.
-4. Complete onboarding and provider configuration.
-5. Start the gateway and open `http://127.0.0.1:18789`.
+1. Existing users must export a backup, uninstall the old signed app, and then install v3.0.0.
+2. Complete the local bundled-runtime initialization.
+3. Import the old backup if needed, then start the Gateway.
 
 ### Option B: Build From Source
 
 ```bash
 git clone https://github.com/JunWan666/openclaw-termux-zh.git
-cd openclaw-termux-zh/flutter_app
-flutter pub get
-flutter build apk --release
+cd openclaw-termux-zh
+git lfs pull
+python scripts/build_release.py --version 3.0.0 --build-number 81 --non-interactive
 ```
 
-To generate the release directory with APKs and AAB:
-
-```bash
-python scripts/build_release.py --version 2.0.3 --build-number 78
-```
+The release script produces only the ARM64 full APK because the bundled RootFS is ARM64-specific.
 
 ## Repository Structure
 

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "runtimeRevision": 1,
+  "architecture": "arm64-v8a",
+  "ubuntuVersion": "24.04.3",
+  "nodeVersion": "24.18.1",
+  "openclawVersion": "2026.3.23",
+  "archive": "openclaw-runtime-2026.3.23-arm64.tar.gz",
+  "archiveSha256": "2ea92d47878c74e3e9848621e90f899a87861681287a9f18db8819e8338b5780",
+  "minimumFreeSpaceBytes": 1073741824,
+  "createdAt": "2026-07-31T22:14:24Z"
+}

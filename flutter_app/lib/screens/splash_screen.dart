@@ -7,8 +7,11 @@ import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
 import '../services/environment_recovery_service.dart';
+import '../services/bootstrap_service.dart';
 import '../models/environment_recovery.dart';
 import 'environment_recovery_screen.dart';
+import 'runtime_initialization_screen.dart';
+import 'runtime_welcome_screen.dart';
 import 'setup_wizard_screen.dart';
 import 'dashboard_screen.dart';
 
@@ -121,6 +124,7 @@ class _SplashScreenState extends State<SplashScreen>
       } catch (_) {}
 
       bool setupComplete;
+      var bundledRuntimeUpdateRequired = false;
       EnvironmentAssessment? recoveryAssessment;
       try {
         setState(() => _status = 'Checking existing environment...');
@@ -131,6 +135,11 @@ class _SplashScreenState extends State<SplashScreen>
           recoveryAssessment = await recoveryService.repair();
         }
         setupComplete = recoveryAssessment.shouldEnterDashboard;
+        if (setupComplete) {
+          final bootstrapState = await BootstrapService().checkStatus();
+          bundledRuntimeUpdateRequired = !bootstrapState.isComplete;
+          setupComplete = !bundledRuntimeUpdateRequired;
+        }
       } catch (_) {
         // 兼容原生检查异常场景，保留旧版完成标记作为兜底。
         setupComplete = await NativeBridge.isBootstrapComplete();
@@ -170,11 +179,19 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
           ),
         );
-      } else if (recoveryAssessment == null ||
+      } else if (bundledRuntimeUpdateRequired ||
+          recoveryAssessment == null ||
           recoveryAssessment.state == EnvironmentRecoveryState.fresh) {
         prefs.pendingSetupCompletionChoice = false;
+        final showWelcome =
+            recoveryAssessment?.state == EnvironmentRecoveryState.fresh &&
+                !prefs.hasAcceptedBundledRuntimeAgreement;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
+          MaterialPageRoute(
+            builder: (_) => showWelcome
+                ? const RuntimeWelcomeScreen()
+                : const RuntimeInitializationScreen(),
+          ),
         );
       } else {
         Navigator.of(context).pushReplacement(

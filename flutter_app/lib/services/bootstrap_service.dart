@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -6,15 +7,22 @@ import 'package:dio/dio.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import '../models/openclaw_install_options.dart';
+import '../models/runtime_manifest.dart';
 import '../models/setup_state.dart';
 import 'install_status_message_formatter.dart';
+import 'bundled_runtime_service.dart';
 import 'native_bridge.dart';
 import 'openclaw_version_service.dart';
+import 'provider_config_service.dart';
+import 'runtime_compatibility_service.dart';
 
 class BootstrapService {
   final Dio _dio = Dio();
   final OpenClawVersionService _openClawVersionService =
       OpenClawVersionService();
+  final BundledRuntimeService _bundledRuntimeService = BundledRuntimeService();
+  final RuntimeCompatibilityService _runtimeCompatibilityService =
+      const RuntimeCompatibilityService();
   SetupState _lastSetupState = const SetupState();
   CancelToken? _downloadCancelToken;
   bool _cancelRequested = false;
@@ -100,6 +108,75 @@ class BootstrapService {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<void> _verifyGatewayHealth() async {
+    // The bundled first-run flow verifies Gateway before the initialization
+    // screen reaches its final configuration step. Ensure the minimum config
+    // (including gateway.mode and the default provider) exists first.
+    await ProviderConfigService.ensureInitialAppConfig();
+    await ProviderConfigService.ensureGatewayDefaults();
+    Object? firstError;
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      await NativeBridge.startGateway();
+      final error = await _waitForGatewayHealth(
+        // A first launch from a freshly deployed bundled runtime can spend
+        // well over a minute warming Node/OpenClaw under PRoot on real ARM64
+        // devices. Keep the process alive long enough to become responsive.
+        timeout: const Duration(minutes: 3),
+      );
+      if (error == null) return;
+      firstError ??= error;
+      if (attempt < 2) {
+        try {
+          await NativeBridge.stopGateway();
+        } catch (_) {}
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
+    }
+    throw StateError(
+      'Gateway health check failed after restart: $firstError',
+    );
+  }
+
+  Future<Object?> _waitForGatewayHealth({required Duration timeout}) async {
+    final deadline = DateTime.now().add(timeout);
+    Object? lastError;
+    while (DateTime.now().isBefore(deadline)) {
+      _checkCancelled();
+      try {
+        final client = HttpClient()
+          ..connectionTimeout = const Duration(seconds: 2);
+        try {
+          final request = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${AppConstants.gatewayPort}/'),
+          );
+          final response = await request.close().timeout(
+                const Duration(seconds: 3),
+              );
+          await response.drain<void>();
+          if (response.statusCode < 500) return null;
+          lastError =
+              StateError('Gateway returned HTTP ${response.statusCode}');
+        } finally {
+          client.close(force: true);
+        }
+      } catch (error) {
+        lastError = error;
+      }
+      if (!await NativeBridge.isGatewayRunning()) {
+        lastError = StateError('Gateway process exited before health check');
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    return lastError ?? StateError('Gateway did not become healthy');
+  }
+
+  Future<void> _rollbackRootfsInstall() async {
+    try {
+      await NativeBridge.stopGateway();
+    } catch (_) {}
+    await NativeBridge.rollbackRootfsInstall();
   }
 
   Future<_PreparedArchiveSource> _prepareBundledOrCachedArchive({
@@ -402,6 +479,18 @@ class BootstrapService {
     try {
       final complete = await NativeBridge.isBootstrapComplete();
       if (complete) {
+        try {
+          final filesDir = await NativeBridge.getFilesDir();
+          if (await _bundledRuntimeService.isUpgradeRequired(filesDir)) {
+            return const SetupState(
+              step: SetupStep.checkingStatus,
+              progress: 0.0,
+              message: 'Bundled runtime update required',
+            );
+          }
+        } catch (_) {
+          // A light build or legacy installation may not have a bundled manifest.
+        }
         return const SetupState(
           step: SetupStep.complete,
           progress: 1.0,
@@ -425,6 +514,7 @@ class BootstrapService {
     required void Function(SetupState) onProgress,
     OpenClawReleaseInfo? selectedOpenClawRelease,
     OpenClawInstallOptions installOptions = const OpenClawInstallOptions(),
+    bool forceBundledRuntime = false,
   }) async {
     _cancelRequested = false;
     _downloadCancelToken = CancelToken();
@@ -445,6 +535,7 @@ class BootstrapService {
     });
 
     try {
+      await NativeBridge.recoverInterruptedRootfsInstall();
       // Start foreground service to keep app alive during setup
       try {
         await NativeBridge.startSetupService();
@@ -470,6 +561,12 @@ class BootstrapService {
       final arch = await NativeBridge.getArch();
       final rootfsUrl = AppConstants.getRootfsUrl(arch);
       final filesDir = await NativeBridge.getFilesDir();
+      RuntimeManifest? activeBundledManifest;
+      var bundledUpgradeRequired = false;
+      try {
+        bundledUpgradeRequired =
+            await _bundledRuntimeService.isUpgradeRequired(filesDir);
+      } catch (_) {}
 
       // Direct Dart fallback: ensure config dir + resolv.conf exist (#40).
       const resolvContent =
@@ -489,7 +586,9 @@ class BootstrapService {
         }
       } catch (_) {}
       var bootstrapStatus = await NativeBridge.getBootstrapStatus();
-      final rootfsReady = _rootfsReady(bootstrapStatus);
+      final rootfsReady = !forceBundledRuntime &&
+          !bundledUpgradeRequired &&
+          _rootfsReady(bootstrapStatus);
       final tarPath = '$filesDir/tmp/ubuntu-rootfs.tar.gz';
       final rootfsAssetPath =
           AppConstants.bundledBootstrapAssetPathForUrl(rootfsUrl);
@@ -536,10 +635,44 @@ class BootstrapService {
                 ? _PreparedArchiveSource.externalUrl
                 : _PreparedArchiveSource.none;
           } else {
-            prebuiltSource = await _prepareBundledOrCachedArchive(
-              assetPath: prebuiltRootfsAssetPath,
-              destinationPath: prebuiltTarPath,
-            );
+            try {
+              final manifest = await _bundledRuntimeService.loadManifest();
+              final expectedArchitecture =
+                  RuntimeCompatibilityService.normalizeArchitecture(arch);
+              if (manifest.architecture != expectedArchitecture) {
+                throw StateError(
+                  'Bundled runtime architecture ${manifest.architecture} '
+                  'does not match device $expectedArchitecture',
+                );
+              }
+              final compatibility =
+                  await NativeBridge.getRuntimeCompatibilityInfo();
+              _runtimeCompatibilityService.validate(manifest, compatibility);
+              _deleteArchiveIfExists(prebuiltTarPath);
+              await NativeBridge.copyBundledAssetToFile(
+                assetPath: _bundledRuntimeService.assetPathFor(manifest),
+                destinationPath: prebuiltTarPath,
+              );
+              await _bundledRuntimeService.verifyArchive(
+                manifest,
+                File(prebuiltTarPath),
+              );
+              activeBundledManifest = manifest;
+              prebuiltSource = _PreparedArchiveSource.bundled;
+            } catch (error) {
+              if (forceBundledRuntime) rethrow;
+              _emitProgress(
+                onProgress: onProgress,
+                step: SetupStep.downloadingRootfs,
+                progress: 0.0,
+                message: 'Bundled runtime unavailable, using fallback...',
+                detail: error.toString(),
+              );
+              prebuiltSource = await _prepareBundledOrCachedArchive(
+                assetPath: prebuiltRootfsAssetPath,
+                destinationPath: prebuiltTarPath,
+              );
+            }
           }
 
           if (prebuiltSource != _PreparedArchiveSource.none) {
@@ -606,6 +739,8 @@ class BootstrapService {
             extractedPrebuiltRootfs = true;
           }
         } catch (error) {
+          activeBundledManifest = null;
+          if (forceBundledRuntime) rethrow;
           _deleteArchiveIfExists(prebuiltTarPath);
           _emitProgress(
             onProgress: onProgress,
@@ -737,7 +872,8 @@ class BootstrapService {
 
       // Install bionic bypass + cwd-fix + node-wrapper BEFORE using node.
       // The wrapper patches process.cwd() which returns ENOSYS in proot.
-      if (_statusFlag(bootstrapStatus, 'bypassInstalled')) {
+      if (_statusFlag(bootstrapStatus, 'bypassInstalled') &&
+          activeBundledManifest == null) {
         _emitProgress(
           onProgress: onProgress,
           step: SetupStep.installingNode,
@@ -765,6 +901,11 @@ class BootstrapService {
           notificationText: 'Node.js installed 80.0%',
         );
       } else {
+        if (forceBundledRuntime && activeBundledManifest != null) {
+          throw StateError(
+            'Bundled Node.js failed runtime verification; online repair was not started.',
+          );
+        }
         // Fix permissions inside proot (Java extraction may miss execute bits)
         _emitProgress(
           onProgress: onProgress,
@@ -1043,6 +1184,11 @@ class BootstrapService {
           detail: 'Reusing OpenClaw $installedOpenClawVersion.',
         );
       } else {
+        if (forceBundledRuntime && activeBundledManifest != null) {
+          throw StateError(
+            'Bundled OpenClaw failed runtime verification; online repair was not started.',
+          );
+        }
         await _openClawVersionService.installVersion(
           selectedOpenClawRelease?.version ?? 'latest',
           releaseInfo: selectedOpenClawRelease,
@@ -1066,12 +1212,42 @@ class BootstrapService {
       _emitProgress(
         onProgress: onProgress,
         step: SetupStep.configuringBypass,
+        progress: 0.5,
+        message: 'Performing final runtime checks...',
+        notificationText: 'Performing final runtime checks... 99.0%',
+      );
+
+      await _verifyGatewayHealth();
+      _emitProgress(
+        onProgress: onProgress,
+        step: SetupStep.configuringBypass,
         progress: 1.0,
-        message: 'Bionic Bypass configured',
+        message: 'Local service verified',
         notificationText: 'Setup complete! 100.0%',
       );
 
       // Done
+      if (activeBundledManifest != null) {
+        final runtimeDir = Directory('$filesDir/runtime');
+        runtimeDir.createSync(recursive: true);
+        final compatibility = await NativeBridge.getRuntimeCompatibilityInfo();
+        File('${runtimeDir.path}/current.json').writeAsStringSync(
+          jsonEncode({
+            'schemaVersion': activeBundledManifest.schemaVersion,
+            'runtimeRevision': activeBundledManifest.runtimeRevision,
+            'architecture': activeBundledManifest.architecture,
+            'ubuntuVersion': activeBundledManifest.ubuntuVersion,
+            'nodeVersion': activeBundledManifest.nodeVersion,
+            'openclawVersion': activeBundledManifest.openclawVersion,
+            'archiveSha256': activeBundledManifest.archiveSha256,
+            'installedAt': DateTime.now().toUtc().toIso8601String(),
+            'pageSizeBytes': compatibility['pageSizeBytes'],
+            'androidSdk': compatibility['androidSdk'],
+          }),
+          flush: true,
+        );
+      }
+      await NativeBridge.commitRootfsInstall();
       _stopSetupService();
       _emitProgress(
         onProgress: onProgress,
@@ -1081,6 +1257,9 @@ class BootstrapService {
         notificationText: 'Setup complete! 100.0%',
       );
     } on _SetupCancelledException {
+      try {
+        await _rollbackRootfsInstall();
+      } catch (_) {}
       _stopSetupService();
       onProgress(const SetupState(
         step: SetupStep.checkingStatus,
@@ -1088,6 +1267,9 @@ class BootstrapService {
       ));
     } on DioException catch (e) {
       if (_cancelRequested || CancelToken.isCancel(e)) {
+        try {
+          await _rollbackRootfsInstall();
+        } catch (_) {}
         _stopSetupService();
         onProgress(const SetupState(
           step: SetupStep.checkingStatus,
@@ -1096,6 +1278,9 @@ class BootstrapService {
         return;
       }
       _stopSetupService();
+      try {
+        await _rollbackRootfsInstall();
+      } catch (_) {}
       final detail = e.message?.trim();
       final fallback = e.response?.statusCode != null
           ? 'HTTP ${e.response!.statusCode}'
@@ -1107,6 +1292,9 @@ class BootstrapService {
       ));
     } catch (e) {
       _stopSetupService();
+      try {
+        await _rollbackRootfsInstall();
+      } catch (_) {}
       if (_cancelRequested) {
         onProgress(const SetupState(
           step: SetupStep.checkingStatus,

@@ -116,6 +116,14 @@ class InstallStatusMessageFormatter {
           zhHant: '正在使用本地 OpenClaw 安裝包快取...',
           ja: 'ローカルの OpenClaw パッケージキャッシュを使用中...',
         );
+      case 'Restoring cached OpenClaw version...':
+        return _phrase(
+          l10n,
+          en: 'Restoring the cached OpenClaw version...',
+          zhHans: '正在恢复本地 OpenClaw 版本快照...',
+          zhHant: '正在恢復本機 OpenClaw 版本快照...',
+          ja: 'ローカルの OpenClaw バージョンスナップショットを復元中...',
+        );
       case 'Extracting Node.js...':
         return l10n.t('setupWizardStatusExtractingNode');
       case 'Verifying Node.js...':
@@ -139,6 +147,8 @@ class InstallStatusMessageFormatter {
         return l10n.t('setupWizardStatusReady');
       case 'Preparing installation...':
         return l10n.t('gatewayApplyingVersion');
+      case 'Restoring bundled version...':
+        return l10n.t('gatewayRestoringBundledVersion');
       case 'Stopping gateway...':
         return l10n.t('gatewayStopping');
       case 'Restarting gateway...':
@@ -181,6 +191,14 @@ class InstallStatusMessageFormatter {
           zhHans: '正在使用本地 OpenClaw 安装包缓存。',
           zhHant: '正在使用本地 OpenClaw 安裝包快取。',
           ja: 'ローカルの OpenClaw パッケージキャッシュを使用しています。',
+        );
+      case 'Using the complete local version snapshot. npm install is skipped.':
+        return _phrase(
+          l10n,
+          en: 'Using the complete local version snapshot; npm install is skipped.',
+          zhHans: '正在使用完整的本地版本快照，已跳过 npm install。',
+          zhHant: '正在使用完整的本機版本快照，已略過 npm install。',
+          ja: '完全なローカルスナップショットを使用し、npm install を省略します。',
         );
       case 'Preparing Node.js files...':
         return _phrase(
