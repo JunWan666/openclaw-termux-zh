@@ -17,8 +17,14 @@ class ProviderConfigService {
   static const _localGatewayMode = 'local';
   static const _defaultGatewayPort = 18789;
   static const _defaultWorkspace = '/root/.openclaw/workspace';
-  static const _defaultProvider = AiProvider.ywd;
+  static const _defaultProvider = AiProvider.deepseek;
   static const _hiddenBuiltInProviderIds = {'openrouter', 'xai'};
+  static const _legacyYwdProviderIds = {'api7749', '7749api'};
+  static const _legacyYwdBaseUrl = 'https://api.774966.xyz/v1';
+  static const _legacyYwdModels = {
+    'ywd/deepseek-ai/deepseek-v4-flash',
+    '英伟达/openai/gpt-oss-120b',
+  };
 
   static final Set<String> _builtInProviderIds = {
     ..._hiddenBuiltInProviderIds,
@@ -369,6 +375,123 @@ class ProviderConfigService {
     return _isNonEmptyString(primary);
   }
 
+  static String _migrateLegacyYwdModel(String model) {
+    return _legacyYwdModels.contains(model.trim())
+        ? AiProvider.ywd.defaultModels.first
+        : model;
+  }
+
+  /// Renames the built-in ywd provider used by older releases and updates
+  /// only the values that were supplied by the old built-in defaults.
+  static bool _migrateYwdProviderConfigInPlace(Map<String, dynamic> config) {
+    final models = _asStringKeyedMap(config['models']);
+    final providers = _asStringKeyedMap(models['providers']);
+    if (providers.isEmpty && _readActiveModel(config) == null) {
+      return false;
+    }
+
+    var changed = false;
+    final legacyEntries = <String, Map<String, dynamic>>{};
+    for (final legacyId in _legacyYwdProviderIds) {
+      final entry = providers[legacyId];
+      if (entry is Map) {
+        legacyEntries[legacyId] = _asStringKeyedMap(entry);
+      }
+    }
+
+    if (legacyEntries.isNotEmpty) {
+      final current = _asStringKeyedMap(providers[AiProvider.ywd.id]);
+      final source = legacyEntries.values.first;
+      final migrated = <String, dynamic>{...source, ...current};
+      final baseUrl = migrated['baseUrl'];
+      if (baseUrl is String && baseUrl.trim() == _legacyYwdBaseUrl) {
+        migrated['baseUrl'] = AiProvider.ywd.baseUrl;
+      }
+      final rawModels = migrated['models'];
+      if (rawModels is List) {
+        migrated['models'] = rawModels.map((raw) {
+          if (raw is String) {
+            return _migrateLegacyYwdModel(raw);
+          }
+          if (raw is Map) {
+            final model = _asStringKeyedMap(raw);
+            final oldId = model['id'];
+            if (oldId is String && _legacyYwdModels.contains(oldId.trim())) {
+              model['id'] = _migrateLegacyYwdModel(oldId);
+              final oldName = model['name'];
+              if (oldName == oldId ||
+                  (oldName is String && oldName.contains('(7749api)'))) {
+                model['name'] = AiProvider.ywd.defaultModels.first;
+              }
+            }
+            return model;
+          }
+          return raw;
+        }).toList();
+      }
+      providers[AiProvider.ywd.id] = migrated;
+      for (final legacyId in legacyEntries.keys) {
+        providers.remove(legacyId);
+      }
+      models['providers'] = providers;
+      config['models'] = models;
+      changed = true;
+    }
+
+    final activeModel = _readActiveModel(config);
+    if (activeModel != null) {
+      var migratedActive = activeModel;
+      for (final legacyId in _legacyYwdProviderIds) {
+        if (migratedActive.startsWith('$legacyId/')) {
+          migratedActive =
+              '${AiProvider.ywd.id}/${migratedActive.substring(legacyId.length + 1)}';
+          break;
+        }
+      }
+      final activeSeparator = migratedActive.indexOf('/');
+      if (activeSeparator > 0) {
+        final providerId = migratedActive.substring(0, activeSeparator);
+        final model = migratedActive.substring(activeSeparator + 1);
+        if (providerId == AiProvider.ywd.id) {
+          migratedActive = '$providerId/${_migrateLegacyYwdModel(model)}';
+        }
+      }
+      if (migratedActive != activeModel) {
+        _ensureDefaultModelSection(config)['primary'] = migratedActive;
+        changed = true;
+      }
+    }
+
+    final allowList = _defaultModelsAllowList(config);
+    if (allowList != null) {
+      for (final legacyId in _legacyYwdProviderIds) {
+        final legacyPrefix = '$legacyId/';
+        for (final key in allowList.keys.toList()) {
+          if (!key.startsWith(legacyPrefix)) continue;
+          final suffix = key.substring(legacyPrefix.length);
+          final migratedSuffix = _migrateLegacyYwdModel(suffix);
+          final migratedKey = '${AiProvider.ywd.id}/$migratedSuffix';
+          final value = allowList.remove(key);
+          allowList[migratedKey] = value;
+          changed = true;
+        }
+      }
+    }
+
+    return changed;
+  }
+
+  static Future<void> migrateYwdProviderConfigIfNeeded() async {
+    try {
+      final config = await _readConfigMap();
+      if (_migrateYwdProviderConfigInPlace(config)) {
+        await _writeConfigMap(config);
+      }
+    } catch (_) {
+      // Non-fatal: the provider can still be re-saved manually.
+    }
+  }
+
   static String _generateGatewayToken() {
     final random = math.Random.secure();
     return List.generate(
@@ -567,12 +690,12 @@ class ProviderConfigService {
   static Future<void> migrateCustomProviderConfigIfNeeded() async {
     try {
       final config = await _readConfigMap();
+      var configChanged = _migrateYwdProviderConfigInPlace(config);
       final presetMetadata = await _readCustomPresetMetadataMap();
       final providers = _ensureProvidersSection(config);
       final activeModel = _readActiveModel(config);
       final allowList = _defaultModelsAllowList(config);
       final knownCustomProviderIds = <String>{};
-      var configChanged = false;
       var metadataChanged = false;
 
       for (final entry in providers.entries.toList()) {
@@ -712,6 +835,7 @@ class ProviderConfigService {
   static Future<void> ensureInitialAppConfig() async {
     final config = await _readConfigMapForInitialization();
     final before = jsonEncode(config);
+    _migrateYwdProviderConfigInPlace(config);
 
     final gateway = _ensureMapSectionForInitialization(config, 'gateway');
     if (!_isNonEmptyString(gateway['mode'])) {
@@ -746,27 +870,24 @@ class ProviderConfigService {
 
     if (!_hasSavedModelOrProviderConfig(config)) {
       final defaultModel = _defaultProvider.defaultModels.first;
-      final defaultApiKey = _defaultProvider.defaultApiKey;
-      if (_isNonEmptyString(defaultApiKey)) {
-        final models = _ensureModelsSection(config);
-        models['mode'] ??= 'merge';
-        final providers = _ensureProvidersSection(config);
-        providers[_defaultProvider.id] = _providerEntryForSave(
-          provider: _defaultProvider,
-          apiKey: defaultApiKey!,
-          baseUrl: _defaultProvider.baseUrl,
-          model: defaultModel,
-        );
-        final modelRef = _primaryModelForProvider(
-          _defaultProvider,
-          defaultModel,
-        );
-        _ensureDefaultModelSection(config)['primary'] = modelRef;
-        _ensureDefaultModelsAllowList(config).putIfAbsent(
-          modelRef,
-          () => <String, dynamic>{},
-        );
-      }
+      final models = _ensureModelsSection(config);
+      models['mode'] ??= 'merge';
+      final providers = _ensureProvidersSection(config);
+      providers[_defaultProvider.id] = _providerEntryForSave(
+        provider: _defaultProvider,
+        apiKey: _defaultProvider.defaultApiKey ?? '',
+        baseUrl: _defaultProvider.baseUrl,
+        model: defaultModel,
+      );
+      final modelRef = _primaryModelForProvider(
+        _defaultProvider,
+        defaultModel,
+      );
+      _ensureDefaultModelSection(config)['primary'] = modelRef;
+      _ensureDefaultModelsAllowList(config).putIfAbsent(
+        modelRef,
+        () => <String, dynamic>{},
+      );
     }
 
     if (before == jsonEncode(config)) {

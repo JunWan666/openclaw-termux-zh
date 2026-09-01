@@ -7,7 +7,7 @@ void main() {
   test('提供商目录按产品顺序展示且不再包含 OpenRouter 和 xAI', () {
     expect(
       AiProvider.all.map((provider) => provider.id).take(5),
-      const ['custom-openai', 'api7749', 'deepseek', 'nvidia', 'zhipu'],
+      const ['custom-openai', 'deepseek', 'open7749', 'nvidia', 'zhipu'],
     );
     expect(
       AiProvider.all.map((provider) => provider.id),
@@ -46,12 +46,14 @@ void main() {
 
   test('7749API 公益提供商预置端点、模型并支持在线模型列表', () {
     expect(AiProvider.ywd.nameKey, 'providerNameYwd');
-    expect(AiProvider.ywd.baseUrl, 'https://api.774966.xyz/v1');
+    expect(AiProvider.ywd.id, 'open7749');
+    expect(AiProvider.ywd.baseUrl, 'https://open.774966.xyz/v1');
     expect(
       AiProvider.ywd.defaultModels,
-      const ['ywd/deepseek-ai/deepseek-v4-flash'],
+      const ['ywd/openai/gpt-oss-120b'],
     );
-    expect(AiProvider.ywd.defaultApiKey, isNotEmpty);
+    expect(AiProvider.ywd.defaultApiKey, isNull);
+    expect(AiProvider.ywd.apiKeyUrl, 'https://open.774966.xyz/');
     expect(AiProvider.ywd.supportsModelCatalog, isTrue);
     expect(AiProvider.ywd.modelCatalogRequiresApiKey, isTrue);
     expect(AiProvider.ywd.supportsConnectionTest, isTrue);

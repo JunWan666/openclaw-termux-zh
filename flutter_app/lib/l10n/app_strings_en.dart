@@ -98,6 +98,10 @@ const Map<String, String> appStringsEn = {
       'After signing in you can create the bot there, and the same page also provides the QQ bot chat entry for scanning.',
   'messagePlatformDetailQqbotPluginChecking':
       'Checking whether the QQ Bot plugin is installed...',
+  'messagePlatformDetailQqbotPluginUnchecked':
+      'QQ Bot plugin status has not been checked.',
+  'messagePlatformDetailQqbotPluginMissing':
+      'QQ Bot plugin is not installed.',
   'messagePlatformDetailQqbotPluginInstalling':
       'Installing the QQ Bot plugin automatically...',
   'messagePlatformDetailQqbotPluginReady':
@@ -105,7 +109,10 @@ const Map<String, String> appStringsEn = {
   'messagePlatformDetailQqbotPluginFailed': 'QQ Bot plugin is not ready yet',
   'messagePlatformDetailQqbotPluginRetry': 'Retry Installation',
   'messagePlatformDetailQqbotPluginInstallHint':
-      'The app will verify and install this plugin automatically on first entry: {package}',
+      'This page does not check or install automatically. Check manually, then install in the terminal if needed: {package}',
+  'messagePlatformDetailPluginCheckAction': 'Check installation',
+  'messagePlatformDetailQqbotPluginInstallAction': 'Install in Terminal',
+  'messagePlatformDetailQqbotTerminalTitle': 'QQ Bot Plugin Installation',
   'messagePlatformDetailQqbotTokenHint':
       'Saving will run openclaw channels add --channel qqbot --token "<AppID>:<AppSecret>".',
   'messagePlatformDetailQqbotSavedTitle': 'QQ Bot Bound',
@@ -124,6 +131,8 @@ const Map<String, String> appStringsEn = {
       'Tap the button below to open a terminal that runs the official Weixin installer. The terminal may print a QR code or a login link. You can screenshot it, scan it directly, or tap/copy any link shown there to complete binding.',
   'messagePlatformDetailWeixinPluginChecking':
       'Checking whether the Weixin plugin is installed...',
+  'messagePlatformDetailWeixinPluginUnchecked':
+      'Weixin plugin status has not been checked.',
   'messagePlatformDetailWeixinPluginInstalled':
       'Weixin plugin is already installed.',
   'messagePlatformDetailWeixinPluginMissing':
@@ -264,7 +273,7 @@ const Map<String, String> appStringsEn = {
   'providerNameDeepseek': 'DeepSeek',
   'providerNameYwd': '7749API (ywd Public Service)',
   'providerDescriptionYwd':
-      'Preconfigured public-benefit relay with online model discovery',
+      'Public relay requiring your own API key, with online model discovery',
   'providerDescriptionDeepseek':
       'Official API for DeepSeek V4 Pro and V4 Flash',
   'dashboardPackagesTitle': 'Packages',

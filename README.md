@@ -7,7 +7,7 @@
   <p>面向中文用户维护与分发的 OpenClaw Android 独立整合版本</p>
   <p>内置 Ubuntu RootFS、Node.js 与 OpenClaw 完整运行环境，重点优化中文文档、移动端配置体验与 Android 原生集成。</p>
   <p>
-    <img src="https://img.shields.io/badge/Release-v3.0.0-2563EB?style=for-the-badge" alt="Release v3.0.0" />
+    <img src="https://img.shields.io/badge/Release-v3.0.1-2563EB?style=for-the-badge" alt="Release v3.0.1" />
     <img src="https://img.shields.io/github/stars/JunWan666/openclaw-termux-zh?style=for-the-badge&logo=github" alt="GitHub stars" />
     <img src="https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" alt="License" />
@@ -135,23 +135,22 @@
 
 ## 当前正式发布版本
 
-- 版本：`v3.0.0`
-- 发布说明：[release/v3.0.0/Release.zh.md](release/v3.0.0/Release.zh.md)
+- 版本：`v3.0.1`
+- 发布说明：[release/v3.0.1/Release.zh.md](release/v3.0.1/Release.zh.md)
 - 改动日志：[CHANGELOG.md](CHANGELOG.md)
-- v3.0.0 发布页：<https://github.com/JunWan666/openclaw-termux-zh/releases/tag/v3.0.0>
+- v3.0.1 发布页：<https://github.com/JunWan666/openclaw-termux-zh/releases/tag/v3.0.1>
 
-> v2.0.3 Release 已撤回。v3.0.0 当前只发布 ARM64 完整版。
+> v2.0.3 Release 已撤回。v3.0.1 当前只发布 ARM64 完整版。
 
-## v3.0.0 重点亮点
+## v3.0.1 重点亮点
 
 - ARM64 APK 内置 Ubuntu 24.04.3、Node.js 24.18.1、npm 11.16.0 和 OpenClaw 2026.3.23，首次初始化不再下载或执行完整 npm install。
-- 重构欢迎、初始化进度、部署动态和完成页面，提供阶段状态、平滑进度与脱敏日志。
-- 默认配置 `7749API（ywd 公益）`，支持在线拉取模型列表和切换模型。
-- OpenClaw 2026.7.1 标记“最新 · 推荐”；内置 2026.3.23 可快速本地恢复。
-- 升降级使用保护事务并缓存完整版本快照，再次切回可跳过下载和 npm install。
-- npm 持久缓存默认 1 GB，支持自定义容量并按旧文件渐进淘汰。
-- 优化 Gateway 冷启动、Web 控制台连接、配置迁移和页面提示位置。
-- 完整 Flutter 测试集共 139 项通过。
+- 首次初始化默认引导配置 DeepSeek 官方 API，不再内置可直接使用的第三方 API Key。
+- `7749API（ywd 公益）` 切换到 `open7749` 新端点和模型，并自动迁移旧配置与用户已有 Key。
+- QQ 与微信插件改为手动检测和显式安装；QQ 新增独立终端安装页。
+- 修复 llama.cpp 最新稳定 Release 缺少 Ubuntu 二进制包时的运行时下载问题。
+- 调整本地模型页面顺序，把运行时安装入口和安装日志移到前部。
+- 完整 Flutter 测试集共 142 项通过，Node 测试 11 项通过。
 
 ## 下载指南
 
@@ -159,7 +158,7 @@
 
 | 文件 | 适用设备 | 大小 | 下载 |
 | --- | --- | ---: | --- |
-| `OpenClaw-v3.0.0-arm64-v8a-full.apk` | Android 10+ ARM64 手机和平板 | 331.90 MiB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v3.0.0/OpenClaw-v3.0.0-arm64-v8a-full.apk) |
+| `OpenClaw-v3.0.1-arm64-v8a-full.apk` | Android 10+ ARM64 手机和平板 | 331.91 MiB | [点击下载](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v3.0.1/OpenClaw-v3.0.1-arm64-v8a-full.apk) |
 
 ## 快速开始
 
@@ -176,7 +175,7 @@
 git clone https://github.com/JunWan666/openclaw-termux-zh.git
 cd openclaw-termux-zh
 git lfs pull
-python scripts/build_release.py --version 3.0.0 --build-number 81 --non-interactive
+python scripts/build_release.py --version 3.0.1 --build-number 82 --non-interactive
 ```
 
 发布脚本只生成与内置运行环境匹配的 ARM64 完整版 APK。
@@ -195,7 +194,7 @@ python scripts/build_release.py --version 3.0.0 --build-number 81 --non-interact
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/jsonl_format_guide.md](docs/jsonl_format_guide.md)
 - [docs/README_en.md](docs/README_en.md)
-- [release/v3.0.0/Release.zh.md](release/v3.0.0/Release.zh.md)
+- [release/v3.0.1/Release.zh.md](release/v3.0.1/Release.zh.md)
 
 ## Star History
 

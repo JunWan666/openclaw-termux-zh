@@ -45,7 +45,7 @@ void main() {
   });
 
   group('minimal first-run configuration', () {
-    test('creates a local token gateway with the public default provider',
+    test('creates a local token gateway with unconfigured DeepSeek defaults',
         () async {
       await ProviderConfigService.ensureInitialAppConfig();
 
@@ -65,14 +65,14 @@ void main() {
       expect(defaults['workspace'], '/root/.openclaw/workspace');
       expect(
         (defaults['model'] as Map<String, dynamic>)['primary'],
-        'api7749/ywd/deepseek-ai/deepseek-v4-flash',
+        'deepseek/deepseek-v4-pro',
       );
       final providers = ((config['models'] as Map<String, dynamic>)['providers']
           as Map<String, dynamic>);
-      final ywd = providers['api7749'] as Map<String, dynamic>;
-      expect(ywd['baseUrl'], 'https://api.774966.xyz/v1');
-      expect(ywd['api'], 'openai-completions');
-      expect(ywd['apiKey'], isNotEmpty);
+      final deepseek = providers['deepseek'] as Map<String, dynamic>;
+      expect(deepseek['baseUrl'], 'https://api.deepseek.com/v1');
+      expect(deepseek['api'], 'openai-completions');
+      expect(deepseek['apiKey'], isEmpty);
     });
 
     test('preserves existing gateway and user configuration', () async {
@@ -171,6 +171,61 @@ void main() {
         'https://api.lkeap.cloud.tencent.com/plan/v3',
       );
     });
+  });
+
+  test('migrates legacy 7749 provider ids and bundled model defaults',
+      () async {
+    rootfsFiles[configPath] = jsonEncode(<String, dynamic>{
+      'agents': {
+        'defaults': {
+          'model': {
+            'primary': '7749api/英伟达/openai/gpt-oss-120b',
+          },
+          'models': {
+            '7749api/英伟达/openai/gpt-oss-120b': <String, dynamic>{},
+          },
+        },
+      },
+      'models': {
+        'providers': {
+          '7749api': {
+            'baseUrl': 'https://api.774966.xyz/v1',
+            'apiKey': 'user-key',
+            'api': 'openai-completions',
+            'models': [
+              {
+                'id': '英伟达/openai/gpt-oss-120b',
+                'name': '英伟达/openai/gpt-oss-120b (7749api)',
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    await ProviderConfigService.migrateYwdProviderConfigIfNeeded();
+
+    final config = jsonDecode(rootfsFiles[configPath]!) as Map<String, dynamic>;
+    final providers = (config['models'] as Map<String, dynamic>)['providers']
+        as Map<String, dynamic>;
+    final migrated = providers['open7749'] as Map<String, dynamic>;
+    final model = (migrated['models'] as List).single as Map<String, dynamic>;
+    final defaults = (config['agents'] as Map<String, dynamic>)['defaults']
+        as Map<String, dynamic>;
+
+    expect(providers.containsKey('7749api'), isFalse);
+    expect(migrated['baseUrl'], 'https://open.774966.xyz/v1');
+    expect(migrated['apiKey'], 'user-key');
+    expect(model['id'], 'ywd/openai/gpt-oss-120b');
+    expect(model['name'], 'ywd/openai/gpt-oss-120b');
+    expect(
+      (defaults['model'] as Map<String, dynamic>)['primary'],
+      'open7749/ywd/openai/gpt-oss-120b',
+    );
+    expect(
+      defaults['models'] as Map<String, dynamic>,
+      contains('open7749/ywd/openai/gpt-oss-120b'),
+    );
   });
 
   test('DeepSeek 保存为 OpenClaw 可启动的 provider 模型结构', () async {

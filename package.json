@@ -1,6 +1,6 @@
 {
   "name": "openclaw-termux",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "OpenClaw AI Gateway for Android Termux with Bionic Bypass",
   "main": "lib/index.js",
   "type": "module",

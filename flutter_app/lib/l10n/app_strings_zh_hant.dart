@@ -128,7 +128,7 @@ const Map<String, String> appStringsZhHant = {
       '免費開發者 API 通常限制為每個 API Key 40 RPM；額度、模型可用性和限速政策可能由 NVIDIA 隨時調整，請以官方頁面為準，不建議作為正式環境 SLA。',
   'providerNameDeepseek': 'DeepSeek',
   'providerNameYwd': '7749API（ywd公益）',
-  'providerDescriptionYwd': '預設公益中轉服務，初始化後可直接使用並支援線上取得模型清單',
+  'providerDescriptionYwd': '公益中轉服務，需要先取得 API Key，支援線上取得模型清單',
   'providerDescriptionDeepseek': 'DeepSeek V4 Pro 與 V4 Flash 官方 API',
   'dashboardPackagesTitle': '可選組件',
   'dashboardPackagesSubtitle': '安裝可選工具（Go、Homebrew、SSH、ADB、cpolar）',
@@ -630,6 +630,10 @@ const Map<String, String> appStringsZhHant = {
       'After signing in you can create the bot there, and the same page also provides the QQ bot chat entry for scanning.',
   'messagePlatformDetailQqbotPluginChecking':
       'Checking whether the QQ Bot plugin is installed...',
+  'messagePlatformDetailQqbotPluginUnchecked':
+      'QQ Bot plugin status has not been checked.',
+  'messagePlatformDetailQqbotPluginMissing':
+      'QQ Bot plugin is not installed.',
   'messagePlatformDetailQqbotPluginInstalling':
       'Installing the QQ Bot plugin automatically...',
   'messagePlatformDetailQqbotPluginReady':
@@ -637,7 +641,10 @@ const Map<String, String> appStringsZhHant = {
   'messagePlatformDetailQqbotPluginFailed': 'QQ Bot plugin is not ready yet',
   'messagePlatformDetailQqbotPluginRetry': 'Retry Installation',
   'messagePlatformDetailQqbotPluginInstallHint':
-      'The app will verify and install this plugin automatically on first entry: {package}',
+      'This page does not check or install automatically. Check manually, then install in the terminal if needed: {package}',
+  'messagePlatformDetailPluginCheckAction': 'Check installation',
+  'messagePlatformDetailQqbotPluginInstallAction': 'Install in Terminal',
+  'messagePlatformDetailQqbotTerminalTitle': 'QQ Bot Plugin Installation',
   'messagePlatformDetailQqbotTokenHint':
       'Saving will run openclaw channels add --channel qqbot --token "<AppID>:<AppSecret>".',
   'messagePlatformDetailQqbotSavedTitle': 'QQ Bot Bound',
@@ -657,6 +664,8 @@ const Map<String, String> appStringsZhHant = {
       'Tap the button below to open a terminal that runs the official Weixin installer. The terminal may print a QR code or a login link. You can screenshot it, scan it directly, or tap/copy any link shown there to complete binding.',
   'messagePlatformDetailWeixinPluginChecking':
       'Checking whether the Weixin plugin is installed...',
+  'messagePlatformDetailWeixinPluginUnchecked':
+      'Weixin plugin status has not been checked.',
   'messagePlatformDetailWeixinPluginInstalled':
       'Weixin plugin is already installed.',
   'messagePlatformDetailWeixinPluginMissing':

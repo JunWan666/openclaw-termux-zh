@@ -416,18 +416,6 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     }
   }
 
-  static Future<void> ensureQqbotPluginInstalled() async {
-    final installed = await isQqbotPluginInstalled();
-    if (installed) {
-      return;
-    }
-
-    await _runOpenclawCommand(
-      'openclaw plugins install $qqbotPluginPackage',
-      timeout: 600,
-    );
-  }
-
   static Future<void> configureQqbot({
     required String appId,
     required String appSecret,
@@ -436,7 +424,6 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     final normalizedAppSecret = appSecret.trim();
     final token = '$normalizedAppId:$normalizedAppSecret';
 
-    await ensureQqbotPluginInstalled();
     await _runOpenclawCommand(
       'openclaw channels add --channel qqbot --token ${_shellEscape(token)}',
       timeout: 120,

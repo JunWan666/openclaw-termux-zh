@@ -3,10 +3,10 @@
     "defaults": {
       "workspace": "/root/.openclaw/workspace",
       "model": {
-        "primary": "7749api/英伟达/openai/gpt-oss-120b"
+        "primary": "deepseek/deepseek-v4-pro"
       },
       "models": {
-        "7749api/英伟达/openai/gpt-oss-120b": {}
+        "deepseek/deepseek-v4-pro": {}
       }
     }
   },
@@ -63,14 +63,14 @@
   "models": {
     "mode": "merge",
     "providers": {
-      "7749api": {
-        "baseUrl": "https://api.774966.xyz/v1",
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com/v1",
         "api": "openai-completions",
-        "apiKey": "sk-your-api-key",
+        "apiKey": "",
         "models": [
           {
-            "id": "英伟达/openai/gpt-oss-120b",
-            "name": "英伟达/openai/gpt-oss-120b (7749api)",
+            "id": "deepseek-v4-pro",
+            "name": "deepseek-v4-pro",
             "contextWindow": 128000,
             "maxTokens": 4096,
             "input": [

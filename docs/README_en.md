@@ -10,32 +10,32 @@
 
 ## Current Version
 
-- Version: `v3.0.0` (base build 81; ARM64 APK versionCode 2081)
-- Release notes: [release/v3.0.0/Release.zh.md](../release/v3.0.0/Release.zh.md)
+- Version: `v3.0.1` (base build 82; ARM64 APK versionCode 2082)
+- Release notes: [release/v3.0.1/Release.zh.md](../release/v3.0.1/Release.zh.md)
 - Change log: [CHANGELOG.md](../CHANGELOG.md)
 - Releases page: <https://github.com/JunWan666/openclaw-termux-zh/releases>
 
-## What's New In v3.0.0
+## What's New In v3.0.1
 
 - Bundles Ubuntu 24.04.3, Node.js 24.18.1, npm 11.16.0, and OpenClaw 2026.3.23 in the ARM64 APK.
-- Redesigns the welcome, initialization progress, deployment activity, and completion screens.
-- Adds the default `7749API (ywd public service)` provider with model catalog retrieval.
-- Marks OpenClaw 2026.7.1 as Latest and Recommended while keeping 2026.3.23 locally restorable.
-- Adds protected version switching, complete installed-version snapshots, and a persistent 1 GB npm cache.
-- Improves Gateway cold starts, Web dashboard loading, configuration migration, and in-app notices.
-- The full Flutter test suite contains 139 passing tests.
+- Guides first-run users to configure the official DeepSeek API without bundling a usable third-party API key.
+- Migrates legacy 7749API IDs, endpoints, and model references to the new `open7749` configuration while preserving user keys.
+- Makes QQ Bot and Weixin plugin detection and installation explicit user actions, with a dedicated QQ terminal installer.
+- Fixes llama.cpp runtime selection when the latest stable release does not contain Ubuntu binaries.
+- Moves local runtime installation and logs to the front of the local-model workflow.
+- The full Flutter test suite contains 142 passing tests; the Node suite contains 11 passing tests.
 
 ## Download Artifacts
 
 | File | Target Device | Size | Download |
 |---|---|---:|---|
-| `OpenClaw-v3.0.0-arm64-v8a-full.apk` | Android 10+ ARM64 devices | 331.90 MiB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v3.0.0/OpenClaw-v3.0.0-arm64-v8a-full.apk) |
+| `OpenClaw-v3.0.1-arm64-v8a-full.apk` | Android 10+ ARM64 devices | 331.91 MiB | [Download](https://github.com/JunWan666/openclaw-termux-zh/releases/download/v3.0.1/OpenClaw-v3.0.1-arm64-v8a-full.apk) |
 
 ## Quick Start
 
 ### Option A: APK
 
-1. Existing users must export a backup, uninstall the old signed app, and then install v3.0.0.
+1. v3.0.0 users can install v3.0.1 directly; 2.x users must export a backup and uninstall the old signed app first.
 2. Complete the local bundled-runtime initialization.
 3. Import the old backup if needed, then start the Gateway.
 
@@ -45,7 +45,7 @@
 git clone https://github.com/JunWan666/openclaw-termux-zh.git
 cd openclaw-termux-zh
 git lfs pull
-python scripts/build_release.py --version 3.0.0 --build-number 81 --non-interactive
+python scripts/build_release.py --version 3.0.1 --build-number 82 --non-interactive
 ```
 
 The release script produces only the ARM64 full APK because the bundled RootFS is ARM64-specific.

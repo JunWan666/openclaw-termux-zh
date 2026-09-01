@@ -9,11 +9,13 @@ import '../l10n/app_localizations.dart';
 import '../models/message_platform.dart';
 import '../providers/gateway_provider.dart';
 import '../services/message_platform_config_service.dart';
+import 'qqbot_installer_screen.dart';
 import 'weixin_installer_screen.dart';
 
 enum _QqbotPluginStatus {
+  unchecked,
   checking,
-  installing,
+  missing,
   ready,
   failed,
 }
@@ -24,6 +26,7 @@ enum _QqbotPostSaveAction {
 }
 
 enum _WeixinPluginStatus {
+  unchecked,
   checking,
   installed,
   missing,
@@ -58,9 +61,9 @@ class _MessagePlatformDetailScreenState
   bool _saving = false;
   bool _removing = false;
   bool _restartingGateway = false;
-  _QqbotPluginStatus _qqbotPluginStatus = _QqbotPluginStatus.ready;
+  _QqbotPluginStatus _qqbotPluginStatus = _QqbotPluginStatus.unchecked;
   String? _qqbotPluginError;
-  _WeixinPluginStatus _weixinPluginStatus = _WeixinPluginStatus.checking;
+  _WeixinPluginStatus _weixinPluginStatus = _WeixinPluginStatus.unchecked;
   String? _weixinPluginError;
 
   bool get _isFeishu => widget.platform.isFeishu;
@@ -101,13 +104,6 @@ class _MessagePlatformDetailScreenState
     );
     _selectedDomain =
         widget.existingConfig?['domain'] as String? ?? _defaultFeishuDomain;
-    if (_isQqbot) {
-      _qqbotPluginStatus = _QqbotPluginStatus.checking;
-      unawaited(_prepareQqbotPlugin());
-    }
-    if (_isWeixin) {
-      unawaited(_refreshWeixinPluginStatus());
-    }
   }
 
   @override
@@ -118,7 +114,7 @@ class _MessagePlatformDetailScreenState
     super.dispose();
   }
 
-  Future<void> _prepareQqbotPlugin() async {
+  Future<void> _checkQqbotPlugin() async {
     if (!_isQqbot) return;
 
     setState(() {
@@ -131,16 +127,8 @@ class _MessagePlatformDetailScreenState
           await MessagePlatformConfigService.isQqbotPluginInstalled();
       if (!mounted) return;
 
-      if (installed) {
-        setState(() => _qqbotPluginStatus = _QqbotPluginStatus.ready);
-        return;
-      }
-
-      setState(() => _qqbotPluginStatus = _QqbotPluginStatus.installing);
-      await MessagePlatformConfigService.ensureQqbotPluginInstalled();
-      if (!mounted) return;
-
-      setState(() => _qqbotPluginStatus = _QqbotPluginStatus.ready);
+      setState(() => _qqbotPluginStatus =
+          installed ? _QqbotPluginStatus.ready : _QqbotPluginStatus.missing);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -148,6 +136,17 @@ class _MessagePlatformDetailScreenState
         _qqbotPluginError = '$e';
       });
     }
+  }
+
+  Future<void> _openQqbotInstaller() async {
+    final installed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const QqbotInstallerScreen()),
+    );
+    if (!mounted || installed == null) return;
+    setState(() {
+      _qqbotPluginStatus =
+          installed ? _QqbotPluginStatus.ready : _QqbotPluginStatus.failed;
+    });
   }
 
   Future<void> _refreshWeixinPluginStatus() async {
@@ -182,8 +181,8 @@ class _MessagePlatformDetailScreenState
       MaterialPageRoute(builder: (_) => const WeixinInstallerScreen()),
     );
     if (result == true) {
-      await _refreshWeixinPluginStatus();
       if (!mounted) return;
+      setState(() => _weixinPluginStatus = _WeixinPluginStatus.installed);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -657,23 +656,27 @@ class _MessagePlatformDetailScreenState
   }
 
   Widget _buildQqbotPluginCard(ThemeData theme, AppLocalizations l10n) {
-    final isBusy = _qqbotPluginStatus == _QqbotPluginStatus.checking ||
-        _qqbotPluginStatus == _QqbotPluginStatus.installing;
+    final isBusy = _qqbotPluginStatus == _QqbotPluginStatus.checking;
 
     IconData statusIcon;
     Color statusColor;
     String statusText;
 
     switch (_qqbotPluginStatus) {
+      case _QqbotPluginStatus.unchecked:
+        statusIcon = Icons.help_outline_rounded;
+        statusColor = theme.colorScheme.onSurfaceVariant;
+        statusText = l10n.t('messagePlatformDetailQqbotPluginUnchecked');
+        break;
       case _QqbotPluginStatus.checking:
         statusIcon = Icons.search_rounded;
         statusColor = theme.colorScheme.primary;
         statusText = l10n.t('messagePlatformDetailQqbotPluginChecking');
         break;
-      case _QqbotPluginStatus.installing:
-        statusIcon = Icons.download_rounded;
-        statusColor = theme.colorScheme.primary;
-        statusText = l10n.t('messagePlatformDetailQqbotPluginInstalling');
+      case _QqbotPluginStatus.missing:
+        statusIcon = Icons.extension_off_rounded;
+        statusColor = AppColors.statusAmber;
+        statusText = l10n.t('messagePlatformDetailQqbotPluginMissing');
         break;
       case _QqbotPluginStatus.ready:
         statusIcon = Icons.check_circle_rounded;
@@ -743,15 +746,30 @@ class _MessagePlatformDetailScreenState
                 ),
               ),
             ],
-            if (_qqbotPluginStatus == _QqbotPluginStatus.failed) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed:
-                    _saving || _restartingGateway ? null : _prepareQqbotPlugin,
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(l10n.t('messagePlatformDetailQqbotPluginRetry')),
-              ),
-            ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: isBusy || _saving || _restartingGateway
+                      ? null
+                      : _checkQqbotPlugin,
+                  icon: const Icon(Icons.search_rounded),
+                  label: Text(l10n.t('messagePlatformDetailPluginCheckAction')),
+                ),
+                if (_qqbotPluginStatus != _QqbotPluginStatus.ready)
+                  FilledButton.icon(
+                    onPressed: isBusy || _saving || _restartingGateway
+                        ? null
+                        : _openQqbotInstaller,
+                    icon: const Icon(Icons.terminal_rounded),
+                    label: Text(
+                      l10n.t('messagePlatformDetailQqbotPluginInstallAction'),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -775,7 +793,7 @@ class _MessagePlatformDetailScreenState
         const SizedBox(height: 8),
         TextField(
           controller: _appIdController,
-          enabled: _qqbotPluginReady && !_saving && !_restartingGateway,
+          enabled: !_saving && !_restartingGateway,
           decoration: const InputDecoration(
             hintText: '102868422',
           ),
@@ -790,7 +808,7 @@ class _MessagePlatformDetailScreenState
         const SizedBox(height: 8),
         TextField(
           controller: _appSecretController,
-          enabled: _qqbotPluginReady && !_saving && !_restartingGateway,
+          enabled: !_saving && !_restartingGateway,
           obscureText: _obscureSecret,
           decoration: InputDecoration(
             hintText: 'Zabdfilpty39FMTbjs1BLWiu7KYm1GWm',
@@ -817,6 +835,11 @@ class _MessagePlatformDetailScreenState
     String statusText;
 
     switch (_weixinPluginStatus) {
+      case _WeixinPluginStatus.unchecked:
+        statusIcon = Icons.help_outline_rounded;
+        statusColor = theme.colorScheme.onSurfaceVariant;
+        statusText = l10n.t('messagePlatformDetailWeixinPluginUnchecked');
+        break;
       case _WeixinPluginStatus.checking:
         statusIcon = Icons.search_rounded;
         statusColor = theme.colorScheme.primary;
@@ -929,13 +952,11 @@ class _MessagePlatformDetailScreenState
                     ),
                   ),
                 ),
-                if (_weixinPluginStatus == _WeixinPluginStatus.failed ||
-                    _weixinPluginStatus == _WeixinPluginStatus.missing)
-                  OutlinedButton.icon(
-                    onPressed: isChecking ? null : _refreshWeixinPluginStatus,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: Text(l10n.t('commonRetry')),
-                  ),
+                OutlinedButton.icon(
+                  onPressed: isChecking ? null : _refreshWeixinPluginStatus,
+                  icon: const Icon(Icons.search_rounded),
+                  label: Text(l10n.t('messagePlatformDetailPluginCheckAction')),
+                ),
               ],
             ),
           ],

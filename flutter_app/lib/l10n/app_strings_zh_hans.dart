@@ -148,7 +148,7 @@ const Map<String, String> appStringsZhHans = {
       '免费开发者 API 通常限制为每个 API Key 40 RPM；额度、模型可用性和限速策略可能由 NVIDIA 随时调整，请以官方页面为准，不建议作为生产 SLA。',
   'providerNameDeepseek': 'DeepSeek',
   'providerNameYwd': '7749API（ywd公益）',
-  'providerDescriptionYwd': '预置公益中转服务，初始化后可直接使用并支持在线拉取模型列表',
+  'providerDescriptionYwd': '公益中转服务，需要先获取 API Key，支持在线拉取模型列表',
   'providerDescriptionDeepseek': 'DeepSeek V4 Pro 与 V4 Flash 官方 API',
   'dashboardPackagesTitle': '可选组件',
   'dashboardPackagesSubtitle': '安装可选工具（Go、Homebrew、SSH、ADB、cpolar）',
@@ -676,6 +676,8 @@ const Map<String, String> appStringsZhHans = {
       '\u767b\u5f55\u540e\u53ef\u4ee5\u5728\u9875\u9762\u4e0a\u521b\u5efa\u673a\u5668\u4eba\uff0c\u540c\u4e00\u9875\u4e5f\u4f1a\u63d0\u4f9b\u626b\u7801\u8fdb\u5165 QQ \u673a\u5668\u4eba\u804a\u5929\u7684\u5165\u53e3\u3002',
   'messagePlatformDetailQqbotPluginChecking':
       '\u6b63\u5728\u68c0\u67e5 QQ \u673a\u5668\u4eba\u63d2\u4ef6\u662f\u5426\u5df2\u5b89\u88c5...',
+  'messagePlatformDetailQqbotPluginUnchecked': '尚未检测 QQ 机器人插件。',
+  'messagePlatformDetailQqbotPluginMissing': 'QQ 机器人插件尚未安装。',
   'messagePlatformDetailQqbotPluginInstalling':
       '\u6b63\u5728\u81ea\u52a8\u5b89\u88c5 QQ \u673a\u5668\u4eba\u63d2\u4ef6...',
   'messagePlatformDetailQqbotPluginReady':
@@ -684,7 +686,10 @@ const Map<String, String> appStringsZhHans = {
       'QQ \u673a\u5668\u4eba\u63d2\u4ef6\u5c1a\u672a\u5c31\u7eea',
   'messagePlatformDetailQqbotPluginRetry': '\u91cd\u8bd5\u5b89\u88c5',
   'messagePlatformDetailQqbotPluginInstallHint':
-      '\u9996\u6b21\u8fdb\u5165\u4f1a\u81ea\u52a8\u68c0\u67e5\u5e76\u5b89\u88c5\u8fd9\u4e2a\u63d2\u4ef6\uff1a{package}',
+      '页面不会自动检测或安装。请手动检测，未安装时可在终端中安装：{package}',
+  'messagePlatformDetailPluginCheckAction': '检测安装状态',
+  'messagePlatformDetailQqbotPluginInstallAction': '在终端中安装',
+  'messagePlatformDetailQqbotTerminalTitle': 'QQ 机器人插件安装',
   'messagePlatformDetailQqbotTokenHint':
       '\u4fdd\u5b58\u65f6\u4f1a\u6267\u884c openclaw channels add --channel qqbot --token "<AppID>:<AppSecret>"\u3002',
   'messagePlatformDetailQqbotSavedTitle':
@@ -707,6 +712,7 @@ const Map<String, String> appStringsZhHans = {
       '\u70b9\u51fb\u4e0b\u65b9\u6309\u94ae\u540e\uff0c\u4f1a\u6253\u5f00\u4e00\u4e2a\u81ea\u52a8\u6267\u884c\u5fae\u4fe1\u5b89\u88c5\u5668\u7684\u7ec8\u7aef\u3002\u7ec8\u7aef\u91cc\u53ef\u80fd\u4f1a\u8f93\u51fa\u4e8c\u7ef4\u7801\u6216\u767b\u5f55\u94fe\u63a5\uff0c\u4f60\u53ef\u4ee5\u622a\u56fe\u3001\u76f4\u63a5\u626b\u7801\uff0c\u6216\u8005\u70b9\u51fb/\u590d\u5236\u94fe\u63a5\u5b8c\u6210\u7ed1\u5b9a\u3002',
   'messagePlatformDetailWeixinPluginChecking':
       '\u6b63\u5728\u68c0\u67e5\u5fae\u4fe1\u63d2\u4ef6\u662f\u5426\u5df2\u5b89\u88c5...',
+  'messagePlatformDetailWeixinPluginUnchecked': '尚未检测微信插件。',
   'messagePlatformDetailWeixinPluginInstalled':
       '\u5fae\u4fe1\u63d2\u4ef6\u5df2\u5b89\u88c5\u3002',
   'messagePlatformDetailWeixinPluginMissing':

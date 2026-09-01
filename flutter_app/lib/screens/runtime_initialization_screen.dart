@@ -4,11 +4,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/ai_provider.dart';
 import '../models/runtime_initialization_view.dart';
 import '../providers/setup_provider.dart';
 import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
 import 'dashboard_screen.dart';
+import 'provider_detail_screen.dart';
 import 'setup_wizard_screen.dart';
 
 class RuntimeInitializationScreen extends StatefulWidget {
@@ -109,6 +111,18 @@ class _RuntimeInitializationScreenState
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const DashboardScreen()),
     );
+  }
+
+  Future<void> _configureDeepSeek() async {
+    final configured = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            const ProviderDetailScreen(provider: AiProvider.deepseek),
+      ),
+    );
+    if (mounted && configured == true) {
+      _enterHome();
+    }
   }
 
   void _openOnlineRecovery() {
@@ -228,8 +242,8 @@ class _RuntimeInitializationScreenState
           const SizedBox(height: 10),
           Text(
             _isChinese
-                ? 'OpenClaw 已在你的设备上完成部署，默认 AI 服务也已经接通。'
-                : 'OpenClaw is deployed on your device and the default AI service is connected.',
+                ? 'OpenClaw 已在你的设备上完成部署。配置 DeepSeek 后即可使用 AI，也可以稍后在首页配置。'
+                : 'OpenClaw is deployed on your device. Configure DeepSeek for AI now, or do it later from the dashboard.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyLarge?.copyWith(
               color: colors.onSurfaceVariant,
@@ -272,16 +286,18 @@ class _RuntimeInitializationScreenState
                           color: colors.primary),
                     ),
                     const SizedBox(width: 14),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '7749API（ywd公益）',
+                          const Text(
+                            'DeepSeek',
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
-                          SizedBox(height: 3),
-                          Text('DeepSeek V4 Flash'),
+                          const SizedBox(height: 3),
+                          Text(_isChinese
+                              ? '官方 API，填写 Key 后拉取并选择模型'
+                              : 'Official API - add a key, load and choose a model'),
                         ],
                       ),
                     ),
@@ -295,7 +311,7 @@ class _RuntimeInitializationScreenState
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        _isChinese ? '已连接' : 'ONLINE',
+                        _isChinese ? '待配置' : 'CONFIGURE',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: colors.onPrimaryContainer,
                           fontWeight: FontWeight.w800,
@@ -333,22 +349,23 @@ class _RuntimeInitializationScreenState
           SizedBox(
             width: double.infinity,
             height: 54,
-            child: FilledButton(
+            child: FilledButton.icon(
+              onPressed: _configureDeepSeek,
+              icon: const Icon(Icons.key_rounded),
+              label: Text(_isChinese ? '配置 DeepSeek' : 'Configure DeepSeek'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: OutlinedButton.icon(
               key: const Key('enter-home-button'),
               onPressed: _enterHome,
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(17),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(_isChinese ? '进入 OpenClaw' : 'Enter OpenClaw'),
-                  const SizedBox(width: 9),
-                  const Icon(Icons.arrow_forward_rounded, size: 20),
-                ],
-              ),
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: Text(_isChinese
+                  ? '稍后配置，进入首页'
+                  : 'Configure later, enter dashboard'),
             ),
           ),
         ],

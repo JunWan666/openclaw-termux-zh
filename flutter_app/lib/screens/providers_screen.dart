@@ -105,6 +105,17 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
     return null;
   }
 
+  bool get _hasUsableActiveProvider {
+    final providerId = ProviderConfigService.providerIdFromModelRef(
+      _activeModel,
+    );
+    if (providerId == null) return false;
+    final config = _providers[providerId];
+    if (config is! Map) return false;
+    final apiKey = config['apiKey'];
+    return apiKey is String && apiKey.trim().isNotEmpty;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -209,7 +220,8 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
       );
     }
 
-    final isConfigured = _providers.containsKey(provider.id);
+    final apiKey = _providerConfig(provider)?['apiKey'];
+    final isConfigured = apiKey is String && apiKey.trim().isNotEmpty;
     if (!isConfigured) {
       return (label: '', isActive: false);
     }
@@ -244,7 +256,10 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                if (_activeModel != null && _activeModel!.isNotEmpty) ...[
+                if (_activeModel != null &&
+                    _activeModel!.isNotEmpty &&
+                    (_hasUsableActiveProvider ||
+                        activeCustomPreset != null)) ...[
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),

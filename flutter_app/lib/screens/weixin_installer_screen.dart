@@ -30,6 +30,7 @@ class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
   Pty? _pty;
   bool _loading = true;
   bool _finished = false;
+  bool _succeeded = false;
   String? _error;
   final _ctrlNotifier = ValueNotifier<bool>(false);
   final _altNotifier = ValueNotifier<bool>(false);
@@ -104,7 +105,10 @@ class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
         _outputBuffer.write('\r\n[Process exited with code $code]\r\n');
         _outputBuffer.flush();
         if (mounted) {
-          setState(() => _finished = true);
+          setState(() {
+            _finished = true;
+            _succeeded = code == 0;
+          });
         }
       });
 
@@ -409,6 +413,7 @@ class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
                             _loading = true;
                             _error = null;
                             _finished = false;
+                            _succeeded = false;
                           });
                           _startInstaller();
                         },
@@ -449,8 +454,8 @@ class _WeixinInstallerScreenState extends State<WeixinInstallerScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  icon: const Icon(Icons.check),
+                  onPressed: () => Navigator.of(context).pop(_succeeded),
+                  icon: Icon(_succeeded ? Icons.check : Icons.close),
                   label: Text(l10n.t('commonDone')),
                 ),
               ),

@@ -50,6 +50,40 @@ void main() {
     });
   });
 
+  group('LocalModelService.selectRuntimeReleaseFromPayload', () {
+    test('skips source-only stable release and selects recent ARM64 binary',
+        () {
+      final release = LocalModelService.selectRuntimeReleaseFromPayload(
+        [
+          {
+            'tag_name': 'v0.3.0',
+            'assets': [
+              {
+                'name': 'nightly-tag.txt',
+                'browser_download_url': 'https://example.com/nightly-tag.txt',
+              },
+            ],
+          },
+          {
+            'tag_name': 'b10635',
+            'assets': [
+              {
+                'name': 'llama-b10635-bin-ubuntu-arm64.tar.gz',
+                'browser_download_url':
+                    'https://example.com/llama-b10635-bin-ubuntu-arm64.tar.gz',
+              },
+            ],
+          },
+        ],
+        arch: 'aarch64',
+      );
+
+      expect(release, isNotNull);
+      expect(release!.tagName, 'b10635');
+      expect(release.assetName, 'llama-b10635-bin-ubuntu-arm64.tar.gz');
+    });
+  });
+
   group('LocalModelService.buildRecommendations', () {
     test('returns low-memory guidance for small devices', () {
       final recommendations = LocalModelService.buildRecommendations(

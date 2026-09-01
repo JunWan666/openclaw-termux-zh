@@ -537,6 +537,8 @@ class LocalModelService {
 
   static const _githubApiLatestRelease =
       'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest';
+  static const _githubApiReleases =
+      'https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=30';
   static const _fallbackReleaseTag = 'b8763';
 
   static const _moduleRootfsDir = 'root/.openclaw/modules/llama.cpp';
@@ -1346,17 +1348,50 @@ rm -rf ${_shellQuote('/root/.openclaw/modules/llama.cpp')}
       if (decoded is! Map<String, dynamic>) {
         throw Exception('Unexpected llama.cpp release payload.');
       }
+      final latest = selectRuntimeReleaseFromPayload(decoded, arch: arch);
+      if (latest != null) return latest;
 
-      final tagName = decoded['tag_name']?.toString().trim() ?? '';
-      final assets = decoded['assets'];
-      if (tagName.isEmpty || assets is! List) {
-        throw Exception('Latest llama.cpp release metadata is incomplete.');
+      // The latest stable tag can be source-only. Search recent rolling
+      // releases for the architecture-specific Ubuntu binary before using
+      // the pinned fallback.
+      final releasesResponse = await http.get(
+        Uri.parse(_githubApiReleases),
+        headers: const {
+          'Accept': 'application/vnd.github+json',
+          'User-Agent': 'openclaw-termux-zh',
+        },
+      );
+      if (releasesResponse.statusCode >= 200 &&
+          releasesResponse.statusCode < 300) {
+        final releases = jsonDecode(releasesResponse.body);
+        final recent = selectRuntimeReleaseFromPayload(releases, arch: arch);
+        if (recent != null) return recent;
       }
+    } catch (_) {}
 
+    final fallback = _fallbackReleaseForArch(arch);
+    if (fallback != null) {
+      return fallback;
+    }
+
+    throw Exception(
+        'No Ubuntu release asset was found for architecture $arch.');
+  }
+
+  static LocalModelRuntimeRelease? selectRuntimeReleaseFromPayload(
+    dynamic payload, {
+    required String arch,
+  }) {
+    final assetPattern = _assetNamePatternForArch(arch);
+    if (assetPattern == null) return null;
+    final releases = payload is List ? payload : [payload];
+    for (final release in releases) {
+      if (release is! Map) continue;
+      final tagName = release['tag_name']?.toString().trim() ?? '';
+      final assets = release['assets'];
+      if (tagName.isEmpty || assets is! List) continue;
       for (final asset in assets) {
-        if (asset is! Map) {
-          continue;
-        }
+        if (asset is! Map) continue;
         final name = asset['name']?.toString().trim() ?? '';
         final downloadUrl =
             asset['browser_download_url']?.toString().trim() ?? '';
@@ -1368,15 +1403,8 @@ rm -rf ${_shellQuote('/root/.openclaw/modules/llama.cpp')}
           );
         }
       }
-    } catch (_) {
-      final fallback = _fallbackReleaseForArch(arch);
-      if (fallback != null) {
-        return fallback;
-      }
     }
-
-    throw Exception(
-        'No Ubuntu release asset was found for architecture $arch.');
+    return null;
   }
 
   static RegExp? _assetNamePatternForArch(String arch) {
